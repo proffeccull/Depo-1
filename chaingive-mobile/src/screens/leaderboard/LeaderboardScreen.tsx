@@ -37,7 +37,7 @@ import {
   PageTransition,
   ConfettiCelebration,
 } from '../../components/animations';
-import GradientCard from '../../components/common/GradientCard';
+import { Card } from '../../components/ui';
 
 const { width: screenWidth } = Dimensions.get('window');
 

@@ -18,11 +18,12 @@ import * as Haptics from 'expo-haptics';
 import { RootState } from '../../store/store';
 import { donationService, Match } from '../../services/donationService';
 import Input from '../../components/common/Input';
-import Button from '../../components/common/Button';
+import Button from '../../components/ui/Button';
 import Modal from '../../components/common/Modal';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 import { spacing, layout } from '../../theme/spacing';
+import { MotiView } from 'moti';
 import {
   DonationSuccessAnimation,
   FloatingHearts,
@@ -146,40 +147,46 @@ const GiveScreen: React.FC = () => {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.contentContainer}
-        showsVerticalScrollIndicator={false}
+    <SafeAreaView className="flex-1 bg-gray-100 dark:bg-gray-900">
+      <MotiView
+        from={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ type: 'timing', duration: 500 }}
       >
+        <ScrollView
+          contentContainerStyle={styles.contentContainer}
+          showsVerticalScrollIndicator={false}
+        >
         {/* Header */}
-        <View style={styles.header}>
+        <View className="flex-row items-center justify-between px-4 py-4 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
           <TouchableOpacity
-            style={styles.backButton}
+            className="p-2"
             onPress={() => navigation.goBack()}
           >
-            <Icon name="arrow-back" size={24} color={colors.text.primary} />
+            <Icon name="arrow-back" size={24} className="text-gray-800 dark:text-white" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Give Forward</Text>
-          <View style={styles.placeholder} />
+          <Text className="text-lg font-bold text-gray-800 dark:text-white">Give Forward</Text>
+          <View className="w-10" />
         </View>
 
         {/* Balance Card */}
-        <View style={styles.balanceCard}>
-          <Text style={styles.balanceLabel}>Available Balance</Text>
-          <Text style={styles.balanceAmount}>
+        <View className="bg-primary-500 m-4 p-6 rounded-2xl items-center">
+          <Text className="text-sm text-white opacity-90">Available Balance</Text>
+          <Text className="text-4xl text-white font-bold my-2">
             {formatCurrency(userBalance)}
           </Text>
           <TouchableOpacity
             onPress={() => navigation.navigate('DepositScreen')}
           >
-            <Text style={styles.addFundsText}>+ Add Funds</Text>
+            <Text className="text-sm text-white underline">
+              + Add Funds
+            </Text>
           </TouchableOpacity>
         </View>
 
         {/* Amount Input */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>How much would you like to give?</Text>
+        <View className="px-4 mb-6">
+          <Text className="text-xl font-bold text-gray-800 dark:text-white mb-2">How much would you like to give?</Text>
           <Input
             value={amount}
             onChangeText={handleAmountChange}
@@ -191,21 +198,23 @@ const GiveScreen: React.FC = () => {
           />
 
           {/* Suggested Amounts */}
-          <View style={styles.suggestedAmounts}>
+          <View className="flex-row flex-wrap gap-2 mt-4">
             {suggestedAmounts.map((suggested) => (
               <TouchableOpacity
                 key={suggested}
-                style={[
-                  styles.suggestedButton,
-                  amount === suggested.toString() && styles.suggestedButtonActive,
-                ]}
+                className={`py-2 px-4 rounded-full border ${
+                  amount === suggested.toString()
+                    ? 'border-primary-500 bg-primary-500'
+                    : 'border-gray-300 bg-white dark:bg-gray-700'
+                }`}
                 onPress={() => setAmount(suggested.toString())}
               >
                 <Text
-                  style={[
-                    styles.suggestedButtonText,
-                    amount === suggested.toString() && styles.suggestedButtonTextActive,
-                  ]}
+                  className={`text-sm ${
+                    amount === suggested.toString()
+                      ? 'text-white'
+                      : 'text-gray-800 dark:text-white'
+                  }`}
                 >
                   {formatCurrency(suggested)}
                 </Text>
@@ -215,9 +224,9 @@ const GiveScreen: React.FC = () => {
         </View>
 
         {/* Preferences (Optional) */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Preferences (Optional)</Text>
-          <Text style={styles.sectionSubtitle}>
+        <View className="px-4 mb-6">
+          <Text className="text-xl font-bold text-gray-800 dark:text-white mb-1">Preferences (Optional)</Text>
+          <Text className="text-sm text-gray-500 dark:text-gray-400 mb-4">
             Help us find the best match for you
           </Text>
 
@@ -239,12 +248,12 @@ const GiveScreen: React.FC = () => {
         </View>
 
         {/* How It Works */}
-        <View style={styles.infoCard}>
-          <View style={styles.infoHeader}>
-            <Icon name="info" size={20} color={colors.info} />
-            <Text style={styles.infoTitle}>How It Works</Text>
+        <View className="mx-4 p-4 bg-blue-50 dark:bg-blue-900/50 rounded-2xl border border-blue-200 dark:border-blue-800 mb-6">
+          <View className="flex-row items-center mb-2">
+            <Icon name="info" size={20} className="text-blue-500" />
+            <Text className="text-base font-bold text-blue-500 ml-2">How It Works</Text>
           </View>
-          <Text style={styles.infoText}>
+          <Text className="text-sm text-gray-600 dark:text-gray-300 leading-6">
             1. We'll match you with someone who needs help{'\n'}
             2. Funds are held in escrow for 48 hours{'\n'}
             3. Recipient confirms receipt within 48 hours{'\n'}
@@ -254,14 +263,14 @@ const GiveScreen: React.FC = () => {
 
         {/* Find Match Button */}
         <Button
-          title="Find a Match"
+          label="Find a Match"
           onPress={handleFindMatch}
           loading={findingMatch}
           disabled={!amount || parseInt(amount) <= 0}
           icon="search"
-          fullWidth
-          style={styles.findMatchButton}
+          className="mx-4"
         />
+        </MotiView>
       </ScrollView>
 
       {/* Match Modal */}
@@ -274,32 +283,32 @@ const GiveScreen: React.FC = () => {
         {match && (
           <View>
             {/* Recipient Info */}
-            <View style={styles.matchCard}>
-              <View style={styles.matchAvatar}>
-                <Icon name="person" size={48} color={colors.primary} />
+            <View className="items-center mb-6">
+              <View className="w-20 h-20 rounded-full bg-primary-100 dark:bg-primary-900/50 items-center justify-center mb-2">
+                <Icon name="person" size={48} className="text-primary-500" />
               </View>
-              <Text style={styles.matchName}>
+              <Text className="text-2xl font-bold text-gray-800 dark:text-white mb-2">
                 {match.recipient.firstName} {match.recipient.lastName}
               </Text>
-              <View style={styles.matchDetails}>
-                <View style={styles.matchDetailRow}>
-                  <Icon name="star" size={16} color={colors.tertiary} />
-                  <Text style={styles.matchDetailText}>
+              <View className="items-center">
+                <View className="flex-row items-center mb-1">
+                  <Icon name="star" size={16} className="text-yellow-500" />
+                  <Text className="text-base text-gray-600 dark:text-gray-300 ml-1">
                     Trust Score: {match.recipient.trustScore}/100
                   </Text>
                 </View>
                 {match.recipient.location && (
-                  <View style={styles.matchDetailRow}>
-                    <Icon name="location-on" size={16} color={colors.text.secondary} />
-                    <Text style={styles.matchDetailText}>
+                  <View className="flex-row items-center mb-1">
+                    <Icon name="location-on" size={16} className="text-gray-500" />
+                    <Text className="text-base text-gray-600 dark:text-gray-300 ml-1">
                       {match.recipient.location}
                     </Text>
                   </View>
                 )}
                 {match.recipient.faithPreference && (
-                  <View style={styles.matchDetailRow}>
-                    <Icon name="favorite" size={16} color={colors.error} />
-                    <Text style={styles.matchDetailText}>
+                  <View className="flex-row items-center">
+                    <Icon name="favorite" size={16} className="text-red-500" />
+                    <Text className="text-base text-gray-600 dark:text-gray-300 ml-1">
                       {match.recipient.faithPreference}
                     </Text>
                   </View>
@@ -307,29 +316,29 @@ const GiveScreen: React.FC = () => {
               </View>
 
               {/* Match Score */}
-              <View style={styles.matchScore}>
-                <Text style={styles.matchScoreLabel}>Match Quality</Text>
-                <Text style={styles.matchScoreValue}>
+              <View className="mt-4 p-4 bg-green-50 dark:bg-green-900/50 rounded-2xl items-center">
+                <Text className="text-xs text-gray-500 dark:text-gray-400">Match Quality</Text>
+                <Text className="text-3xl font-bold text-green-500">
                   {Math.round(match.matchScore * 100)}%
                 </Text>
               </View>
             </View>
 
             {/* Amount Summary */}
-            <View style={styles.amountSummary}>
-              <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>Donation Amount:</Text>
-                <Text style={styles.summaryValue}>
+            <View className="p-4 bg-gray-50 dark:bg-gray-800 rounded-2xl mb-6">
+              <View className="flex-row justify-between mb-1">
+                <Text className="text-base text-gray-600 dark:text-gray-300">Donation Amount:</Text>
+                <Text className="text-base font-bold text-gray-800 dark:text-white">
                   {formatCurrency(match.amount)}
                 </Text>
               </View>
-              <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>Service Fee:</Text>
-                <Text style={styles.summaryValue}>₦0</Text>
+              <View className="flex-row justify-between mb-1">
+                <Text className="text-base text-gray-600 dark:text-gray-300">Service Fee:</Text>
+                <Text className="text-base font-bold text-gray-800 dark:text-white">₦0</Text>
               </View>
-              <View style={[styles.summaryRow, styles.totalRow]}>
-                <Text style={styles.totalLabel}>Total:</Text>
-                <Text style={styles.totalValue}>
+              <View className="border-t border-gray-200 dark:border-gray-700 pt-2 mt-1 flex-row justify-between">
+                <Text className="text-lg font-bold text-gray-800 dark:text-white">Total:</Text>
+                <Text className="text-lg font-bold text-primary-500">
                   {formatCurrency(match.amount)}
                 </Text>
               </View>
@@ -337,20 +346,18 @@ const GiveScreen: React.FC = () => {
 
             {/* Confirm Buttons */}
             <Button
-              title="Confirm Donation"
+              label="Confirm Donation"
               onPress={handleConfirmDonation}
               loading={loading}
-              fullWidth
-              style={styles.confirmButton}
+              className="mb-4"
             />
             <Button
-              title="Find Another Match"
+              label="Find Another Match"
               onPress={() => {
                 setShowMatchModal(false);
                 setMatch(null);
               }}
               variant="outline"
-              fullWidth
             />
           </View>
         )}
@@ -390,209 +397,8 @@ const GiveScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background.secondary,
-  },
-  scrollView: {
-    flex: 1,
-  },
   contentContainer: {
     paddingBottom: spacing['4xl'],
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: layout.screenPadding,
-    paddingVertical: spacing.md,
-    backgroundColor: colors.white,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border.light,
-  },
-  backButton: {
-    padding: spacing.xs,
-  },
-  headerTitle: {
-    ...typography.h3,
-    color: colors.text.primary,
-  },
-  placeholder: {
-    width: 40,
-  },
-  balanceCard: {
-    backgroundColor: colors.primary,
-    margin: layout.screenPadding,
-    padding: spacing.lg,
-    borderRadius: 16,
-    alignItems: 'center',
-  },
-  balanceLabel: {
-    ...typography.bodySmall,
-    color: colors.white,
-    opacity: 0.9,
-  },
-  balanceAmount: {
-    ...typography.h1,
-    color: colors.white,
-    fontWeight: 'bold',
-    marginVertical: spacing.sm,
-  },
-  addFundsText: {
-    ...typography.label,
-    color: colors.white,
-    textDecorationLine: 'underline',
-  },
-  section: {
-    paddingHorizontal: layout.screenPadding,
-    marginBottom: spacing.lg,
-  },
-  sectionTitle: {
-    ...typography.h3,
-    color: colors.text.primary,
-    marginBottom: spacing.xs,
-  },
-  sectionSubtitle: {
-    ...typography.bodySmall,
-    color: colors.text.secondary,
-    marginBottom: spacing.md,
-  },
-  suggestedAmounts: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.sm,
-  },
-  suggestedButton: {
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: colors.border.medium,
-    backgroundColor: colors.white,
-  },
-  suggestedButtonActive: {
-    borderColor: colors.primary,
-    backgroundColor: colors.primary,
-  },
-  suggestedButtonText: {
-    ...typography.bodySmall,
-    color: colors.text.primary,
-  },
-  suggestedButtonTextActive: {
-    color: colors.white,
-  },
-  infoCard: {
-    marginHorizontal: layout.screenPadding,
-    padding: spacing.md,
-    backgroundColor: `${colors.info}10`,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: `${colors.info}30`,
-    marginBottom: spacing.lg,
-  },
-  infoHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.sm,
-  },
-  infoTitle: {
-    ...typography.label,
-    color: colors.info,
-    marginLeft: spacing.xs,
-    fontWeight: '600',
-  },
-  infoText: {
-    ...typography.bodySmall,
-    color: colors.text.secondary,
-    lineHeight: 20,
-  },
-  findMatchButton: {
-    marginHorizontal: layout.screenPadding,
-  },
-  matchCard: {
-    alignItems: 'center',
-    marginBottom: spacing.lg,
-  },
-  matchAvatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: `${colors.primary}20`,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: spacing.sm,
-  },
-  matchName: {
-    ...typography.h2,
-    color: colors.text.primary,
-    marginBottom: spacing.md,
-  },
-  matchDetails: {
-    alignItems: 'center',
-  },
-  matchDetailRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.xs,
-  },
-  matchDetailText: {
-    ...typography.bodyRegular,
-    color: colors.text.secondary,
-    marginLeft: spacing.xs,
-  },
-  matchScore: {
-    marginTop: spacing.md,
-    padding: spacing.md,
-    backgroundColor: `${colors.success}10`,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  matchScoreLabel: {
-    ...typography.caption,
-    color: colors.text.secondary,
-  },
-  matchScoreValue: {
-    ...typography.h2,
-    color: colors.success,
-    fontWeight: 'bold',
-  },
-  amountSummary: {
-    padding: spacing.md,
-    backgroundColor: colors.gray[50],
-    borderRadius: 12,
-    marginBottom: spacing.lg,
-  },
-  summaryRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: spacing.xs,
-  },
-  summaryLabel: {
-    ...typography.bodyRegular,
-    color: colors.text.secondary,
-  },
-  summaryValue: {
-    ...typography.bodyRegular,
-    color: colors.text.primary,
-    fontWeight: '600',
-  },
-  totalRow: {
-    borderTopWidth: 1,
-    borderTopColor: colors.border.medium,
-    paddingTop: spacing.sm,
-    marginTop: spacing.xs,
-  },
-  totalLabel: {
-    ...typography.h4,
-    color: colors.text.primary,
-  },
-  totalValue: {
-    ...typography.h4,
-    color: colors.primary,
-    fontWeight: 'bold',
-  },
-  confirmButton: {
-    marginBottom: spacing.md,
   },
 });
 

@@ -20,7 +20,7 @@ import { RootState } from '../../store/store';
 import { locationService, NearbyAgent } from '../../services/locationService';
 import { walletService } from '../../services/walletService';
 import Input from '../../components/common/Input';
-import Button from '../../components/common/Button';
+import Button from '../../components/ui/Button';
 import Modal from '../../components/common/Modal';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
@@ -238,10 +238,10 @@ const BuyCoinsScreen: React.FC = () => {
         No agents found in your area. Try again later.
       </Text>
       <Button
-        title="Refresh"
+        label="Refresh"
         onPress={fetchNearbyAgents}
         variant="outline"
-        style={styles.refreshButton}
+        className="min-w-[120px]"
       />
     </View>
   );
@@ -396,12 +396,11 @@ const BuyCoinsScreen: React.FC = () => {
 
             {/* Request Button */}
             <Button
-              title={`Request ${amount ? formatCurrency(parseInt(amount)) : '₦0'}`}
+              label={`Request ${amount ? formatCurrency(parseInt(amount)) : '₦0'}`}
               onPress={handleRequestCoins}
               loading={requesting}
               disabled={!amount || parseInt(amount) <= 0}
-              fullWidth
-              style={styles.requestButton}
+              className="mt-2"
             />
           </View>
         )}
@@ -585,9 +584,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: spacing.lg,
   },
-  refreshButton: {
-    minWidth: 120,
-  },
   modalAgentInfo: {
     backgroundColor: colors.gray[50],
     borderRadius: 12,
@@ -670,9 +666,6 @@ const styles = StyleSheet.create({
   paymentMethodTextActive: {
     color: colors.primary,
     fontWeight: '600',
-  },
-  requestButton: {
-    marginTop: spacing.sm,
   },
 });
 

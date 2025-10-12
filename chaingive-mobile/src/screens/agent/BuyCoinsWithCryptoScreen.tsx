@@ -26,8 +26,8 @@ import {
   LottieSuccess,
   PulseRing,
 } from '../../components/animations';
-import Button from '../../components/common/Button';
-import GradientCard from '../../components/common/GradientCard';
+import Button from '../../components/ui/Button';
+import { Card } from '../../components/ui';
 import EnhancedBadge from '../../components/common/EnhancedBadge';
 import Modal from '../../components/common/Modal';
 import { cryptoPaymentService } from '../../services';
@@ -263,9 +263,10 @@ const BuyCoinsWithCryptoScreen: React.FC = () => {
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Purchase Details</Text>
               
-              <GradientCard
-                colors={[getCryptoColor(selectedCoin.symbol), colors.primary]}
-                style={styles.purchaseCard}
+              <Card
+                variant="elevated"
+                gradientColors={[getCryptoColor(selectedCoin.symbol), colors.primary]}
+                className="p-6"
               >
                 <View style={styles.inputGroup}>
                   <Text style={styles.inputLabel}>Coin Amount</Text>
@@ -304,12 +305,12 @@ const BuyCoinsWithCryptoScreen: React.FC = () => {
                 </View>
 
                 <Button
-                  title="Purchase Coins"
+                  label="Purchase Coins"
                   onPress={handlePurchase}
                   variant="primary"
                   icon="shopping-cart"
                   loading={creating}
-                  style={styles.purchaseButton}
+                  className="mb-0"
                 />
               </GradientCard>
 
@@ -364,11 +365,11 @@ const BuyCoinsWithCryptoScreen: React.FC = () => {
                 <Text style={styles.addressLabel}>Wallet Address:</Text>
                 <Text style={styles.addressText}>{payment.walletAddress}</Text>
                 <Button
-                  title="Copy Address"
+                  label="Copy Address"
                   onPress={() => handleCopyAddress(payment.walletAddress)}
                   variant="outline"
                   icon="content-copy"
-                  style={styles.copyButton}
+                  className="mb-0"
                 />
               </View>
 
@@ -379,11 +380,11 @@ const BuyCoinsWithCryptoScreen: React.FC = () => {
                   {payment.cryptoAmount} {payment.coinSymbol}
                 </Text>
                 <Button
-                  title="Copy Amount"
+                  label="Copy Amount"
                   onPress={() => handleCopyAmount(payment.cryptoAmount)}
                   variant="outline"
                   icon="content-copy"
-                  style={styles.copyButton}
+                  className="mb-0"
                 />
               </View>
 
@@ -402,7 +403,7 @@ const BuyCoinsWithCryptoScreen: React.FC = () => {
               </View>
 
               <Button
-                title="I've Sent the Payment"
+                label="I've Sent the Payment"
                 onPress={() => {
                   setShowPaymentModal(false);
                   Alert.alert(
@@ -509,10 +510,6 @@ const styles = StyleSheet.create({
     color: colors.text.secondary,
     marginBottom: spacing.xs,
   },
-  purchaseCard: {
-    padding: spacing.lg,
-    borderRadius: 16,
-  },
   inputGroup: {
     marginBottom: spacing.md,
   },
@@ -553,9 +550,6 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.text.primary,
     fontWeight: '600',
-  },
-  purchaseButton: {
-    marginBottom: 0,
   },
   infoCard: {
     flexDirection: 'row',
@@ -650,9 +644,6 @@ const styles = StyleSheet.create({
     ...typography.h2,
     color: colors.success,
     marginBottom: spacing.sm,
-  },
-  copyButton: {
-    marginBottom: 0,
   },
   warningCard: {
     flexDirection: 'row',

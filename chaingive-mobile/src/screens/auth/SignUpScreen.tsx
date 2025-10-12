@@ -19,7 +19,7 @@ import * as Haptics from 'expo-haptics';
 import { AppDispatch, RootState } from '../../store/store';
 import { registerUser } from '../../store/slices/authSlice';
 import Input from '../../components/common/Input';
-import Button from '../../components/common/Button';
+import Button from '../../components/ui/Button';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 import { spacing, layout } from '../../theme/spacing';
@@ -267,11 +267,10 @@ const SignUpScreen: React.FC = () => {
             </View>
 
             <Button
-              title="Create Account"
+              label="Create Account"
               onPress={handleSignUp}
               loading={loading}
-              fullWidth
-              style={styles.signUpButton}
+              className="mt-4"
             />
           </View>
 
@@ -370,9 +369,6 @@ const styles = StyleSheet.create({
   termsLink: {
     color: colors.primary,
     textDecorationLine: 'underline',
-  },
-  signUpButton: {
-    marginTop: spacing.md,
   },
   footer: {
     flexDirection: 'row',

@@ -18,7 +18,7 @@ import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 import { spacing } from '../../theme/spacing';
 import { shadows } from '../../theme/shadows';
-import GradientCard from '../../components/common/GradientCard';
+import { Card } from '../../components/ui';
 import EnhancedBadge from '../../components/common/EnhancedBadge';
 import { AnimatedNumber } from '../../components/animated';
 import { CardSkeleton, ListSkeleton } from '../../components/skeletons';
@@ -31,6 +31,7 @@ import {
   ConfettiCelebration,
   LottieSuccess,
 } from '../../components/animations';
+import { MotiView } from 'moti';
 
 const { width: screenWidth } = Dimensions.get('window');
 const cardWidth = (screenWidth - (spacing.md * 3)) / 2;
@@ -195,74 +196,79 @@ const AdminDashboardScreen: React.FC = () => {
 
   return (
     <PageTransition type="fadeIn">
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView className="flex-1 bg-gray-50 dark:bg-gray-900">
       {/* Header */}
-      <View style={styles.header}>
+      <View className="flex-row justify-between items-center px-4 py-4 bg-white dark:bg-gray-800 shadow-md">
         <View>
-          <Text style={styles.headerTitle}>Admin Dashboard</Text>
-          <Text style={styles.headerSubtitle}>Platform Overview</Text>
+          <Text className="text-2xl font-bold text-gray-800 dark:text-white">Admin Dashboard</Text>
+          <Text className="text-sm text-gray-500 dark:text-gray-400">Platform Overview</Text>
         </View>
         <TouchableOpacity
-          style={styles.notificationButton}
+          className="p-2"
           onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)}
         >
-          <Icon name="notifications" size={24} color={colors.text.primary} />
+          <Icon name="notifications" size={24} className="text-gray-800 dark:text-white" />
           <EnhancedBadge value={5} pulse position="top-right" />
         </TouchableOpacity>
       </View>
 
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.contentContainer}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={handleRefresh}
-            colors={[colors.primary]}
-            tintColor={colors.primary}
-          />
-        }
+      <MotiView
+        from={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ type: 'timing', duration: 500 }}
       >
+        <ScrollView
+          className="flex-1"
+          contentContainerStyle={styles.contentContainer}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              colors={[colors.primary]}
+              tintColor={colors.primary}
+            />
+          }
+        >
         {/* Key Metrics */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Key Metrics</Text>
+        <View className="mb-8">
+          <Text className="text-xl font-bold text-gray-800 dark:text-white mb-4">Key Metrics</Text>
           {loading ? (
-            <View style={styles.metricsGrid}>
+            <View className="flex-row flex-wrap gap-4">
               {[1, 2, 3, 4].map((i) => (
                 <CardSkeleton key={i} width={cardWidth} height={120} />
               ))}
             </View>
           ) : (
-            <View style={styles.metricsGrid}>
+            <View className="flex-row flex-wrap gap-4">
               {metrics.map((metric, index) => (
                 <TouchableOpacity
                   key={index}
-                  style={[styles.metricCard, { width: cardWidth }]}
+                  className="bg-white dark:bg-gray-800 rounded-lg p-4 shadow-md"
+                  style={{ width: cardWidth }}
                   onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)}
                 >
-                  <View style={[styles.metricIcon, { backgroundColor: `${metric.color}20` }]}>
+                  <View className={`w-14 h-14 rounded-lg justify-center items-center mb-2`} style={{ backgroundColor: `${metric.color}20` }}>
                     <Icon name={metric.icon} size={28} color={metric.color} />
                   </View>
-                  <Text style={styles.metricLabel}>{metric.label}</Text>
+                  <Text className="text-sm text-gray-500 dark:text-gray-400 mb-1">{metric.label}</Text>
                   <CountUpAnimation
                     value={typeof metric.value === 'number' ? metric.value : parseFloat(metric.value.toString())}
-                    style={styles.metricValue}
+                    className="text-2xl font-bold text-gray-800 dark:text-white mb-1"
                     prefix={metric.label === 'Total Volume' ? '₦' : ''}
                     suffix={metric.label === 'Success Rate' ? '%' : ''}
                     decimals={metric.label === 'Success Rate' ? 1 : 0}
                   />
-                  <View style={styles.metricChange}>
+                  <View className="flex-row items-center gap-1">
                     <Icon
                       name={metric.trend === 'up' ? 'trending-up' : 'trending-down'}
                       size={14}
                       color={metric.trend === 'up' ? colors.success : colors.error}
                     />
                     <Text
-                      style={[
-                        styles.changeText,
-                        { color: metric.trend === 'up' ? colors.success : colors.error },
-                      ]}
+                      className={`text-xs font-bold ${
+                        metric.trend === 'up' ? 'text-green-500' : 'text-red-500'
+                      }`}
                     >
                       {metric.change}
                     </Text>
@@ -274,31 +280,28 @@ const AdminDashboardScreen: React.FC = () => {
         </View>
 
         {/* Quick Stats */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Quick Stats</Text>
+        <View className="mb-8">
+          <Text className="text-xl font-bold text-gray-800 dark:text-white mb-4">Quick Stats</Text>
           {loading ? (
-            <View style={styles.quickStatsGrid}>
+            <View className="flex-row flex-wrap gap-4">
               {[1, 2, 3, 4].map((i) => (
                 <CardSkeleton key={i} width={cardWidth} height={80} />
               ))}
             </View>
           ) : (
-            <View style={styles.quickStatsGrid}>
+            <View className="flex-row flex-wrap gap-4">
               {quickStats.map((stat, index) => (
-                {stat.urgent ? (
+                stat.urgent ? (
                   <PulseRing size={cardWidth} color={colors.error} key={index}>
                     <TouchableOpacity
-                      style={[
-                        styles.quickStatCard,
-                        { width: cardWidth },
-                        styles.urgentCard,
-                      ]}
+                      className="bg-white dark:bg-gray-800 rounded-lg p-4 items-center border-2 border-red-500"
+                      style={{ width: cardWidth }}
                       onPress={() => {
                         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                         stat.action();
                       }}
                     >
-                      <View style={styles.quickStatHeader}>
+                      <View className="flex-row items-center mb-2">
                         <Icon
                           name={stat.icon}
                           size={24}
@@ -313,35 +316,33 @@ const AdminDashboardScreen: React.FC = () => {
                       </View>
                       <CountUpAnimation
                         value={stat.value}
-                        style={[styles.quickStatValue, { color: colors.error }]}
+                        className="text-4xl font-bold text-red-500 mb-1"
                       />
-                      <Text style={styles.quickStatLabel}>{stat.label}</Text>
+                      <Text className="text-xs text-gray-500 dark:text-gray-400 text-center">{stat.label}</Text>
                     </TouchableOpacity>
                   </PulseRing>
                 ) : (
                   <TouchableOpacity
                     key={index}
-                    style={[
-                      styles.quickStatCard,
-                      { width: cardWidth },
-                    ]}
+                    className="bg-white dark:bg-gray-800 rounded-lg p-4 items-center shadow-md"
+                    style={{ width: cardWidth }}
                     onPress={() => {
                       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                       stat.action();
                     }}
                   >
-                    <View style={styles.quickStatHeader}>
+                    <View className="flex-row items-center mb-2">
                       <Icon
                         name={stat.icon}
                         size={24}
-                        color={colors.text.secondary}
+                        className="text-gray-500"
                       />
                     </View>
                     <CountUpAnimation
                       value={stat.value}
-                      style={styles.quickStatValue}
+                      className="text-4xl font-bold text-gray-800 dark:text-white mb-1"
                     />
-                    <Text style={styles.quickStatLabel}>{stat.label}</Text>
+                    <Text className="text-xs text-gray-500 dark:text-gray-400 text-center">{stat.label}</Text>
                   </TouchableOpacity>
                 )
               ))}
@@ -350,13 +351,13 @@ const AdminDashboardScreen: React.FC = () => {
         </View>
 
         {/* Recent Activity */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Recent Activity</Text>
+        <View className="mb-8">
+          <View className="flex-row justify-between items-center mb-4">
+            <Text className="text-xl font-bold text-gray-800 dark:text-white">Recent Activity</Text>
             <TouchableOpacity
               onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
             >
-              <Text style={styles.viewAllText}>View All</Text>
+              <Text className="text-sm font-bold text-primary-500">View All</Text>
             </TouchableOpacity>
           </View>
 
@@ -369,24 +370,25 @@ const AdminDashboardScreen: React.FC = () => {
               {recentActivity.map((activity) => (
                 <TouchableOpacity
                   key={activity.id}
-                  style={[styles.activityItem, activity.urgent && styles.urgentActivity]}
+                  className={`flex-row items-center bg-white dark:bg-gray-800 rounded-lg p-4 mb-2 shadow-sm ${
+                    activity.urgent ? 'border-l-4 border-red-500' : ''
+                  }`}
                   onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
                 >
                   <View
-                    style={[
-                      styles.activityIcon,
-                      { backgroundColor: activity.urgent ? `${colors.error}20` : `${colors.primary}20` },
-                    ]}
+                    className={`w-10 h-10 rounded-full justify-center items-center mr-4 ${
+                      activity.urgent ? 'bg-red-100' : 'bg-primary-100'
+                    }`}
                   >
                     <Icon
                       name={activity.icon}
                       size={20}
-                      color={activity.urgent ? colors.error : colors.primary}
+                      className={activity.urgent ? 'text-red-500' : 'text-primary-500'}
                     />
                   </View>
-                  <View style={styles.activityContent}>
-                    <Text style={styles.activityMessage}>{activity.message}</Text>
-                    <Text style={styles.activityTime}>{activity.time}</Text>
+                  <View className="flex-1">
+                    <Text className="text-sm text-gray-800 dark:text-white mb-1">{activity.message}</Text>
+                    <Text className="text-xs text-gray-500 dark:text-gray-400">{activity.time}</Text>
                   </View>
                   {activity.urgent && (
                     <EnhancedBadge
@@ -404,9 +406,9 @@ const AdminDashboardScreen: React.FC = () => {
         </View>
 
         {/* Quick Actions */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Quick Actions</Text>
-          <View style={styles.quickActionsGrid}>
+        <View className="mb-8">
+          <Text className="text-xl font-bold text-gray-800 dark:text-white mb-4">Quick Actions</Text>
+          <View className="flex-row flex-wrap gap-4">
             {[
               { icon: 'people', label: 'Manage Users', color: colors.primary },
               { icon: 'money', label: 'Transactions', color: colors.success },
@@ -415,13 +417,14 @@ const AdminDashboardScreen: React.FC = () => {
             ].map((action, index) => (
               <TouchableOpacity
                 key={index}
-                style={[styles.quickActionCard, { width: cardWidth }]}
+                className="bg-white dark:bg-gray-800 rounded-lg p-6 items-center shadow-md"
+                style={{ width: cardWidth }}
                 onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)}
               >
-                <View style={[styles.quickActionIcon, { backgroundColor: `${action.color}20` }]}>
+                <View className="w-16 h-16 rounded-lg justify-center items-center mb-2" style={{ backgroundColor: `${action.color}20` }}>
                   <Icon name={action.icon} size={32} color={action.color} />
                 </View>
-                <Text style={styles.quickActionLabel}>{action.label}</Text>
+                <Text className="text-sm font-bold text-gray-800 dark:text-white text-center">{action.label}</Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -429,7 +432,8 @@ const AdminDashboardScreen: React.FC = () => {
 
         {/* Bottom padding for floating tab bar */}
         <View style={{ height: 100 }} />
-      </ScrollView>
+        </ScrollView>
+      </MotiView>
 
       {/* Success Animation */}
       {showSuccess && (
@@ -447,34 +451,6 @@ const AdminDashboardScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background.default,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-    backgroundColor: colors.white,
-    ...shadows.small,
-  },
-  headerTitle: {
-    ...typography.h2,
-    color: colors.text.primary,
-  },
-  headerSubtitle: {
-    ...typography.bodySmall,
-    color: colors.text.secondary,
-    marginTop: spacing.xxs,
-  },
-  notificationButton: {
-    padding: spacing.sm,
-  },
-  scrollView: {
-    flex: 1,
-  },
   contentContainer: {
     paddingHorizontal: spacing.md,
     paddingTop: spacing.md,

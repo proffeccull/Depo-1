@@ -25,7 +25,7 @@ import {
   FloatingHearts,
   PulseRing,
 } from '../../components/animations';
-import Button from '../../components/common/Button';
+import Button from '../../components/ui/Button';
 import EnhancedBadge from '../../components/common/EnhancedBadge';
 
 interface RouteParams {
@@ -324,19 +324,17 @@ const VerificationDetailScreen: React.FC = () => {
           {request.status === 'pending' && (
             <View style={styles.actionButtons}>
               <Button
-                title="Approve Verification"
+                label="Approve Verification"
                 onPress={handleApprove}
                 variant="primary"
                 icon="check-circle"
-                fullWidth
-                style={styles.approveButton}
+                className="mb-0"
               />
               <Button
-                title="Reject"
+                label="Reject"
                 onPress={handleReject}
-                variant="danger"
+                variant="premium"
                 icon="cancel"
-                fullWidth
               />
             </View>
           )}
@@ -528,9 +526,6 @@ const styles = StyleSheet.create({
   actionButtons: {
     gap: spacing.md,
     marginBottom: spacing.lg,
-  },
-  approveButton: {
-    marginBottom: 0,
   },
 });
 

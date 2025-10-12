@@ -27,7 +27,7 @@ import {
 } from '../../components/animations';
 import EnhancedBadge from '../../components/common/EnhancedBadge';
 import Modal from '../../components/common/Modal';
-import Button from '../../components/common/Button';
+import Button from '../../components/ui/Button';
 import { CardSkeleton } from '../../components/skeletons';
 import { adminService } from '../../services';
 
@@ -278,25 +278,25 @@ const DisputeManagementScreen: React.FC = () => {
 
               <View style={styles.modalActions}>
                 <Button
-                  title="Approve"
+                  label="Approve"
                   onPress={() => handleResolveDispute('approve')}
                   variant="primary"
                   icon="check"
-                  style={styles.modalButton}
+                  className="mb-0"
                 />
                 <Button
-                  title="Reject"
+                  label="Reject"
                   onPress={() => handleResolveDispute('reject')}
-                  variant="danger"
+                  variant="premium"
                   icon="close"
-                  style={styles.modalButton}
+                  className="mb-0"
                 />
                 <Button
-                  title="Escalate"
+                  label="Escalate"
                   onPress={() => handleResolveDispute('escalate')}
                   variant="outline"
                   icon="arrow-upward"
-                  style={styles.modalButton}
+                  className="mb-0"
                 />
               </View>
             </View>
@@ -468,9 +468,6 @@ const styles = StyleSheet.create({
   },
   modalActions: {
     gap: spacing.sm,
-  },
-  modalButton: {
-    marginBottom: 0,
   },
   emptyState: {
     alignItems: 'center',

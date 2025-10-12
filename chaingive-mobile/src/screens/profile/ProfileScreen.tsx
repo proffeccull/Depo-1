@@ -36,7 +36,7 @@ import {
   LevelUpAnimation,
 } from '../../components/animations';
 import { LevelBadge, AchievementBadge } from '../../components/gamification';
-import GradientCard from '../../components/common/GradientCard';
+import { Card } from '../../components/ui';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -122,9 +122,10 @@ const ProfileScreen: React.FC = () => {
           contentContainerStyle={styles.scrollContent}
         >
           {/* Profile Header with Gradient */}
-          <GradientCard
-            colors={[colors.primary, colors.secondary]}
-            style={styles.profileCard}
+          <Card
+            variant="elevated"
+            gradientColors={[colors.primary, colors.secondary]}
+            className="mb-4"
           >
             <View style={styles.profileHeader}>
               {/* Avatar with Level Badge */}
@@ -185,7 +186,7 @@ const ProfileScreen: React.FC = () => {
                 </View>
               </View>
             </View>
-          </GradientCard>
+          </Card>
 
           {/* Stats Grid */}
           <View style={styles.statsGrid}>
@@ -382,10 +383,6 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: layout.screenPadding,
-  },
-  profileCard: {
-    borderRadius: 16,
-    marginBottom: spacing.lg,
   },
   profileHeader: {
     alignItems: 'center',
