@@ -27,7 +27,7 @@ export async function processMatchExpiration(job: Job) {
 
     logger.info(`Expired ${result.count} matches`);
 
-    // TODO: Notify donors their matches expired
+    // TODO: Notify donors their matches expired (requires notification service integration)
     // They can create a new donation
 
     return { expired: result.count };

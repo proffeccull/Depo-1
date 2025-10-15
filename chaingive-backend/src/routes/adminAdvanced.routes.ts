@@ -2,8 +2,6 @@ import { Router } from 'express';
 import * as adminAdvancedController from '../controllers/adminAdvanced.controller';
 import { authenticate, requireRole } from '../middleware/auth';
 import { validate } from '../middleware/validation';
-import { requireFeature } from '../middleware/featureFlag';
-import { FeatureFlag } from '../services/featureFlags.service';
 import * as adminAdvancedValidation from '../validations/adminAdvanced.validation';
 
 const router = Router();
@@ -11,7 +9,6 @@ const router = Router();
 // All routes require authentication and admin role
 router.use(authenticate);
 router.use(requireRole('csc_council', 'agent')); // Admin roles
-router.use(requireFeature(FeatureFlag.ADMIN_PANEL));
 
 /**
  * User Promotion & Management

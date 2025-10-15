@@ -19,7 +19,6 @@ export const createListing = async (req: AuthRequest, res: Response, next: NextF
         description,
         category,
         coinPrice,
-        realValue: coinPrice * 50, // Assuming a conversion rate
         imageUrl,
         stockQuantity,
         isInStock: true,
@@ -174,7 +173,7 @@ export const approveRedemption = async (req: AuthRequest, res: Response, next: N
     logger.info(`Admin ${adminId} approved redemption ${redemptionId}`);
 
     // Notify user
-    // TODO: Send notification
+    // TODO: Send notification (requires notification service integration)
 
     res.status(200).json({
       success: true,
@@ -221,7 +220,7 @@ export const rejectRedemption = async (req: AuthRequest, res: Response, next: Ne
       prisma.marketplaceListing.update({
         where: { id: redemption.listingId },
         data: {
-          stockQuantity: { increment: 1 },
+          availableQuantity: { increment: 1 },
         },
       }),
     ]);

@@ -488,7 +488,7 @@ export async function sendMonthlySummaryEmail(
 /**
  * Send KYC approval email
  */
-export async function sendKYCApprovalEmail(email: string, firstName: string, verificationType: string): Promise<boolean> {
+export async function sendKYCApprovalEmail(email: string, firstName: string): Promise<boolean> {
   const subject = 'KYC Verification Approved ✅';
   const html = `
     <!DOCTYPE html>

@@ -27,7 +27,7 @@ import {
   LottieSuccess,
   ConfettiCelebration,
 } from '../../components/animations';
-import Button from '../../components/ui/Button';
+import Button from '../../components/common/Button';
 import Modal from '../../components/common/Modal';
 import EnhancedBadge from '../../components/common/EnhancedBadge';
 import { CardSkeleton } from '../../components/skeletons';
@@ -451,12 +451,12 @@ const CryptoPaymentConfirmationScreen: React.FC = () => {
               </View>
 
               <Button
-                label="Confirm Payment"
+                title="Confirm Payment"
                 onPress={handleConfirmPayment}
                 variant="primary"
                 icon="check-circle"
                 loading={processing}
-                className="mb-4"
+                style={styles.modalButton}
               />
 
               <View style={styles.rejectSection}>
@@ -471,12 +471,12 @@ const CryptoPaymentConfirmationScreen: React.FC = () => {
                   textAlignVertical="top"
                 />
                 <Button
-                  label="Reject Payment"
+                  title="Reject Payment"
                   onPress={handleRejectPayment}
-                  variant="premium"
+                  variant="danger"
                   icon="cancel"
                   loading={processing}
-                  className="mb-4"
+                  style={styles.modalButton}
                 />
               </View>
             </View>
@@ -689,6 +689,9 @@ const styles = StyleSheet.create({
   },
   modalTextArea: {
     minHeight: 80,
+  },
+  modalButton: {
+    marginBottom: spacing.md,
   },
   rejectSection: {
     marginTop: spacing.lg,

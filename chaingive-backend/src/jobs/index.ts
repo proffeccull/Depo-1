@@ -29,6 +29,7 @@ import { processWeeklyReport } from './weekly-report.job';
 import { processMonthlyDigest } from './monthly-digest.job';
 import { processCoinEscrowExpiration } from './coin-escrow-expiration.job';
 import { sendMissionReminders, sendStreakAlerts } from './gamification-reminders.job';
+import { startSubscriptionRenewalJob } from './subscription-renewal.job';
 
 // Register job processors
 escrowQueue.process(processEscrowRelease);
@@ -227,7 +228,10 @@ export function startScheduledJobs() {
     }
   );
 
-  logger.info('✅ Scheduled jobs started (including gamification)');
+  // Start subscription renewal jobs
+  startSubscriptionRenewalJob();
+
+  logger.info('✅ Scheduled jobs started (including gamification and subscriptions)');
 }
 
 export { 

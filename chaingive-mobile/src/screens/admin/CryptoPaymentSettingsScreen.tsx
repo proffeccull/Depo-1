@@ -24,7 +24,7 @@ import {
   LottieSuccess,
   ConfettiCelebration,
 } from '../../components/animations';
-import Button from '../../components/ui/Button';
+import Button from '../../components/common/Button';
 import Modal from '../../components/common/Modal';
 import EnhancedBadge from '../../components/common/EnhancedBadge';
 import GradientCard from '../../components/common/GradientCard';
@@ -319,10 +319,9 @@ const CryptoPaymentSettingsScreen: React.FC = () => {
               <Text style={styles.sectionTitle}>BTCPay Server Configuration</Text>
             </View>
             
-            <Card
-              variant="elevated"
-              gradientColors={[colors.primary, colors.secondary]}
-              className="p-6"
+            <GradientCard
+              colors={[colors.primary, colors.secondary]}
+              style={styles.btcpayCard}
             >
               <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>Server URL *</Text>
@@ -379,23 +378,23 @@ const CryptoPaymentSettingsScreen: React.FC = () => {
 
               <View style={styles.buttonRow}>
                 <Button
-                  label="Test Connection"
+                  title="Test Connection"
                   onPress={handleTestConnection}
                   variant="outline"
                   icon="wifi"
                   loading={testing}
-                  className="flex-1 mb-0"
+                  style={styles.halfButton}
                 />
                 <Button
-                  label={config ? 'Update' : 'Save'}
+                  title={config ? 'Update' : 'Save'}
                   onPress={handleSaveBTCPayConfig}
                   variant="primary"
                   icon="save"
                   loading={saving}
-                  className="flex-1 mb-0"
+                  style={styles.halfButton}
                 />
               </View>
-            </Card>
+            </GradientCard>
 
             {/* BTCPay Help */}
             <View style={styles.helpCard}>
@@ -589,7 +588,7 @@ const CryptoPaymentSettingsScreen: React.FC = () => {
             </View>
 
             <Button
-              label="Add Crypto Coin"
+              title="Add Crypto Coin"
               onPress={handleAddCryptoCoin}
               variant="primary"
               icon="add"
@@ -662,6 +661,10 @@ const styles = StyleSheet.create({
   addButton: {
     padding: spacing.xs,
   },
+  btcpayCard: {
+    padding: spacing.lg,
+    borderRadius: 16,
+  },
   inputGroup: {
     marginBottom: spacing.md,
   },
@@ -697,6 +700,10 @@ const styles = StyleSheet.create({
   buttonRow: {
     flexDirection: 'row',
     gap: spacing.sm,
+  },
+  halfButton: {
+    flex: 1,
+    marginBottom: 0,
   },
   helpCard: {
     flexDirection: 'row',

@@ -33,6 +33,20 @@ import {
   StreakFlame,
 } from '../../components/animations';
 
+// Import premium coin components
+import {
+  CoinBalanceWidget,
+  CoinFOMOBanner,
+  CoinMilestoneWidget,
+  RealTimeActivityFeed,
+  CoinStreakWidget,
+  CoinMarketplaceWidget,
+  CoinLeaderboard,
+  CoinBattlePass,
+  CoinParticleSystem,
+  coinSounds,
+} from '../../components/coins';
+
 const { width: screenWidth } = Dimensions.get('window');
 const cardWidth = (screenWidth - (spacing.md * 3)) / 2;
 
@@ -44,6 +58,8 @@ const HomeScreen: React.FC = () => {
 
   const [refreshing, setRefreshing] = useState(false);
   const [showFAB, setShowFAB] = useState(true);
+  const [showFOMOBanner, setShowFOMOBanner] = useState(true);
+  const [showParticleEffect, setShowParticleEffect] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -135,6 +151,58 @@ const HomeScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* Coin Balance Widget - Always Visible */}
+      <CoinBalanceWidget
+        balance={user?.charityCoins || 0}
+        trend="up"
+        change24h={150}
+        animation="pulse"
+        size="medium"
+        showQuickActions={true}
+        onQuickAction={(action) => {
+          switch (action) {
+            case 'buy':
+              navigation.navigate('BuyCoinsScreen');
+              break;
+            case 'earn':
+              navigation.navigate('GiveScreen');
+              break;
+            case 'spend':
+              navigation.navigate('MarketplaceScreen');
+              break;
+            case 'history':
+              navigation.navigate('TransactionHistory');
+              break;
+          }
+        }}
+      />
+
+      {/* FOMO Banner */}
+      {showFOMOBanner && (
+        <CoinFOMOBanner
+          message="Only 2 hours left to earn 2x coins on donations!"
+          urgency="high"
+          timer={7200}
+          action="Donate Now"
+          reward={1000}
+          onPress={() => {
+            setShowFOMOBanner(false);
+            navigation.navigate('GiveScreen');
+          }}
+        />
+      )}
+
+      {/* Particle Effects */}
+      {showParticleEffect && (
+        <CoinParticleSystem
+          trigger={showParticleEffect}
+          type="rain"
+          intensity="medium"
+          duration={2000}
+          onComplete={() => setShowParticleEffect(false)}
+        />
+      )}
+
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.contentContainer}
@@ -162,13 +230,25 @@ const HomeScreen: React.FC = () => {
           </TouchableOpacity>
         </View>
 
-        {/* Streak Widget */}
+        {/* Enhanced Coin Streak Widget */}
         {streak && (
           <FadeInView duration={300}>
-            <StreakWidget
+            <CoinStreakWidget
               currentStreak={streak.currentStreak || 0}
               longestStreak={streak.longestStreak || 0}
-              lastActiveDate={streak.lastActiveDate}
+              lastActiveDate={streak.lastActiveDate || new Date()}
+              freezeCount={3}
+              nextReward={{
+                day: 30,
+                coins: 5000,
+                bonus: 'Legendary Badge',
+              }}
+              onFreeze={() => {
+                // Handle freeze power-up
+                coinSounds.playStreakBonus();
+                setShowParticleEffect(true);
+              }}
+              onViewHistory={() => navigation.navigate('StreakHistory')}
             />
           </FadeInView>
         )}
@@ -206,16 +286,28 @@ const HomeScreen: React.FC = () => {
           </FadeInView>
         )}
 
+        {/* Coin Milestone Widget */}
+        <FadeInView duration={500} delay={200}>
+          <CoinMilestoneWidget
+            current={user?.charityCoins || 0}
+            target={10000}
+            reward={1000}
+            badge="Coin Master"
+            message="Just 1,500 coins away from Coin Master!"
+            animation="progress-bar-glow"
+          />
+        </FadeInView>
+
         {/* Progress Rings - Daily Goals */}
         {todaysProgress && (
-          <FadeInView duration={500} delay={200}>
+          <FadeInView duration={500} delay={300}>
             <ProgressRings
               giveProgress={todaysProgress.giveProgress || 0}
               giveGoal={todaysProgress.giveGoal || 1}
               earnProgress={todaysProgress.earnProgress || 0}
               earnGoal={todaysProgress.earnGoal || 50}
               engageProgress={todaysProgress.engageProgress || 0}
-              engageGoal={todaysProgress.engageGoal || 3}
+              engageGoal={todaysProgress.engageProgress || 3}
             />
           </FadeInView>
         )}
@@ -242,51 +334,136 @@ const HomeScreen: React.FC = () => {
           </View>
         </View>
 
-        {/* Recent Activity */}
-        <View style={styles.recentActivity}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Recent Activity</Text>
-            <TouchableOpacity>
-              <Text style={styles.viewAllText}>View All</Text>
-            </TouchableOpacity>
-          </View>
-          
-          <View style={styles.activityList}>
-            {/* Mock activity items */}
-            <View style={styles.activityItem}>
-              <View style={[styles.activityIcon, { backgroundColor: `${colors.success}20` }]}>
-                <Icon name="add" size={20} color={colors.success} />
-              </View>
-              <View style={styles.activityDetails}>
-                <Text style={styles.activityTitle}>Deposit</Text>
-                <Text style={styles.activityDate}>Today, 2:30 PM</Text>
-              </View>
-              <Text style={styles.activityAmount}>+₦5,000</Text>
-            </View>
+        {/* Real-Time Activity Feed */}
+        <FadeInView duration={600} delay={400}>
+          <RealTimeActivityFeed
+            activities={[
+              {
+                id: '1',
+                type: 'earning',
+                message: '🎉 Sarah just earned 500 coins from a donation!',
+                timestamp: new Date(Date.now() - 300000), // 5 minutes ago
+                rarity: 'common',
+              },
+              {
+                id: '2',
+                type: 'achievement',
+                message: '🏆 Michael unlocked "Generous Heart" worth 1,000 coins!',
+                timestamp: new Date(Date.now() - 900000), // 15 minutes ago
+                rarity: 'epic',
+              },
+              {
+                id: '3',
+                type: 'purchase',
+                message: '💎 3 people bought Premium with coins in the last hour',
+                timestamp: new Date(Date.now() - 1800000), // 30 minutes ago
+                rarity: 'rare',
+              },
+            ]}
+            onActivityPress={(activity) => {
+              // Handle activity press
+              console.log('Activity pressed:', activity);
+            }}
+            onViewAllPress={() => navigation.navigate('ActivityFeed')}
+          />
+        </FadeInView>
 
-            <View style={styles.activityItem}>
-              <View style={[styles.activityIcon, { backgroundColor: `${colors.primary}20` }]}>
-                <Icon name="favorite" size={20} color={colors.primary} />
-              </View>
-              <View style={styles.activityDetails}>
-                <Text style={styles.activityTitle}>Donation to Orphanage</Text>
-                <Text style={styles.activityDate}>Yesterday, 4:15 PM</Text>
-              </View>
-              <Text style={[styles.activityAmount, { color: colors.primary }]}>-₦2,000</Text>
-            </View>
+        {/* Coin Marketplace Preview */}
+        <FadeInView duration={700} delay={500}>
+          <CoinMarketplaceWidget
+            items={[
+              {
+                id: '1',
+                name: 'MTN Airtime',
+                description: 'Instant mobile recharge',
+                price: 500,
+                originalPrice: 550,
+                category: 'airtime',
+                scarcity: { available: 5, total: 10, urgency: 'high' },
+                coinback: 25,
+                badge: 'hot',
+              },
+              {
+                id: '2',
+                name: 'Data Bundle',
+                description: '1GB high-speed data',
+                price: 800,
+                category: 'data',
+                scarcity: { available: 2, total: 5, urgency: 'critical' },
+                coinback: 40,
+                badge: 'limited',
+              },
+              {
+                id: '3',
+                name: 'Netflix Voucher',
+                description: 'Premium streaming access',
+                price: 2000,
+                category: 'vouchers',
+                scarcity: { available: 15, total: 20, urgency: 'medium' },
+                coinback: 100,
+                badge: 'new',
+              },
+            ]}
+            userCoinBalance={user?.charityCoins || 0}
+            onPurchase={(item) => {
+              // Handle marketplace purchase
+              console.log('Purchase:', item);
+              setShowParticleEffect(true);
+            }}
+            onViewAll={() => navigation.navigate('MarketplaceScreen')}
+            maxItems={3}
+          />
+        </FadeInView>
 
-            <View style={styles.activityItem}>
-              <View style={[styles.activityIcon, { backgroundColor: `${colors.tertiary}20` }]}>
-                <Icon name="redeem" size={20} color={colors.tertiary} />
-              </View>
-              <View style={styles.activityDetails}>
-                <Text style={styles.activityTitle}>Redeemed Airtime</Text>
-                <Text style={styles.activityDate}>2 days ago</Text>
-              </View>
-              <Text style={[styles.activityAmount, { color: colors.tertiary }]}>-50 CC</Text>
-            </View>
-          </View>
-        </View>
+        {/* Coin Battle Pass Preview */}
+        <FadeInView duration={800} delay={600}>
+          <CoinBattlePass
+            tiers={[
+              {
+                id: 1,
+                name: 'Welcome Bonus',
+                description: 'Your first coin reward',
+                coinReward: 100,
+                unlocked: true,
+                claimed: true,
+                rarity: 'common',
+                icon: 'celebration',
+              },
+              {
+                id: 2,
+                name: 'Generous Spirit',
+                description: 'Complete 5 donations',
+                coinReward: 500,
+                unlocked: true,
+                claimed: false,
+                rarity: 'rare',
+                icon: 'volunteer_activism',
+              },
+              {
+                id: 3,
+                name: 'Coin Collector',
+                description: 'Earn 1,000 coins total',
+                coinReward: 1000,
+                bonusReward: 200,
+                unlocked: false,
+                claimed: false,
+                rarity: 'epic',
+                icon: 'savings',
+              },
+            ]}
+            currentProgress={750}
+            totalProgress={1000}
+            userCoins={user?.charityCoins || 0}
+            premiumUnlocked={false}
+            onClaimReward={(tierId) => {
+              coinSounds.playMilestoneReach();
+              setShowParticleEffect(true);
+            }}
+            onPurchasePremium={() => navigation.navigate('PremiumSubscription')}
+            seasonName="Coin Master Season"
+            seasonEndDate={new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)} // 7 days from now
+          />
+        </FadeInView>
 
         {/* Impact Summary */}
         <View style={styles.impactSummary}>
@@ -297,8 +474,8 @@ const HomeScreen: React.FC = () => {
               <Text style={styles.impactLabel}>Donations Made</Text>
             </View>
             <View style={styles.impactStat}>
-              <Text style={styles.impactNumber}>₦25,000</Text>
-              <Text style={styles.impactLabel}>Total Given</Text>
+              <Text style={styles.impactNumber}>{(user?.charityCoins || 0).toLocaleString()}</Text>
+              <Text style={styles.impactLabel}>Coins Earned</Text>
             </View>
             <View style={styles.impactStat}>
               <Text style={styles.impactNumber}>8</Text>

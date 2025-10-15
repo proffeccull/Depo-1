@@ -30,7 +30,7 @@
     "production": {
       "distribution": "store",
       "android": {
-        "buildType": "aab"
+        "buildType": "app-bundle"
       },
       "env": {
         "API_URL": "https://api.chaingive.ng/api/v1",

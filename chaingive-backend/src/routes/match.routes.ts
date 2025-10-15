@@ -3,14 +3,11 @@ import * as matchController from '../controllers/match.controller';
 import { authenticate } from '../middleware/auth';
 import { validate } from '../middleware/validation';
 import * as matchValidation from '../validations/match.validation';
-import { requireFeature } from '../middleware/featureFlag';
-import { FeatureFlag } from '../services/featureFlags.service';
 
 const router = Router();
 
 // All routes require authentication
 router.use(authenticate);
-router.use(requireFeature(FeatureFlag.DONATIONS));
 
 /**
  * @route   GET /v1/matches/pending

@@ -1,14 +1,11 @@
 import { Router } from 'express';
 import { authenticate } from '../middleware/auth';
 import * as gamificationController from '../controllers/gamification.controller';
-import { requireFeature } from '../middleware/featureFlag';
-import { FeatureFlag } from '../services/featureFlags.service';
 
 const router = Router();
 
 // All routes require authentication
 router.use(authenticate);
-router.use(requireFeature(FeatureFlag.GAMIFICATION));
 
 // ============================================
 // DAILY MISSIONS

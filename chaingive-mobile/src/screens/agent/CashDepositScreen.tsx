@@ -23,7 +23,7 @@ import {
   ConfettiCelebration,
   FloatingHearts,
 } from '../../components/animations';
-import Button from '../../components/ui/Button';
+import Button from '../../components/common/Button';
 import Input from '../../components/common/Input';
 
 const CashDepositScreen: React.FC = () => {
@@ -180,12 +180,13 @@ const CashDepositScreen: React.FC = () => {
             )}
 
             <Button
-              label={loading ? 'Processing...' : 'Log Deposit'}
+              title={loading ? 'Processing...' : 'Log Deposit'}
               onPress={handleSubmit}
               loading={loading}
               variant="primary"
               icon="check-circle"
-              className="mt-4"
+              fullWidth
+              style={styles.submitButton}
             />
           </View>
 
@@ -338,6 +339,9 @@ const styles = StyleSheet.create({
     ...typography.h3,
     color: colors.success,
     fontWeight: 'bold',
+  },
+  submitButton: {
+    marginTop: spacing.md,
   },
   infoCard: {
     flexDirection: 'row',

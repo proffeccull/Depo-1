@@ -7,6 +7,8 @@ import {
   TouchableOpacity,
   Image,
   Dimensions,
+  ScrollView,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useDispatch, useSelector } from 'react-redux';
@@ -32,6 +34,16 @@ import {
   LottieSuccess,
 } from '../../components/animations';
 
+// Import premium coin components
+import {
+  CoinBalanceWidget,
+  CoinFOMOBanner,
+  CoinMarketplaceWidget,
+  CoinParticleSystem,
+  coinSounds,
+} from '../../components/coins';
+import { FadeInView } from '../../components/animated';
+
 const { width: screenWidth } = Dimensions.get('window');
 const cardWidth = (screenWidth - (spacing.md * 3)) / 2;
 
@@ -49,6 +61,9 @@ const EnhancedMarketplaceScreen: React.FC = () => {
   const [showHearts, setShowHearts] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [redeemedItem, setRedeemedItem] = useState<string>('');
+  const [refreshing, setRefreshing] = useState(false);
+  const [showFOMOBanner, setShowFOMOBanner] = useState(true);
+  const [showParticleEffect, setShowParticleEffect] = useState(false);
 
   useEffect(() => {
     dispatch(fetchMarketplaceItems());
@@ -66,16 +81,25 @@ const EnhancedMarketplaceScreen: React.FC = () => {
     return () => clearTimeout(id);
   }, [dispatch, query]);
 
-  const handleRedeemItem = (item: MarketplaceItem) => {
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    await dispatch(fetchMarketplaceItems());
+    setRefreshing(false);
+  };
+
+  const handleRedeemItem = async (item: MarketplaceItem) => {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    
+    await coinSounds.playCoinPurchase();
+
     setRedeemedItem(item.name);
     setShowSuccess(true);
-    
+    setShowParticleEffect(true);
+
     setTimeout(() => {
       setShowConfetti(true);
     }, 1000);
-    
+
     setTimeout(() => {
       setShowHearts(true);
     }, 1500);
@@ -154,20 +178,110 @@ const EnhancedMarketplaceScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* Coin Balance Widget - Always Visible */}
+      <CoinBalanceWidget
+        balance={balance}
+        trend="up"
+        change24h={250}
+        animation="pulse"
+        size="medium"
+        showQuickActions={true}
+        onQuickAction={(action) => {
+          switch (action) {
+            case 'buy':
+              navigation.navigate('BuyCoinsScreen');
+              break;
+            case 'earn':
+              navigation.navigate('GiveScreen');
+              break;
+            case 'spend':
+              // Already in marketplace
+              break;
+            case 'history':
+              navigation.navigate('RedemptionHistoryScreen');
+              break;
+          }
+        }}
+      />
+
+      {/* FOMO Banner */}
+      {showFOMOBanner && (
+        <CoinFOMOBanner
+          message="Flash Sale! 50% off data bundles for next 30 minutes!"
+          urgency="high"
+          timer={1800}
+          action="Shop Now"
+          reward={500}
+          onPress={() => {
+            setShowFOMOBanner(false);
+            // Scroll to data category
+          }}
+        />
+      )}
+
+      {/* Particle Effects */}
+      {showParticleEffect && (
+        <CoinParticleSystem
+          trigger={showParticleEffect}
+          type="rain"
+          intensity="medium"
+          duration={2000}
+          onComplete={() => setShowParticleEffect(false)}
+        />
+      )}
+
       <PageTransition type="slideUp" duration={300}>
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Marketplace</Text>
-          <View style={styles.balanceBadge}>
-            <Icon name="stars" size={16} color={colors.white} />
-            <CountUpAnimation
-              from={0}
-              to={balance}
-              duration={1000}
-              formatter={(val) => ` ${Math.round(val)} Coins`}
-              style={styles.balanceText}
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.contentContainer}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              colors={[colors.primary]}
+              tintColor={colors.primary}
             />
+          }
+        >
+          <View style={styles.header}>
+            <Text style={styles.headerTitle}>Coin Marketplace</Text>
+            <TouchableOpacity
+              style={styles.historyButton}
+              onPress={() => navigation.navigate('RedemptionHistoryScreen')}
+            >
+              <Icon name="history" size={20} color={colors.text.secondary} />
+            </TouchableOpacity>
           </View>
-        </View>
+
+        {/* Enhanced Marketplace Widget */}
+        <FadeInView duration={400} delay={200}>
+          <CoinMarketplaceWidget
+            items={filteredItems.slice(0, 6).map(item => ({
+              id: item.id,
+              name: item.name,
+              description: item.description || 'Premium marketplace item',
+              price: item.price,
+              originalPrice: item.price > 1000 ? item.price * 1.2 : undefined,
+              category: 'airtime' as any,
+              scarcity: {
+                available: Math.floor(Math.random() * 20) + 1,
+                total: Math.floor(Math.random() * 50) + 20,
+                urgency: (['low', 'medium', 'high', 'critical'] as const)[Math.floor(Math.random() * 4)],
+              },
+              coinback: Math.floor(item.price * 0.05),
+              badge: Math.random() > 0.7 ? 'hot' : Math.random() > 0.8 ? 'new' : undefined,
+            }))}
+            userCoinBalance={balance}
+            onPurchase={(item) => {
+              handleRedeemItem(filteredItems.find(fi => fi.id === item.id)!);
+            }}
+            onViewAll={() => {
+              // Scroll to full list
+            }}
+            maxItems={3}
+          />
+        </FadeInView>
 
         <View style={styles.searchRow}>
           <View style={styles.searchContainer}>
@@ -233,6 +347,7 @@ const EnhancedMarketplaceScreen: React.FC = () => {
             }
           />
         )}
+        </ScrollView>
 
         {/* Premium Animations */}
         <LottieSuccess
@@ -276,9 +391,18 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
     ...shadows.small,
   },
+  scrollView: {
+    flex: 1,
+  },
+  contentContainer: {
+    paddingBottom: spacing['4xl'],
+  },
   headerTitle: {
     ...typography.h2,
     color: colors.text.primary,
+  },
+  historyButton: {
+    padding: spacing.sm,
   },
   balanceBadge: {
     flexDirection: 'row',

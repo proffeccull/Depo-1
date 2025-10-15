@@ -63,9 +63,9 @@ export const apiLimiter = createRateLimiter(100, 60); // 100 per minute (general
  */
 export function rateLimitMiddleware(limiter: any, message?: string) {
   return async (req: Request, res: Response, next: NextFunction) => {
-    const identifier = (req as any).user?.id || req.ip || 'anonymous';
     try {
       // Get identifier (user ID if authenticated, else IP)
+      const identifier = (req as any).user?.id || req.ip || 'anonymous';
 
       await limiter.consume(identifier);
       next();
@@ -98,21 +98,18 @@ export function tierBasedRateLimiter(
   tier3Points: number,
   duration: number
 ) {
-  const limiters = {
-    1: createRateLimiter(tier1Points, duration),
-    2: createRateLimiter(tier2Points, duration),
-    3: createRateLimiter(tier3Points, duration),
-  };
-
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
       const user = (req as any).user;
       const identifier = user?.id || req.ip || 'anonymous';
 
-      // Determine tier and select the correct limiter
-      const tier = (user?.tier || 1) as 1 | 2 | 3;
-      const limiter = limiters[tier] || limiters[1];
+      // Determine points based on user tier
+      let points = tier1Points; // Default: Tier 1
+      if (user?.tier === 2) points = tier2Points;
+      if (user?.tier === 3) points = tier3Points;
 
+      // Create dynamic rate limiter
+      const limiter = createRateLimiter(points, duration);
       await limiter.consume(identifier);
 
       next();

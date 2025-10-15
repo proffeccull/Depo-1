@@ -14,7 +14,7 @@ import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 
 import { walletService, AgentCoinPurchase } from '../../services/walletService';
-import Button from '../../components/ui/Button';
+import Button from '../../components/common/Button';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 import { spacing, layout } from '../../theme/spacing';
@@ -192,20 +192,20 @@ const PendingCoinPurchasesScreen: React.FC = () => {
         {isActive && purchase.agent && (
           <View style={styles.actionButtons}>
             <Button
-              label="Call Agent"
+              title="Call Agent"
               onPress={() => handleCallAgent(purchase.agent!.phoneNumber)}
               variant="secondary"
               icon="phone"
               size="small"
-              className="flex-1"
+              style={styles.actionButton}
             />
             {purchase.status !== 'COMPLETED' && (
               <Button
-                label="Cancel"
+                title="Cancel"
                 onPress={() => handleCancel(purchase)}
                 variant="outline"
                 size="small"
-                className="flex-1"
+                style={styles.actionButton}
               />
             )}
           </View>
@@ -222,10 +222,10 @@ const PendingCoinPurchasesScreen: React.FC = () => {
         You don't have any pending coin purchases
       </Text>
       <Button
-        label="Buy Coins"
+        title="Buy Coins"
         onPress={() => navigation.goBack()}
         icon="add-circle"
-        className="min-w-[150px]"
+        style={styles.buyButton}
       />
     </View>
   );
@@ -379,6 +379,9 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     marginTop: spacing.sm,
   },
+  actionButton: {
+    flex: 1,
+  },
   emptyState: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -395,6 +398,9 @@ const styles = StyleSheet.create({
     color: colors.text.secondary,
     textAlign: 'center',
     marginBottom: spacing.lg,
+  },
+  buyButton: {
+    minWidth: 150,
   },
 });
 

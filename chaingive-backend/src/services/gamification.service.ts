@@ -30,37 +30,6 @@ const MISSION_REWARDS = {
   [MISSION_TYPES.KYC_SUBMIT]: 100,
 };
 
-const MISSION_DETAILS: Record<string, { name: string; desc: string }> = {
-  [MISSION_TYPES.DONATE]: {
-    name: 'Make a Donation',
-    desc: 'Give forward to help someone in need',
-  },
-  [MISSION_TYPES.BUY_COINS]: {
-    name: 'Buy Coins',
-    desc: 'Purchase at least 10 charity coins',
-  },
-  [MISSION_TYPES.REFER]: {
-    name: 'Share Referral',
-    desc: 'Share your referral code with a friend',
-  },
-  [MISSION_TYPES.LEADERBOARD]: {
-    name: 'Check Leaderboard',
-    desc: 'View your ranking and compete',
-  },
-  [MISSION_TYPES.MARKETPLACE]: {
-    name: 'Browse Marketplace',
-    desc: 'Explore marketplace items',
-  },
-  [MISSION_TYPES.PROFILE_UPDATE]: {
-    name: 'Update Profile',
-    desc: 'Complete your profile information',
-  },
-  [MISSION_TYPES.KYC_SUBMIT]: {
-    name: 'Submit KYC',
-    desc: 'Get your identity verified',
-  },
-};
-
 const DAILY_MISSION_SETS = [
   [MISSION_TYPES.DONATE, MISSION_TYPES.BUY_COINS, MISSION_TYPES.REFER],
   [MISSION_TYPES.DONATE, MISSION_TYPES.MARKETPLACE, MISSION_TYPES.LEADERBOARD],
@@ -111,16 +80,10 @@ async function createDailyMissions(userId: string, date: Date) {
       userId,
       date,
       mission1Type: missionSet[0],
-      mission1Name: MISSION_DETAILS[missionSet[0]].name,
-      mission1Desc: MISSION_DETAILS[missionSet[0]].desc,
       mission1Reward: Math.floor(MISSION_REWARDS[missionSet[0]] * multiplier),
       mission2Type: missionSet[1],
-      mission2Name: MISSION_DETAILS[missionSet[1]].name,
-      mission2Desc: MISSION_DETAILS[missionSet[1]].desc,
       mission2Reward: Math.floor(MISSION_REWARDS[missionSet[1]] * multiplier),
       mission3Type: missionSet[2],
-      mission3Name: MISSION_DETAILS[missionSet[2]].name,
-      mission3Desc: MISSION_DETAILS[missionSet[2]].desc,
       mission3Reward: Math.floor(MISSION_REWARDS[missionSet[2]] * multiplier),
       bonusReward: isWeekend ? 75 : 50,
     },
@@ -232,7 +195,7 @@ export async function completeMission(
 // DAILY STREAK
 // ============================================
 
-const STREAK_REWARDS: Record<number, number> = {
+const STREAK_REWARDS = {
   1: 10,
   2: 15,
   3: 20,

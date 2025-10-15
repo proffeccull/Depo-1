@@ -41,7 +41,7 @@ export const saveBTCPayConfig = async (data: {
   const config = await prisma.cryptoPaymentConfig.create({
     data: {
       btcpayServerUrl: data.btcpayServerUrl,
-      btcpayApiKey: data.btcpayApiKey, // TODO: Encrypt this
+      btcpayApiKey: data.btcpayApiKey, // TODO: Implement encryption for sensitive data
       btcpayStoreId: data.btcpayStoreId,
       isEnabled: false, // Default to disabled
     },
@@ -328,10 +328,10 @@ export const confirmPayment = async (
     },
   });
   
-  // TODO: Credit coins to agent's account
+  // TODO: Credit coins to agent's account (requires agent service integration)
   // await creditAgentCoins(payment.agentId, payment.coinAmount);
-  
-  // TODO: Send notification to agent
+  // TODO: Send notification to agent (requires notification service integration)
+
   
   return updated;
 };
@@ -373,8 +373,8 @@ export const rejectPayment = async (
       details: JSON.stringify({ reason: data.reason }),
     },
   });
-  
-  // TODO: Send notification to agent
+  // TODO: Send notification to agent (requires notification service integration)
+
   
   return updated;
 };
@@ -590,7 +590,7 @@ export const initiateAgentCryptoPurchase = async (data: {
   
   // Calculate crypto amount
   const exchangeRate = EXCHANGE_RATES[cryptoCoin.symbol] || 1;
-  const cryptoAmount = Number((ngnAmount / exchangeRate).toFixed(8));
+  const cryptoAmount = (ngnAmount / exchangeRate).toFixed(8);
   
   // Calculate expiry (30 minutes from now)
   const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
@@ -625,7 +625,7 @@ export const initiateAgentCryptoPurchase = async (data: {
     },
   });
   
-  // TODO: Create BTCPay invoice
+  // TODO: Create BTCPay invoice (requires BTCPay integration)
   // const invoice = await createBTCPayInvoice({ ... });
   
   return {

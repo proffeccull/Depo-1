@@ -31,6 +31,18 @@ import uploadRoutes from './routes/upload.routes';
 import referralRoutes from './routes/referral.routes';
 import disputeRoutes from './routes/dispute.routes';
 import coinPurchaseRoutes from './routes/coinPurchase.routes';
+import subscriptionRoutes from './routes/subscription.routes';
+
+// Premium Feature Routes
+import analyticsRoutes from './routes/analytics.routes';
+import socialRoutes from './routes/social.routes';
+import aiRoutes from './routes/ai.routes';
+import cryptoGatewayRoutes from './routes/cryptoGateway.routes';
+import merchantRoutes from './routes/merchant.routes';
+import corporateRoutes from './routes/corporate.routes';
+import gamificationRoutes from './routes/gamification.routes';
+import gamificationAdminRoutes from './routes/gamificationAdmin.routes';
+import webhooksRoutes from './routes/webhooks.routes';
 
 // Load environment variables
 dotenv.config();
@@ -90,6 +102,18 @@ app.use(`/${API_VERSION}/upload`, uploadRoutes);
 app.use(`/${API_VERSION}/referrals`, referralRoutes);
 app.use(`/${API_VERSION}/disputes`, disputeRoutes);
 app.use(`/${API_VERSION}/coins/purchase`, coinPurchaseRoutes);
+app.use(`/${API_VERSION}/subscriptions`, subscriptionRoutes);
+
+// Premium Feature Routes
+app.use(`/${API_VERSION}/analytics`, analyticsRoutes);
+app.use(`/${API_VERSION}/social`, socialRoutes);
+app.use(`/${API_VERSION}/ai`, aiRoutes);
+app.use(`/${API_VERSION}/crypto`, cryptoGatewayRoutes);
+app.use(`/${API_VERSION}/merchants`, merchantRoutes);
+app.use(`/${API_VERSION}/corporate`, corporateRoutes);
+
+// Webhook Routes (no auth required)
+app.use('/webhooks', webhooksRoutes);
 
 // Serve uploaded files statically
 app.use('/uploads', express.static('uploads'));

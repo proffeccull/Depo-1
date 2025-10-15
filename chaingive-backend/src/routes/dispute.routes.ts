@@ -9,7 +9,6 @@ const router = Router();
 
 // All routes require authentication
 router.use(authenticate);
-router.use(requireFeature('disputes'));
 
 /**
  * User Endpoints
@@ -18,6 +17,7 @@ router.use(requireFeature('disputes'));
 // Create dispute
 router.post(
   '/create',
+  requireFeature('disputes'),
   validate(disputeValidation.createDisputeSchema),
   disputeController.createDispute
 );

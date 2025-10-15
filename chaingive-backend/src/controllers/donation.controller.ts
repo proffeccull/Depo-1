@@ -91,7 +91,7 @@ export const giveDonation = async (req: AuthRequest, res: Response, next: NextFu
           data: {
             status: 'fulfilled',
             givenTransactionId: txn.id,
-            fulfilledAt: new Date(),
+            givenAt: new Date(),
           },
         });
 
@@ -180,9 +180,7 @@ export const giveDonation = async (req: AuthRequest, res: Response, next: NextFu
         recipient.email,
         recipient.firstName,
         amount,
-        req.user!.firstName,
-        transactionRef,
-        new Date()
+        donor.firstName
       );
     }
 
@@ -274,8 +272,8 @@ export const confirmReceipt = async (req: AuthRequest, res: Response, next: Next
         if (donor) {
           await sendReceiptConfirmationSMS(
             donor.phoneNumber,
-            Number(transaction.amount),
-            req.user!.firstName
+            donor.firstName,
+            Number(transaction.amount)
           );
 
           // Send email confirmation
@@ -284,7 +282,7 @@ export const confirmReceipt = async (req: AuthRequest, res: Response, next: Next
               donor.email,
               donor.firstName,
               Number(transaction.amount),
-              req.user!.firstName,
+              recipient.firstName,
               transaction.transactionRef
             );
           }

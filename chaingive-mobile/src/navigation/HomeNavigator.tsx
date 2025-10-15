@@ -46,7 +46,6 @@ const HomeNavigator: React.FC = () => {
   );
 };
 
-export default HomeNavigator;;
-};
+export default HomeNavigator;
 
 export default HomeNavigator;

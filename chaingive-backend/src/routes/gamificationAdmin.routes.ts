@@ -1,15 +1,12 @@
 import { Router } from 'express';
 import { authenticate, requireRole } from '../middleware/auth';
 import * as gamificationAdminController from '../controllers/gamificationAdmin.controller';
-import { requireFeature } from '../middleware/featureFlag';
-import { FeatureFlag } from '../services/featureFlags.service';
 
 const router = Router();
 
 // All routes require admin/csc_council role
 router.use(authenticate);
 router.use(requireRole('csc_council', 'agent')); // Agents can view, CSC can edit
-router.use(requireFeature(FeatureFlag.GAMIFICATION));
 
 // ============================================
 // CONFIGURATION

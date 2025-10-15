@@ -1130,3 +1130,265 @@ ALTER TABLE "crypto_payments" ADD CONSTRAINT "crypto_payments_cryptoCoinId_fkey"
 
 -- AddForeignKey
 ALTER TABLE "crypto_payment_logs" ADD CONSTRAINT "crypto_payment_logs_paymentId_fkey" FOREIGN KEY ("paymentId") REFERENCES "crypto_payments"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- CreateTable
+CREATE TABLE "analytics_events" (
+    "id" TEXT NOT NULL,
+    "event_type" TEXT NOT NULL,
+    "event_data" JSONB NOT NULL,
+    "user_id" TEXT,
+    "session_id" TEXT,
+    "device_info" JSONB,
+    "ip_address" TEXT,
+    "user_agent" TEXT,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "analytics_events_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "social_circles" (
+    "id" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "description" TEXT,
+    "creator_id" TEXT NOT NULL,
+    "category" TEXT NOT NULL,
+    "is_private" BOOLEAN NOT NULL DEFAULT false,
+    "member_count" INTEGER NOT NULL DEFAULT 1,
+    "max_members" INTEGER,
+    "rules" TEXT,
+    "image_url" TEXT,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "social_circles_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "social_posts" (
+    "id" TEXT NOT NULL,
+    "author_id" TEXT NOT NULL,
+    "circle_id" TEXT,
+    "content" TEXT NOT NULL,
+    "media_urls" TEXT[],
+    "post_type" TEXT NOT NULL DEFAULT 'text',
+    "is_pinned" BOOLEAN NOT NULL DEFAULT false,
+    "likes_count" INTEGER NOT NULL DEFAULT 0,
+    "comments_count" INTEGER NOT NULL DEFAULT 0,
+    "shares_count" INTEGER NOT NULL DEFAULT 0,
+    "boost_coins" INTEGER NOT NULL DEFAULT 0,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "social_posts_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "ai_recommendations" (
+    "id" TEXT NOT NULL,
+    "user_id" TEXT NOT NULL,
+    "recommendation_type" TEXT NOT NULL,
+    "content" JSONB NOT NULL,
+    "confidence_score" DECIMAL(3,2),
+    "is_viewed" BOOLEAN NOT NULL DEFAULT false,
+    "is_applied" BOOLEAN NOT NULL DEFAULT false,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "ai_recommendations_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "merchant_accounts" (
+    "id" TEXT NOT NULL,
+    "business_name" TEXT NOT NULL,
+    "owner_id" TEXT NOT NULL,
+    "business_type" TEXT NOT NULL,
+    "registration_number" TEXT,
+    "tax_id" TEXT,
+    "address" JSONB,
+    "phone" TEXT,
+    "email" TEXT,
+    "website" TEXT,
+    "logo_url" TEXT,
+    "is_verified" BOOLEAN NOT NULL DEFAULT false,
+    "verification_documents" TEXT[],
+    "rating" DECIMAL(3,2) NOT NULL DEFAULT 0.00,
+    "total_transactions" INTEGER NOT NULL DEFAULT 0,
+    "total_volume" DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+    "commission_rate" DECIMAL(5,4) NOT NULL DEFAULT 0.02,
+    "is_active" BOOLEAN NOT NULL DEFAULT true,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "merchant_accounts_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "corporate_accounts" (
+    "id" TEXT NOT NULL,
+    "company_name" TEXT NOT NULL,
+    "admin_id" TEXT NOT NULL,
+    "company_type" TEXT NOT NULL,
+    "registration_number" TEXT,
+    "tax_id" TEXT,
+    "address" JSONB,
+    "phone" TEXT,
+    "email" TEXT,
+    "website" TEXT,
+    "logo_url" TEXT,
+    "employee_count" INTEGER,
+    "industry" TEXT,
+    "is_verified" BOOLEAN NOT NULL DEFAULT false,
+    "verification_documents" TEXT[],
+    "total_donations" DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+    "active_campaigns" INTEGER NOT NULL DEFAULT 0,
+    "is_active" BOOLEAN NOT NULL DEFAULT true,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "corporate_accounts_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "crypto_gateways" (
+    "id" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "provider" TEXT NOT NULL,
+    "api_endpoint" TEXT NOT NULL,
+    "api_key" TEXT,
+    "webhook_secret" TEXT,
+    "supported_currencies" TEXT[],
+    "min_amount" DECIMAL(12,2),
+    "max_amount" DECIMAL(12,2),
+    "fee_percentage" DECIMAL(5,4),
+    "fee_fixed" DECIMAL(8,2),
+    "is_active" BOOLEAN NOT NULL DEFAULT true,
+    "last_health_check" TIMESTAMP(3),
+    "health_status" TEXT DEFAULT 'unknown',
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "crypto_gateways_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "auction_listings" (
+    "id" TEXT NOT NULL,
+    "seller_id" TEXT NOT NULL,
+    "item_name" TEXT NOT NULL,
+    "description" TEXT,
+    "category" TEXT NOT NULL,
+    "starting_price" INTEGER NOT NULL,
+    "current_price" INTEGER NOT NULL,
+    "buy_now_price" INTEGER,
+    "min_increment" INTEGER NOT NULL DEFAULT 10,
+    "auction_type" TEXT NOT NULL DEFAULT 'english',
+    "status" TEXT NOT NULL DEFAULT 'active',
+    "start_time" TIMESTAMP(3) NOT NULL,
+    "end_time" TIMESTAMP(3) NOT NULL,
+    "winner_id" TEXT,
+    "final_price" INTEGER,
+    "images" TEXT[],
+    "condition" TEXT,
+    "location" TEXT,
+    "shipping_info" JSONB,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "auction_listings_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "battle_pass_seasons" (
+    "id" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "description" TEXT,
+    "start_date" TIMESTAMP(3) NOT NULL,
+    "end_date" TIMESTAMP(3) NOT NULL,
+    "is_active" BOOLEAN NOT NULL DEFAULT false,
+    "total_tiers" INTEGER NOT NULL,
+    "base_xp_requirement" INTEGER NOT NULL,
+    "xp_multiplier" DECIMAL(3,2) NOT NULL DEFAULT 1.00,
+    "premium_multiplier" DECIMAL(3,2) NOT NULL DEFAULT 1.50,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "battle_pass_seasons_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "seasonal_challenges" (
+    "id" TEXT NOT NULL,
+    "season_id" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "description" TEXT NOT NULL,
+    "type" TEXT NOT NULL,
+    "target_value" INTEGER NOT NULL,
+    "reward_coins" INTEGER NOT NULL,
+    "reward_type" TEXT,
+    "start_date" TIMESTAMP(3) NOT NULL,
+    "end_date" TIMESTAMP(3) NOT NULL,
+    "is_active" BOOLEAN NOT NULL DEFAULT true,
+    "participant_count" INTEGER NOT NULL DEFAULT 0,
+    "completion_count" INTEGER NOT NULL DEFAULT 0,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "seasonal_challenges_pkey" PRIMARY KEY ("id")
+);
+
+-- Add indexes for premium features
+CREATE INDEX "analytics_events_event_type_idx" ON "analytics_events"("event_type");
+CREATE INDEX "analytics_events_user_id_idx" ON "analytics_events"("user_id");
+CREATE INDEX "analytics_events_created_at_idx" ON "analytics_events"("created_at");
+
+CREATE INDEX "social_circles_creator_id_idx" ON "social_circles"("creator_id");
+CREATE INDEX "social_circles_category_idx" ON "social_circles"("category");
+CREATE INDEX "social_circles_is_private_idx" ON "social_circles"("is_private");
+
+CREATE INDEX "social_posts_author_id_idx" ON "social_posts"("author_id");
+CREATE INDEX "social_posts_circle_id_idx" ON "social_posts"("circle_id");
+CREATE INDEX "social_posts_created_at_idx" ON "social_posts"("created_at");
+
+CREATE INDEX "ai_recommendations_user_id_idx" ON "ai_recommendations"("user_id");
+CREATE INDEX "ai_recommendations_recommendation_type_idx" ON "ai_recommendations"("recommendation_type");
+
+CREATE INDEX "merchant_accounts_owner_id_idx" ON "merchant_accounts"("owner_id");
+CREATE INDEX "merchant_accounts_business_type_idx" ON "merchant_accounts"("business_type");
+CREATE INDEX "merchant_accounts_is_verified_idx" ON "merchant_accounts"("is_verified");
+
+CREATE INDEX "corporate_accounts_admin_id_idx" ON "corporate_accounts"("admin_id");
+CREATE INDEX "corporate_accounts_company_type_idx" ON "corporate_accounts"("company_type");
+CREATE INDEX "corporate_accounts_is_verified_idx" ON "corporate_accounts"("is_verified");
+
+CREATE INDEX "crypto_gateways_provider_idx" ON "crypto_gateways"("provider");
+CREATE INDEX "crypto_gateways_is_active_idx" ON "crypto_gateways"("is_active");
+
+CREATE INDEX "auction_listings_seller_id_idx" ON "auction_listings"("seller_id");
+CREATE INDEX "auction_listings_category_idx" ON "auction_listings"("category");
+CREATE INDEX "auction_listings_status_idx" ON "auction_listings"("status");
+CREATE INDEX "auction_listings_end_time_idx" ON "auction_listings"("end_time");
+
+CREATE INDEX "battle_pass_seasons_is_active_idx" ON "battle_pass_seasons"("is_active");
+CREATE INDEX "battle_pass_seasons_start_date_end_date_idx" ON "battle_pass_seasons"("start_date", "end_date");
+
+CREATE INDEX "seasonal_challenges_season_id_idx" ON "seasonal_challenges"("season_id");
+CREATE INDEX "seasonal_challenges_is_active_idx" ON "seasonal_challenges"("is_active");
+CREATE INDEX "seasonal_challenges_start_date_end_date_idx" ON "seasonal_challenges"("start_date", "end_date");
+
+-- Add foreign keys for premium features
+ALTER TABLE "analytics_events" ADD CONSTRAINT "analytics_events_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+ALTER TABLE "social_circles" ADD CONSTRAINT "social_circles_creator_id_fkey" FOREIGN KEY ("creator_id") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+ALTER TABLE "social_posts" ADD CONSTRAINT "social_posts_author_id_fkey" FOREIGN KEY ("author_id") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "social_posts" ADD CONSTRAINT "social_posts_circle_id_fkey" FOREIGN KEY ("circle_id") REFERENCES "social_circles"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE "ai_recommendations" ADD CONSTRAINT "ai_recommendations_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE "merchant_accounts" ADD CONSTRAINT "merchant_accounts_owner_id_fkey" FOREIGN KEY ("owner_id") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+ALTER TABLE "corporate_accounts" ADD CONSTRAINT "corporate_accounts_admin_id_fkey" FOREIGN KEY ("admin_id") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+ALTER TABLE "auction_listings" ADD CONSTRAINT "auction_listings_seller_id_fkey" FOREIGN KEY ("seller_id") REFERENCES "users"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "auction_listings" ADD CONSTRAINT "auction_listings_winner_id_fkey" FOREIGN KEY ("winner_id") REFERENCES "users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+ALTER TABLE "seasonal_challenges" ADD CONSTRAINT "seasonal_challenges_season_id_fkey" FOREIGN KEY ("season_id") REFERENCES "battle_pass_seasons"("id") ON DELETE CASCADE ON UPDATE CASCADE;

@@ -175,7 +175,7 @@ Earn 300 coins when you complete 3 cycles! 🎁`,
             <Icon name="share" size={20} color={colors.white} />
             <Text style={styles.shareButtonText}>Share Referral Link</Text>
           </TouchableOpacity>
-        </GradientCard>
+        </View>
       )}
 
       {/* Rewards Info */}
@@ -280,7 +280,6 @@ Earn 300 coins when you complete 3 cycles! 🎁`,
         </>
       )}
     </SafeAreaView>
-  </PageTransition>
   );
 };
 

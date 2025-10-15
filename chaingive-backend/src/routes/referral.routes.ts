@@ -7,14 +7,13 @@ const router = Router();
 
 // All routes require authentication
 router.use(authenticate);
-router.use(requireFeature('referrals'));
 
 /**
  * @route   GET /v1/referrals/my-code
  * @desc    Get user's referral code and stats
  * @access  Private
  */
-router.get('/my-code', referralController.getMyReferralCode);
+router.get('/my-code', requireFeature('referrals'), referralController.getMyReferralCode);
 
 /**
  * @route   GET /v1/referrals/history

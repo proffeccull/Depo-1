@@ -1,259 +1,299 @@
-import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse, AxiosError } from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // API Configuration
-const API_BASE_URL = __DEV__ 
-  ? 'http://localhost:3000/v1' 
-  : 'https://api.chaingive.ng/v1';
-
+const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'https://api.chaingive.com';
 const API_TIMEOUT = 30000; // 30 seconds
 
-// Storage keys
-const TOKEN_KEY = 'auth_token';
-const REFRESH_TOKEN_KEY = 'refresh_token';
+// Request/Response Types
+interface ApiResponse<T = any> {
+  success: boolean;
+  data?: T;
+  error?: string;
+  message?: string;
+}
 
-/**
- * API Client Service
- * Handles all HTTP requests to the ChainGive backend
- */
+interface RequestConfig {
+  method?: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
+  headers?: Record<string, string>;
+  body?: any;
+  timeout?: number;
+}
+
+// HTTP Client Class
 class ApiClient {
-  private client: AxiosInstance;
-  private isRefreshing = false;
-  private failedQueue: any[] = [];
+  private baseURL: string;
+  private timeout: number;
 
-  constructor() {
-    this.client = axios.create({
-      baseURL: API_BASE_URL,
-      timeout: API_TIMEOUT,
-      headers: {
+  constructor(baseURL: string, timeout: number = API_TIMEOUT) {
+    this.baseURL = baseURL;
+    this.timeout = timeout;
+  }
+
+  private async getAuthToken(): Promise<string | null> {
+    try {
+      return await AsyncStorage.getItem('authToken');
+    } catch (error) {
+      console.error('Failed to get auth token:', error);
+      return null;
+    }
+  }
+
+  private async request<T>(
+    endpoint: string,
+    config: RequestConfig = {}
+  ): Promise<ApiResponse<T>> {
+    const {
+      method = 'GET',
+      headers = {},
+      body,
+      timeout = this.timeout,
+    } = config;
+
+    try {
+      const token = await this.getAuthToken();
+      const url = `${this.baseURL}${endpoint}`;
+
+      const requestHeaders: Record<string, string> = {
         'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
-    });
+        ...headers,
+      };
 
-    this.setupInterceptors();
-  }
-
-  /**
-   * Setup request and response interceptors
-   */
-  private setupInterceptors() {
-    // Request interceptor - Add auth token
-    this.client.interceptors.request.use(
-      async (config) => {
-        const token = await this.getToken();
-        if (token) {
-          config.headers.Authorization = `Bearer ${token}`;
-        }
-        return config;
-      },
-      (error) => {
-        return Promise.reject(error);
+      if (token) {
+        requestHeaders.Authorization = `Bearer ${token}`;
       }
-    );
 
-    // Response interceptor - Handle errors and token refresh
-    this.client.interceptors.response.use(
-      (response) => response,
-      async (error: AxiosError) => {
-        const originalRequest: any = error.config;
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeout);
 
-        // If error is 401 and we haven't retried yet
-        if (error.response?.status === 401 && !originalRequest._retry) {
-          if (this.isRefreshing) {
-            // Queue the request while token is being refreshed
-            return new Promise((resolve, reject) => {
-              this.failedQueue.push({ resolve, reject });
-            })
-              .then((token) => {
-                originalRequest.headers.Authorization = `Bearer ${token}`;
-                return this.client(originalRequest);
-              })
-              .catch((err) => Promise.reject(err));
-          }
+      const response = await fetch(url, {
+        method,
+        headers: requestHeaders,
+        body: body ? JSON.stringify(body) : undefined,
+        signal: controller.signal,
+      });
 
-          originalRequest._retry = true;
-          this.isRefreshing = true;
+      clearTimeout(timeoutId);
 
-          try {
-            const refreshToken = await this.getRefreshToken();
-            if (refreshToken) {
-              const response = await this.post('/auth/refresh-token', {
-                refreshToken,
-              });
-              const { accessToken } = response.data;
-              await this.setToken(accessToken);
-
-              // Retry all queued requests
-              this.processQueue(null, accessToken);
-              
-              originalRequest.headers.Authorization = `Bearer ${accessToken}`;
-              return this.client(originalRequest);
-            }
-          } catch (refreshError) {
-            this.processQueue(refreshError, null);
-            await this.clearTokens();
-            return Promise.reject(refreshError);
-          } finally {
-            this.isRefreshing = false;
-          }
-        }
-
-        return Promise.reject(error);
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `HTTP ${response.status}: ${response.statusText}`);
       }
-    );
-  }
 
-  /**
-   * Process queued requests after token refresh
-   */
-  private processQueue(error: any, token: string | null = null) {
-    this.failedQueue.forEach((prom) => {
-      if (error) {
-        prom.reject(error);
-      } else {
-        prom.resolve(token);
+      const data = await response.json();
+      return {
+        success: true,
+        data,
+      };
+    } catch (error: any) {
+      console.error(`API Request failed for ${endpoint}:`, error);
+
+      if (error.name === 'AbortError') {
+        return {
+          success: false,
+          error: 'Request timeout',
+        };
       }
-    });
-    this.failedQueue = [];
-  }
 
-  /**
-   * Get stored auth token
-   */
-  private async getToken(): Promise<string | null> {
-    try {
-      return await AsyncStorage.getItem(TOKEN_KEY);
-    } catch (error) {
-      console.error('Error getting token:', error);
-      return null;
+      return {
+        success: false,
+        error: error.message || 'Network error',
+      };
     }
   }
 
-  /**
-   * Get stored refresh token
-   */
-  private async getRefreshToken(): Promise<string | null> {
-    try {
-      return await AsyncStorage.getItem(REFRESH_TOKEN_KEY);
-    } catch (error) {
-      console.error('Error getting refresh token:', error);
-      return null;
-    }
+  // HTTP Methods
+  async get<T>(endpoint: string, config?: Omit<RequestConfig, 'method' | 'body'>): Promise<ApiResponse<T>> {
+    return this.request<T>(endpoint, { ...config, method: 'GET' });
   }
 
-  /**
-   * Store auth token
-   */
-  public async setToken(token: string): Promise<void> {
-    try {
-      await AsyncStorage.setItem(TOKEN_KEY, token);
-    } catch (error) {
-      console.error('Error storing token:', error);
-    }
+  async post<T>(endpoint: string, data?: any, config?: Omit<RequestConfig, 'method' | 'body'>): Promise<ApiResponse<T>> {
+    return this.request<T>(endpoint, { ...config, method: 'POST', body: data });
   }
 
-  /**
-   * Store refresh token
-   */
-  public async setRefreshToken(token: string): Promise<void> {
-    try {
-      await AsyncStorage.setItem(REFRESH_TOKEN_KEY, token);
-    } catch (error) {
-      console.error('Error storing refresh token:', error);
-    }
+  async put<T>(endpoint: string, data?: any, config?: Omit<RequestConfig, 'method' | 'body'>): Promise<ApiResponse<T>> {
+    return this.request<T>(endpoint, { ...config, method: 'PUT', body: data });
   }
 
-  /**
-   * Clear all tokens
-   */
-  public async clearTokens(): Promise<void> {
-    try {
-      await AsyncStorage.multiRemove([TOKEN_KEY, REFRESH_TOKEN_KEY]);
-    } catch (error) {
-      console.error('Error clearing tokens:', error);
-    }
+  async patch<T>(endpoint: string, data?: any, config?: Omit<RequestConfig, 'method' | 'body'>): Promise<ApiResponse<T>> {
+    return this.request<T>(endpoint, { ...config, method: 'PATCH', body: data });
   }
 
-  /**
-   * GET request
-   */
-  public async get<T = any>(url: string, config?: AxiosRequestConfig): Promise<AxiosResponse<T>> {
-    return this.client.get<T>(url, config);
-  }
-
-  /**
-   * POST request
-   */
-  public async post<T = any>(
-    url: string,
-    data?: any,
-    config?: AxiosRequestConfig
-  ): Promise<AxiosResponse<T>> {
-    return this.client.post<T>(url, data, config);
-  }
-
-  /**
-   * PUT request
-   */
-  public async put<T = any>(
-    url: string,
-    data?: any,
-    config?: AxiosRequestConfig
-  ): Promise<AxiosResponse<T>> {
-    return this.client.put<T>(url, data, config);
-  }
-
-  /**
-   * PATCH request
-   */
-  public async patch<T = any>(
-    url: string,
-    data?: any,
-    config?: AxiosRequestConfig
-  ): Promise<AxiosResponse<T>> {
-    return this.client.patch<T>(url, data, config);
-  }
-
-  /**
-   * DELETE request
-   */
-  public async delete<T = any>(url: string, config?: AxiosRequestConfig): Promise<AxiosResponse<T>> {
-    return this.client.delete<T>(url, config);
-  }
-
-  /**
-   * Upload file with progress tracking
-   */
-  public async uploadFile<T = any>(
-    url: string,
-    formData: FormData,
-    onUploadProgress?: (progressEvent: any) => void
-  ): Promise<AxiosResponse<T>> {
-    return this.client.post<T>(url, formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-      onUploadProgress,
-    });
+  async delete<T>(endpoint: string, config?: Omit<RequestConfig, 'method' | 'body'>): Promise<ApiResponse<T>> {
+    return this.request<T>(endpoint, { ...config, method: 'DELETE' });
   }
 }
 
-// Export singleton instance
-export const apiClient = new ApiClient();
+// Create API client instance
+export const apiClient = new ApiClient(API_BASE_URL);
 
-// Export typed error handler
-export const handleApiError = (error: any): string => {
-  if (axios.isAxiosError(error)) {
-    if (error.response) {
-      // Server responded with error
-      return error.response.data?.message || error.response.data?.error || 'Server error occurred';
-    } else if (error.request) {
-      // Request made but no response
-      return 'Network error. Please check your internet connection.';
-    }
-  }
-  return error.message || 'An unexpected error occurred';
+// API Endpoints
+export const API_ENDPOINTS = {
+  // Authentication
+  AUTH: {
+    LOGIN: '/auth/login',
+    REGISTER: '/auth/register',
+    LOGOUT: '/auth/logout',
+    REFRESH: '/auth/refresh',
+    VERIFY_OTP: '/auth/verify-otp',
+  },
+
+  // User Management
+  USERS: {
+    PROFILE: '/users/profile',
+    UPDATE_PROFILE: '/users/profile',
+    BALANCE: '/users/balance',
+    TRANSACTIONS: '/users/transactions',
+  },
+
+  // Gamification
+  GAMIFICATION: {
+    ACHIEVEMENTS: '/gamification/achievements',
+    MISSIONS: '/gamification/missions',
+    STREAK: '/gamification/streak',
+    PROGRESS: '/gamification/progress',
+  },
+
+  // Battle Pass
+  BATTLE_PASS: {
+    FETCH: '/gamification/battle-pass',
+    PURCHASE: '/gamification/battle-pass/purchase',
+    CLAIM: '/gamification/battle-pass/claim',
+  },
+
+  // Analytics
+  ANALYTICS: {
+    USER_STATS: '/analytics/user',
+    COIN_FLOW: '/analytics/coin-flow',
+    EXPORT_DATA: '/analytics/export',
+    COIN_DATA_EXPORT: '/analytics/coin-data/export',
+  },
+
+  // Charity Categories
+  CHARITY_CATEGORIES: {
+    LIST: '/charity-categories',
+    CREATE: '/charity-categories',
+    UPDATE: '/charity-categories',
+    DELETE: '/charity-categories',
+    PROGRESS: '/charity-categories/progress',
+    CHALLENGES: '/charity-categories/challenges',
+    LEADERBOARD: '/charity-categories/leaderboard',
+  },
+
+  // Crew System
+  CREW: {
+    LIST: '/crew',
+    CREATE: '/crew',
+    JOIN: '/crew/join',
+    LEAVE: '/crew/leave',
+    MEMBERS: '/crew/members',
+    DONATIONS: '/crew/donations',
+    CHALLENGES: '/crew/challenges',
+    LEADERBOARD: '/crew/leaderboard',
+  },
+
+  // Trust System
+  TRUST: {
+    REVIEWS: '/trust/reviews',
+    SUBMIT_REVIEW: '/trust/reviews',
+    UPLOAD_VIDEO: '/trust/reviews/video',
+    USER_LEVEL: '/trust/level',
+    CHALLENGES: '/trust/challenges',
+    LEADERBOARD: '/trust/leaderboard',
+  },
+
+  // Weekly Targets
+  WEEKLY_TARGETS: {
+    CURRENT: '/weekly-targets/current',
+    GENERATE: '/weekly-targets/generate',
+    UPDATE_PROGRESS: '/weekly-targets/progress',
+    COMPLETE: '/weekly-targets/complete',
+    STATS: '/weekly-targets/stats',
+    LEADERBOARD: '/weekly-targets/leaderboard',
+    AI_SUGGESTIONS: '/weekly-targets/ai-suggestions',
+  },
+
+  // User Levels
+  USER_LEVELS: {
+    CURRENT: '/user-levels/current',
+    PROGRESS: '/user-levels/progress',
+    LEADERBOARD: '/user-levels/leaderboard',
+    AWARD_XP: '/user-levels/xp',
+    UNLOCK_PERK: '/user-levels/perks',
+    MILESTONES: '/user-levels/milestones',
+  },
+
+  // Charitable NFTs
+  NFT: {
+    USER_NFTS: '/nft/user',
+    COLLECTIONS: '/nft/collections',
+    MINT: '/nft/mint',
+    MARKETPLACE: '/nft/marketplace',
+    LIST_FOR_SALE: '/nft/list',
+    PURCHASE: '/nft/purchase',
+    WALLET: '/nft/wallet',
+    GAS_ESTIMATE: '/nft/gas-estimate',
+    HISTORY: '/nft/history',
+  },
+
+  // Marketplace
+  MARKETPLACE: {
+    ITEMS: '/marketplace/items',
+    AUCTIONS: '/marketplace/auctions',
+    BID: '/marketplace/bid',
+    BUY_NOW: '/marketplace/buy-now',
+    PURCHASE: '/marketplace/purchase',
+  },
+
+  // Coin Purchase
+  COIN_PURCHASE: {
+    AGENTS: '/coin-purchase/agents',
+    REQUEST: '/coin-purchase/request',
+    CONFIRM: '/coin-purchase/confirm',
+    HISTORY: '/coin-purchase/history',
+  },
+
+  // Notifications
+  NOTIFICATIONS: {
+    LIST: '/notifications',
+    UNREAD_COUNT: '/notifications/unread',
+    MARK_READ: '/notifications/read',
+    MARK_ALL_READ: '/notifications/read-all',
+    DELETE: '/notifications',
+    REGISTER_TOKEN: '/notifications/token',
+  },
+
+  // WebSocket
+  WEBSOCKET: {
+    CONNECT: '/ws',
+    CREW_UPDATES: '/ws/crew',
+    LEADERBOARD_UPDATES: '/ws/leaderboard',
+    MISSION_UPDATES: '/ws/missions',
+    CHALLENGE_UPDATES: '/ws/challenges',
+  },
+} as const;
+
+// Utility functions
+export const handleApiError = (error: string): string => {
+  // Map common API errors to user-friendly messages
+  const errorMap: Record<string, string> = {
+    'Network request failed': 'Please check your internet connection',
+    'Request timeout': 'Request timed out. Please try again',
+    'Unauthorized': 'Please log in to continue',
+    'Forbidden': 'You don\'t have permission to perform this action',
+    'Not found': 'The requested resource was not found',
+    'Internal server error': 'Something went wrong. Please try again later',
+  };
+
+  return errorMap[error] || error;
 };
 
-export default apiClient;
+export const isNetworkError = (error: string): boolean => {
+  return error.includes('Network') || error.includes('timeout') || error.includes('connection');
+};
+
+export const shouldRetry = (error: string, attemptCount: number): boolean => {
+  return isNetworkError(error) && attemptCount < 3;
+};
+
+// Export types
+export type { ApiResponse, RequestConfig };

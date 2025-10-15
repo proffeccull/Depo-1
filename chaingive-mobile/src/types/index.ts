@@ -10,6 +10,8 @@ export interface User {
   trustScore: number;
   isAgent: boolean;
   isVerified: boolean;
+  role: 'regular' | 'agent' | 'admin'; // User role system
+  permissions: UserPermissions; // Granular permissions
   // Aggregated wallet fields for convenient access in UI
   // Source of truth may live in Wallet; these are mirrored snapshots
   balance?: number;
@@ -17,6 +19,79 @@ export interface User {
   createdAt: string;
   updatedAt: string;
 }
+
+// User Role and Permissions System
+export type UserRole = 'regular' | 'agent' | 'admin';
+
+export interface UserPermissions {
+  // Gamification permissions
+  canCreateCharityCategories: boolean;
+  canManageNFTs: boolean;
+  canModerateReviews: boolean;
+  canManageUsers: boolean;
+  canViewAnalytics: boolean;
+  canManageSystem: boolean;
+
+  // Agent permissions
+  canVerifyUsers: boolean;
+  canProcessDeposits: boolean;
+  canManageCoinPurchases: boolean;
+
+  // Admin permissions
+  canAssignRoles: boolean;
+  canManageAdmins: boolean;
+  canAccessSystemSettings: boolean;
+  canViewAuditLogs: boolean;
+}
+
+// Default permissions for each role
+export const DEFAULT_PERMISSIONS: Record<UserRole, UserPermissions> = {
+  regular: {
+    canCreateCharityCategories: false,
+    canManageNFTs: false,
+    canModerateReviews: false,
+    canManageUsers: false,
+    canViewAnalytics: false,
+    canManageSystem: false,
+    canVerifyUsers: false,
+    canProcessDeposits: false,
+    canManageCoinPurchases: false,
+    canAssignRoles: false,
+    canManageAdmins: false,
+    canAccessSystemSettings: false,
+    canViewAuditLogs: false,
+  },
+  agent: {
+    canCreateCharityCategories: false,
+    canManageNFTs: false,
+    canModerateReviews: false,
+    canManageUsers: false,
+    canViewAnalytics: false,
+    canManageSystem: false,
+    canVerifyUsers: true,
+    canProcessDeposits: true,
+    canManageCoinPurchases: true,
+    canAssignRoles: false,
+    canManageAdmins: false,
+    canAccessSystemSettings: false,
+    canViewAuditLogs: false,
+  },
+  admin: {
+    canCreateCharityCategories: true,
+    canManageNFTs: true,
+    canModerateReviews: true,
+    canManageUsers: true,
+    canViewAnalytics: true,
+    canManageSystem: true,
+    canVerifyUsers: true,
+    canProcessDeposits: true,
+    canManageCoinPurchases: true,
+    canAssignRoles: true,
+    canManageAdmins: true,
+    canAccessSystemSettings: true,
+    canViewAuditLogs: true,
+  },
+};
 
 // Wallet Types
 export interface Wallet {
@@ -171,6 +246,94 @@ export type RootStackParamList = {
   Auth: undefined;
   Main: undefined;
   Onboarding: undefined;
+  // Premium screens
+  NFTGallery: undefined;
+  NFTMinting: { achievementId: string };
+  SocialFeed: undefined;
+  SocialChallenges: undefined;
+  PredictiveInsights: undefined;
+  GivingPredictions: undefined;
+  CoinBattlePass: undefined;
+  CoinAnalytics: undefined;
+  // Advanced Gamification screens
+  CharityCategories: undefined;
+  CrewDashboard: undefined;
+  TrustReviewHub: undefined;
+  WeeklyTargets: undefined;
+  UserLevels: undefined;
+  CharitableNFTGallery: undefined;
+  // Merchant screens
+  MerchantDirectory: undefined;
+  MerchantDetail: { merchantId: string };
+  QRPayment: { merchantId: string; amount: number };
+  MerchantDashboard: undefined;
+  // Corporate screens
+  CorporateSignup: undefined;
+  CorporateDashboard: undefined;
+  TeamManagement: undefined;
+  CSRTracking: undefined;
+  BulkOperations: undefined;
+  // AI screens
+  SmartAssistant: undefined;
+  DonationRecommendationCard: { recommendationId: string };
+  OptimalTimingWidget: undefined;
+  AIInsightsDashboard: undefined;
+  AIMatching: undefined;
+  AIRecommendations: undefined;
+  // Crypto Gateway screens
+  CryptoGatewaySelection: undefined;
+  CoinPurchaseAmount: { gateway: string };
+  CryptoPayment: { purchaseId: string };
+  PaymentStatus: { transactionId: string };
+  CryptoTransactionHistory: undefined;
+  // Analytics screens
+  DonationHeatmap: undefined;
+  GivingTrends: undefined;
+  CoinROI: undefined;
+  SocialImpactScore: undefined;
+  // Social screens
+  CircleChat: { circleId: string };
+  CircleLeaderboard: { circleId: string };
+  PostDetail: { postId: string };
+  BoostPost: { postId: string };
+  LiveEvents: undefined;
+  EventDetail: { eventId: string };
+  EventParticipants: { eventId: string };
+  EventResults: { eventId: string };
+  // Advanced Gamification screens
+  ChallengeDetail: { challengeId: string };
+  ChallengeProgress: { challengeId: string };
+  ChallengeRewards: { challengeId: string };
+  BattlePassRewards: { seasonId: string };
+  BattlePassProgress: { seasonId: string };
+  // Marketplace 2.0 screens
+  AuctionDetail: { auctionId: string };
+  BidHistory: { auctionId: string };
+  MyBids: undefined;
+  LiveAuction: { auctionId: string };
+  PriceAlerts: undefined;
+  P2PMarketplace: undefined;
+  ListItem: undefined;
+  TradeDetail: { tradeId: string };
+  MyListings: undefined;
+  // Subscription screens
+  SubscriptionPlans: undefined;
+  SubscriptionManagement: undefined;
+  SubscriptionSuccess: { plan: any };
+  AutoRenewalSettings: undefined;
+  CoinPayment: { planId: string; amount: number };
+  // Admin screens
+  AdminDashboard: undefined;
+  UserManagement: { filter?: string };
+  TransactionMonitoring: { filter?: string };
+  DisputeManagement: undefined;
+  CryptoPaymentSettings: undefined;
+  CryptoPaymentConfirmation: undefined;
+  AuctionManagement: undefined;
+  NFTManagement: undefined;
+  GamificationAdmin: undefined;
+  CreateChallenge: undefined;
+  ManageAchievements: undefined;
 };
 
 export type AuthStackParamList = {
@@ -198,7 +361,7 @@ export type HomeStackParamList = {
   DepositScreen: undefined;
   WithdrawScreen: undefined;
   TransactionHistory: undefined;
-  TransactionDetail: { transactionId: string };
+  TransactionDetailHome: { transactionId: string };
   CycleDetail: { cycleId: string };
   CycleHistory: undefined;
   CoinPurchase: undefined;
@@ -210,12 +373,16 @@ export type HomeStackParamList = {
   TransactionMonitoring: { filter?: string };
   DisputeManagement: undefined;
   UserDetail: { userId: string };
-  TransactionDetail: { transactionId: string };
+  TransactionDetailAdmin: { transactionId: string };
   ActivityLog: undefined;
   AgentManagement: undefined;
   AdminSettings: undefined;
   CryptoPaymentSettings: undefined;
   CryptoPaymentConfirmation: undefined;
+  // Gamification Admin
+  GamificationAdminDashboard: undefined;
+  UserRoleManagement: { userId?: string };
+  PermissionManagement: { role?: UserRole };
 };
 
 export type MarketplaceStackParamList = {

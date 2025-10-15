@@ -2,15 +2,12 @@ import { Router } from 'express';
 import * as agentController from '../controllers/agent.controller';
 import { authenticate, requireRole } from '../middleware/auth';
 import { validate } from '../middleware/validation';
-import { requireFeature } from '../middleware/featureFlag';
-import { FeatureFlag } from '../services/featureFlags.service';
 import * as agentValidation from '../validations/agent.validation';
 
 const router = Router();
 
 // All routes require authentication
 router.use(authenticate);
-router.use(requireFeature(FeatureFlag.AGENT_NETWORK));
 
 /**
  * @route   GET /v1/agents/dashboard

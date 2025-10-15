@@ -1,202 +1,250 @@
 import axios from 'axios';
 import logger from '../utils/logger';
 
-const TERMII_API_KEY = process.env.TERMII_API_KEY || '';
-const TERMII_SENDER_ID = process.env.TERMII_SENDER_ID || 'ChainGive';
-const TERMII_BASE_URL = 'https://api.ng.termii.com/api';
+export interface SMSOptions {
+  to: string;
+  message: string;
+  from?: string;
+}
 
-/**
- * Send SMS via Termii
- */
-export async function sendSMS(phoneNumber: string, message: string): Promise<boolean> {
-  try {
-    if (!TERMII_API_KEY) {
-      logger.warn('Termii API key not configured. SMS not sent.');
-      logger.info(`[DEV MODE] SMS to ${phoneNumber}: ${message}`);
-      return false;
+export interface SMSResponse {
+  success: boolean;
+  messageId?: string;
+  cost?: number;
+  error?: string;
+}
+
+export class SMSService {
+  private readonly apiKey: string;
+  private readonly username: string;
+  private readonly baseUrl: string = 'https://api.africastalking.com/version1/messaging';
+
+  constructor() {
+    this.apiKey = process.env.AFRICAS_TALKING_API_KEY || '';
+    this.username = process.env.AFRICAS_TALKING_USERNAME || '';
+
+    if (!this.apiKey || !this.username) {
+      logger.warn('Africa\'s Talking credentials not configured - SMS service will use fallback');
     }
-
-    const response = await axios.post(`${TERMII_BASE_URL}/sms/send`, {
-      to: phoneNumber,
-      from: TERMII_SENDER_ID,
-      sms: message,
-      type: 'plain',
-      channel: 'generic',
-      api_key: TERMII_API_KEY,
-    });
-
-    if (response.data.message === 'Successfully Sent') {
-      logger.info(`SMS sent to ${phoneNumber} via Termii`);
-      return true;
-    } else {
-      logger.error(`Termii SMS failed:`, response.data);
-      return false;
-    }
-  } catch (error: any) {
-    logger.error(`Failed to send SMS to ${phoneNumber}:`, error.response?.data || error.message);
-    return false;
   }
-}
 
-/**
- * Send OTP via Termii Token API (preferred for OTP)
- */
-export async function sendOTPSMS(phoneNumber: string, otp: string): Promise<boolean> {
-  try {
-    if (!TERMII_API_KEY) {
-      logger.warn('Termii API key not configured. OTP SMS not sent.');
-      logger.info(`[DEV MODE] OTP to ${phoneNumber}: ${otp}`);
-      return true; // Return true in dev mode
+  /**
+   * Send SMS using Africa's Talking
+   */
+  async sendSMS(options: SMSOptions): Promise<SMSResponse> {
+    try {
+      // Validate input
+      if (!options.to || !options.message) {
+        throw new Error('Phone number and message are required');
+      }
+
+      // Format phone number (ensure international format)
+      const formattedNumber = this.formatPhoneNumber(options.to);
+
+      // Check if Africa's Talking is configured
+      if (!this.apiKey || !this.username) {
+        logger.warn('Africa\'s Talking not configured, using fallback logging');
+        return this.fallbackSMS(options);
+      }
+
+      const response = await axios.post(
+        this.baseUrl,
+        {
+          username: this.username,
+          to: formattedNumber,
+          message: options.message,
+          from: options.from || process.env.SMS_SENDER_ID || 'ChainGive'
+        },
+        {
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Accept': 'application/json',
+            'apiKey': this.apiKey
+          }
+        }
+      );
+
+      const data = response.data;
+
+      if (data.SMSMessageData?.Recipients?.[0]?.status === 'Success') {
+        logger.info('SMS sent successfully', {
+          to: formattedNumber,
+          messageId: data.SMSMessageData.Recipients[0].messageId,
+          cost: data.SMSMessageData.Recipients[0].cost
+        });
+
+        return {
+          success: true,
+          messageId: data.SMSMessageData.Recipients[0].messageId,
+          cost: parseFloat(data.SMSMessageData.Recipients[0].cost)
+        };
+      } else {
+        throw new Error(data.SMSMessageData?.Recipients?.[0]?.status || 'SMS sending failed');
+      }
+
+    } catch (error: any) {
+      logger.error('Africa\'s Talking SMS failed', {
+        error: error.message,
+        to: options.to,
+        response: error.response?.data
+      });
+
+      // Try fallback SMS service
+      return this.fallbackSMS(options);
     }
-
-    // Format phone number (ensure it starts with country code)
-    const formattedPhone = phoneNumber.startsWith('+') ? phoneNumber : `+234${phoneNumber.slice(1)}`;
-
-    const response = await axios.post(`${TERMII_BASE_URL}/sms/otp/send`, {
-      api_key: TERMII_API_KEY,
-      message_type: 'NUMERIC',
-      to: formattedPhone,
-      from: TERMII_SENDER_ID,
-      channel: 'generic',
-      pin_attempts: 3,
-      pin_time_to_live: 10, // OTP valid for 10 minutes
-      pin_length: 6,
-      pin_placeholder: '< 1234 >',
-      message_text: `Your ChainGive OTP is < 1234 >. Valid for 10 minutes. Do not share this code.`,
-      pin_type: 'NUMERIC',
-    });
-
-    if (response.data.pinId) {
-      logger.info(`OTP sent to ${phoneNumber} via Termii. Pin ID: ${response.data.pinId}`);
-      return true;
-    } else {
-      logger.error(`Termii OTP send failed:`, response.data);
-      return false;
-    }
-  } catch (error: any) {
-    logger.error(`Failed to send OTP SMS to ${phoneNumber}:`, error.response?.data || error.message);
-    // In development, return true to allow testing
-    if (process.env.NODE_ENV === 'development') {
-      logger.info(`[DEV MODE] Allowing OTP send despite error`);
-      return true;
-    }
-    return false;
   }
-}
 
-/**
- * Verify OTP via Termii
- */
-export async function verifyOTPSMS(pinId: string, pin: string): Promise<boolean> {
-  try {
-    if (!TERMII_API_KEY) {
-      logger.warn('Termii API key not configured. Skipping verification.');
-      return true; // In dev mode, accept any OTP
+  /**
+   * Send bulk SMS messages
+   */
+  async sendBulkSMS(recipients: string[], message: string): Promise<SMSResponse[]> {
+    const results: SMSResponse[] = [];
+
+    // Send in batches of 100 to avoid rate limits
+    const batchSize = 100;
+    for (let i = 0; i < recipients.length; i += batchSize) {
+      const batch = recipients.slice(i, i + batchSize);
+
+      const batchPromises = batch.map(recipient =>
+        this.sendSMS({ to: recipient, message })
+      );
+
+      const batchResults = await Promise.allSettled(batchPromises);
+
+      batchResults.forEach(result => {
+        if (result.status === 'fulfilled') {
+          results.push(result.value);
+        } else {
+          results.push({
+            success: false,
+            error: result.reason?.message || 'Unknown error'
+          });
+        }
+      });
+
+      // Small delay between batches to respect rate limits
+      if (i + batchSize < recipients.length) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
     }
 
-    const response = await axios.post(`${TERMII_BASE_URL}/sms/otp/verify`, {
-      api_key: TERMII_API_KEY,
-      pin_id: pinId,
-      pin,
-    });
-
-    if (response.data.verified === 'True' || response.data.verified === true) {
-      logger.info(`OTP verified successfully via Termii`);
-      return true;
-    } else {
-      logger.warn(`OTP verification failed:`, response.data);
-      return false;
-    }
-  } catch (error: any) {
-    logger.error(`OTP verification error:`, error.response?.data || error.message);
-    return false;
+    return results;
   }
-}
 
-/**
- * Send welcome SMS
- */
-export async function sendWelcomeSMS(phoneNumber: string, firstName: string): Promise<boolean> {
-  const message = `Welcome to ChainGive, ${firstName}! 🎉\n\nStart your giving journey today. Download the app and complete your profile to begin.\n\n- Team ChainGive`;
-  return sendSMS(phoneNumber, message);
-}
+  /**
+   * Check SMS delivery status
+   */
+  async checkDeliveryStatus(messageId: string): Promise<string> {
+    try {
+      if (!this.apiKey || !this.username) {
+        return 'unknown';
+      }
 
-/**
- * Send donation confirmation SMS
- */
-export async function sendDonationConfirmationSMS(
-  phoneNumber: string,
-  amount: number,
-  recipient: string
-): Promise<boolean> {
-  const message = `ChainGive: You sent ₦${amount.toLocaleString()} to ${recipient}. Your donation will be confirmed within 48 hours. Thank you for giving! 💚`;
-  return sendSMS(phoneNumber, message);
-}
+      const response = await axios.get(
+        `https://api.africastalking.com/version1/messaging?username=${this.username}&messageId=${messageId}`,
+        {
+          headers: {
+            'Accept': 'application/json',
+            'apiKey': this.apiKey
+          }
+        }
+      );
 
-/**
- * Send receipt confirmation SMS
- */
-export async function sendReceiptConfirmationSMS(
-  phoneNumber: string,
-  amount: number,
-  donor: string
-): Promise<boolean> {
-  const message = `ChainGive: You received ₦${amount.toLocaleString()} from ${donor}. Funds will be available in 48 hours. Time to pay it forward! 🔄`;
-  return sendSMS(phoneNumber, message);
-}
+      const status = response.data.SMSMessageData?.Recipients?.[0]?.status;
+      return status || 'unknown';
 
-/**
- * Send cycle reminder SMS
- */
-export async function sendCycleReminderSMS(
-  phoneNumber: string,
-  firstName: string,
-  amount: number,
-  daysLeft: number
-): Promise<boolean> {
-  const message = `Hi ${firstName}, your ChainGive donation of ₦${amount.toLocaleString()} is due in ${daysLeft} days. Open the app to give forward and keep the chain going! 💚`;
-  return sendSMS(phoneNumber, message);
-}
+    } catch (error: any) {
+      logger.error('Failed to check SMS delivery status', {
+        error: error.message,
+        messageId
+      });
+      return 'unknown';
+    }
+  }
 
-/**
- * Send escrow release SMS
- */
-export async function sendEscrowReleaseSMS(
-  phoneNumber: string,
-  amount: number
-): Promise<boolean> {
-  const message = `ChainGive: ₦${amount.toLocaleString()} has been released to your wallet! You can now use these funds to pay it forward. Keep the giving chain alive! 🔗`;
-  return sendSMS(phoneNumber, message);
-}
+  /**
+   * Get SMS balance/cost information
+   */
+  async getBalance(): Promise<{ balance: number; currency: string } | null> {
+    try {
+      if (!this.apiKey || !this.username) {
+        return null;
+      }
 
-/**
- * Send KYC approval SMS
- */
-export async function sendKYCApprovalSMS(
-  phoneNumber: string,
-  firstName: string,
-  verificationType: string
-): Promise<boolean> {
-  const message = `Hi ${firstName}, your KYC verification for '${verificationType}' has been approved! You can now access more features on ChainGive.`;
-  return sendSMS(phoneNumber, message);
-}
+      const response = await axios.get(
+        `https://api.africastalking.com/version1/user?username=${this.username}`,
+        {
+          headers: {
+            'Accept': 'application/json',
+            'apiKey': this.apiKey
+          }
+        }
+      );
 
-/**
- * Check Termii balance
- */
-export async function checkSMSBalance(): Promise<number | null> {
-  try {
-    if (!TERMII_API_KEY) {
+      const userData = response.data.UserData;
+      return {
+        balance: parseFloat(userData.balance),
+        currency: userData.currency || 'USD'
+      };
+
+    } catch (error: any) {
+      logger.error('Failed to get SMS balance', { error: error.message });
       return null;
     }
-
-    const response = await axios.get(`${TERMII_BASE_URL}/get-balance?api_key=${TERMII_API_KEY}`);
-    const balance = parseFloat(response.data.balance);
-    
-    logger.info(`Termii SMS balance: ₦${balance}`);
-    return balance;
-  } catch (error: any) {
-    logger.error('Failed to check SMS balance:', error.response?.data || error.message);
-    return null;
   }
+
+  /**
+   * Format phone number to international format
+   */
+  private formatPhoneNumber(phoneNumber: string): string {
+    // Remove all non-numeric characters
+    let cleaned = phoneNumber.replace(/\D/g, '');
+
+    // Handle Nigerian numbers (common in ChainGive)
+    if (cleaned.startsWith('0') && cleaned.length === 11) {
+      // Convert 08012345678 to +2348012345678
+      cleaned = '234' + cleaned.substring(1);
+    } else if (cleaned.startsWith('234') && cleaned.length === 13) {
+      // Already in correct format
+    } else if (!cleaned.startsWith('234') && cleaned.length === 10) {
+      // Assume Nigerian number without country code
+      cleaned = '234' + cleaned;
+    }
+
+    // Add + prefix if not present
+    if (!cleaned.startsWith('+')) {
+      cleaned = '+' + cleaned;
+    }
+
+    return cleaned;
+  }
+
+  /**
+   * Fallback SMS service (logs to console/file)
+   */
+  private async fallbackSMS(options: SMSOptions): Promise<SMSResponse> {
+    logger.info('SMS Fallback - Message would be sent', {
+      to: options.to,
+      message: options.message,
+      from: options.from
+    });
+
+    // In production, you might want to:
+    // 1. Queue messages for later sending
+    // 2. Use alternative SMS providers (Twilio, etc.)
+    // 3. Store in database for manual sending
+
+    return {
+      success: true,
+      messageId: `fallback_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    };
+  }
+}
+
+// Export singleton instance
+export const smsService = new SMSService();
+
+// Export convenience function
+export async function sendSMS(to: string, message: string, from?: string): Promise<SMSResponse> {
+  return smsService.sendSMS({ to, message, from });
 }

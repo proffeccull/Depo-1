@@ -169,7 +169,7 @@ export const approvePurchase = async (req: AuthRequest, res: Response, next: Nex
       `Admin ${adminId} approved purchase ${purchaseId}, credited ${purchase.quantity} coins to agent ${purchase.agent.agentCode}`
     );
 
-    // TODO: Send notification to agent
+    // TODO: Send notification to agent (requires notification service integration)
     // await sendPushNotification(
     //   purchase.agent.userId,
     //   'Coin Purchase Approved',
@@ -232,7 +232,7 @@ export const rejectPurchase = async (req: AuthRequest, res: Response, next: Next
       `Admin ${adminId} rejected purchase ${purchaseId} for agent ${purchase.agent.agentCode}`
     );
 
-    // TODO: Send notification to agent
+    // TODO: Send notification to agent (requires notification service integration)
     // await sendPushNotification(
     //   purchase.agent.userId,
     //   'Coin Purchase Rejected',

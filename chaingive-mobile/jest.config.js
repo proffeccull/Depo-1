@@ -1,12 +1,9 @@
 module.exports = {
-  preset: 'jest-expo',
-  testEnvironment: 'jsdom',
-  transform: {
-    '^.+\\.[jt]sx?$': 'babel-jest',
-  },
+  preset: 'react-native',
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
+  setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
   transformIgnorePatterns: [
-    'node_modules/(?!(jest-)?react-native|@react-native-community|expo(nent)?|@expo(nent)?/.*|react-navigation|@react-navigation/.*|@unimodules/.*|unimodules|sentry-expo|native-base|react-native-svg|react-native-vector-icons|lottie-react-native|react-native-linear-gradient|react-native-confetti-cannon)',
+    'node_modules/(?!(react-native|@react-native|@react-navigation|react-navigation|@react-native-community|expo-.*|@expo|@expo-google-fonts|react-native-svg|react-native-vector-icons|lottie-react-native|react-native-linear-gradient|react-native-confetti-cannon)/)',
   ],
   testPathIgnorePatterns: ['/node_modules/', '/android/', '/ios/'],
   collectCoverageFrom: [
@@ -28,4 +25,5 @@ module.exports = {
     '^@/(.*)$': '<rootDir>/src/$1',
     '\\.(jpg|jpeg|png|gif|svg)$': '<rootDir>/__mocks__/fileMock.js',
   },
+  testEnvironment: 'node',
 };

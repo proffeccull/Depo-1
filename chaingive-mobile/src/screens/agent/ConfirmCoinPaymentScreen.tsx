@@ -15,7 +15,7 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 import * as Haptics from 'expo-haptics';
 
 import { agentService, PendingCoinPurchase } from '../../services/agentService';
-import Button from '../../components/ui/Button';
+import Button from '../../components/common/Button';
 import Modal from '../../components/common/Modal';
 import Input from '../../components/common/Input';
 import { colors } from '../../theme/colors';
@@ -248,29 +248,29 @@ const ConfirmCoinPaymentScreen: React.FC = () => {
         {/* Actions */}
         <View style={styles.actionButtons}>
           <Button
-            label="Call User"
+            title="Call User"
             onPress={() => handleCallUser(purchase.user.phoneNumber)}
             variant="outline"
             icon="phone"
             size="small"
-            className="flex-1"
+            style={styles.actionButton}
           />
           <Button
-            label="Confirm Payment"
+            title="Confirm Payment"
             onPress={() => handleConfirmPayment(purchase)}
             variant="primary"
             icon="check-circle"
             size="small"
-            className="flex-1"
+            style={styles.actionButton}
           />
         </View>
         
         <Button
-          label="Payment Not Received"
+          title="Payment Not Received"
           onPress={() => handleReject(purchase)}
-          variant="ghost"
+          variant="text"
           size="small"
-          className="mt-0"
+          style={styles.rejectButton}
         />
       </View>
     );
@@ -348,16 +348,18 @@ const ConfirmCoinPaymentScreen: React.FC = () => {
             </View>
 
             <Button
-              label="Yes, I Received Payment"
+              title="Yes, I Received Payment"
               onPress={processConfirmation}
               loading={confirming}
               variant="primary"
-              className="mb-4"
+              fullWidth
+              style={styles.confirmButton}
             />
             <Button
-              label="Cancel"
+              title="Cancel"
               onPress={() => setShowConfirmModal(false)}
               variant="outline"
+              fullWidth
             />
           </View>
         )}
@@ -391,22 +393,35 @@ const ConfirmCoinPaymentScreen: React.FC = () => {
             />
 
             <Button
-              label="Reject Request"
+              title="Reject Request"
               onPress={processRejection}
-              variant="premium"
-              className="mt-2 mb-4"
+              variant="danger"
+              fullWidth
+              style={styles.rejectSubmitButton}
             />
             <Button
-              label="Cancel"
+              title="Cancel"
               onPress={() => {
                 setShowRejectModal(false);
                 setRejectReason('');
               }}
               variant="outline"
+              fullWidth
             />
           </View>
         )}
       </Modal>
+
+      {/* Success Animation */}
+      {showSuccess && (
+        <LottieSuccess
+          size={200}
+          onComplete={() => setShowSuccess(false)}
+        />
+      )}
+
+      {/* Celebration for successful release */}
+      {showCelebration && <ConfettiCelebration visible={true} />}
     </SafeAreaView>
   );
 };
@@ -532,6 +547,9 @@ const styles = StyleSheet.create({
   actionButton: {
     flex: 1,
   },
+  rejectButton: {
+    marginTop: 0,
+  },
   emptyState: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -580,16 +598,6 @@ const styles = StyleSheet.create({
     color: colors.warning,
     marginLeft: spacing.sm,
     flex: 1,
-  },
-  rejectInfo: {
-    ...typography.bodyRegular,
-    color: colors.text.secondary,
-    marginBottom: spacing.md,
-  },
-});
-
-export default ConfirmCoinPaymentScreen;
-lex: 1,
   },
   confirmButton: {
     marginBottom: spacing.sm,

@@ -2,8 +2,6 @@ import { Router } from 'express';
 import * as adminController from '../controllers/admin.controller';
 import { authenticate, requireRole } from '../middleware/auth';
 import { validate } from '../middleware/validation';
-import { requireFeature } from '../middleware/featureFlag';
-import { FeatureFlag } from '../services/featureFlags.service';
 import Joi from 'joi';
 
 const router = Router();
@@ -11,7 +9,6 @@ const router = Router();
 // All routes require authentication and admin/csc_council role
 router.use(authenticate);
 router.use(requireRole('csc_council', 'agent')); // Placeholder for 'admin' role
-router.use(requireFeature(FeatureFlag.ADMIN_PANEL));
 
 /**
  * User Management

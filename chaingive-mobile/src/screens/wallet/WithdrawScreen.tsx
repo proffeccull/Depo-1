@@ -17,7 +17,7 @@ import * as Haptics from 'expo-haptics';
 import { RootState } from '../../store/store';
 import { walletService } from '../../services/walletService';
 import Input from '../../components/common/Input';
-import Button from '../../components/ui/Button';
+import Button from '../../components/common/Button';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 import { spacing, layout } from '../../theme/spacing';
@@ -298,7 +298,7 @@ const WithdrawScreen: React.FC = () => {
 
         {/* Withdraw Button */}
         <Button
-          label="Withdraw Funds"
+          title="Withdraw Funds"
           onPress={handleWithdraw}
           loading={loading}
           disabled={
@@ -310,7 +310,8 @@ const WithdrawScreen: React.FC = () => {
             !accountName.trim()
           }
           icon="send"
-          className="mx-4"
+          fullWidth
+          style={styles.withdrawButton}
         />
         </ScrollView>
 
@@ -497,6 +498,9 @@ const styles = StyleSheet.create({
     ...typography.bodySmall,
     color: colors.text.secondary,
     lineHeight: 20,
+  },
+  withdrawButton: {
+    marginHorizontal: layout.screenPadding,
   },
 });
 

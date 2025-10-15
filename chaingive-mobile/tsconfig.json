@@ -3,6 +3,7 @@
     "target": "esnext",
     "module": "commonjs",
     "lib": ["es2017"],
+    "types": ["jest"],
     "jsx": "react-native",
     "strict": true,
     "esModuleInterop": true,

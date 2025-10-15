@@ -13,6 +13,7 @@ import LoadingSpinner from './components/common/LoadingSpinner';
 import { colors } from './theme/colors';
 import GlobalToastHost from './components/common/GlobalToastHost';
 import pushNotificationService from './services/pushNotificationService';
+import logger from './utils/logger';
 
 // Component that initializes push notifications
 const PushNotificationInitializer: React.FC = () => {
@@ -21,9 +22,9 @@ const PushNotificationInitializer: React.FC = () => {
     const initPushNotifications = async () => {
       try {
         await pushNotificationService.initialize();
-        console.log('✅ Push notifications initialized');
+        logger.info('Push notifications initialized successfully');
       } catch (error) {
-        console.error('❌ Failed to initialize push notifications:', error);
+        logger.error('Failed to initialize push notifications', error as Error);
       }
     };
 

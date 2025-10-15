@@ -24,7 +24,7 @@ import {
   PulseRing,
   ShimmerEffect,
 } from '../../components/animations';
-import Button from '../../components/ui/Button';
+import Button from '../../components/common/Button';
 import Input from '../../components/common/Input';
 
 const VerifyUserScreen: React.FC = () => {
@@ -161,12 +161,13 @@ const VerifyUserScreen: React.FC = () => {
 
             {!userFound && (
               <Button
-                label={loading ? 'Searching...' : 'Search User'}
+                title={loading ? 'Searching...' : 'Search User'}
                 onPress={handleVerify}
                 loading={loading}
                 variant="primary"
                 icon="search"
-                className="mt-4"
+                fullWidth
+                style={styles.searchButton}
               />
             )}
           </View>
@@ -209,17 +210,19 @@ const VerifyUserScreen: React.FC = () => {
               {/* Action Buttons */}
               <View style={styles.actionButtons}>
                 <Button
-                  label="Approve Verification"
+                  title="Approve Verification"
                   onPress={handleApproveVerification}
                   variant="primary"
                   icon="check-circle"
-                  className="mb-4"
+                  fullWidth
+                  style={styles.approveButton}
                 />
                 <Button
-                  label="Reject"
+                  title="Reject"
                   onPress={handleRejectVerification}
                   variant="outline"
                   icon="cancel"
+                  fullWidth
                 />
               </View>
             </View>
@@ -319,6 +322,9 @@ const styles = StyleSheet.create({
     padding: spacing.md,
     marginBottom: spacing.lg,
   },
+  searchButton: {
+    marginTop: spacing.md,
+  },
   userCard: {
     backgroundColor: colors.white,
     borderRadius: 16,
@@ -397,6 +403,9 @@ const styles = StyleSheet.create({
   },
   actionButtons: {
     gap: spacing.sm,
+  },
+  approveButton: {
+    marginBottom: spacing.sm,
   },
   tipsCard: {
     backgroundColor: colors.white,

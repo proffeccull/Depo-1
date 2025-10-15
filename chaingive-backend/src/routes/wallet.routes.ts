@@ -3,7 +3,7 @@ import * as walletController from '../controllers/wallet.controller';
 import { authenticate } from '../middleware/auth';
 import { validate } from '../middleware/validation';
 import * as walletValidation from '../validations/wallet.validation';
-import { tierBasedRateLimiter } from '../middleware/advancedRateLimiter';
+import { rateLimitMiddleware, withdrawalLimiter } from '../middleware/advancedRateLimiter';
 
 const router = Router();
 
@@ -44,9 +44,9 @@ router.post('/deposit', validate(walletValidation.depositSchema), walletControll
  * @access  Private
  */
 router.post(
-  '/withdraw',
-  tierBasedRateLimiter(5, 10, 20, 3600),
-  validate(walletValidation.withdrawSchema),
+  '/withdraw', 
+  rateLimitMiddleware(withdrawalLimiter, 'Too many withdrawal requests'),
+  validate(walletValidation.withdrawSchema), 
   walletController.initiateWithdrawal
 );
 

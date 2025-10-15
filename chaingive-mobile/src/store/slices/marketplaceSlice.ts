@@ -1,315 +1,340 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import { MarketplaceItem, Redemption } from '../../types';
-import { marketplaceAPI } from '../../api/marketplace';
-import { analytics } from '../../services/analyticsService';
 
-// Mock marketplace data
-const mockMarketplaceItems: MarketplaceItem[] = [
-  {
-    id: '1',
-    vendorId: 'vendor-1',
-    name: 'MTN Airtime ₦100',
-    description: 'MTN airtime recharge for ₦100',
-    category: 'airtime',
-    price: 50, // 50 Charity Coins
-    originalPrice: 100,
-    image: 'https://example.com/mtn-airtime.png',
-    inStock: true,
-    rating: 4.8,
-    reviewCount: 245,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: '2',
-    vendorId: 'vendor-1',
-    name: 'Airtel Data 1GB',
-    description: '1GB data bundle for Airtel',
-    category: 'data',
-    price: 75,
-    originalPrice: 350,
-    image: 'https://example.com/airtel-data.png',
-    inStock: true,
-    rating: 4.6,
-    reviewCount: 189,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: '3',
-    vendorId: 'vendor-2',
-    name: 'Netflix Gift Card ₦2,500',
-    description: 'Netflix gift card worth ₦2,500',
-    category: 'vouchers',
-    price: 1250,
-    originalPrice: 2500,
-    image: 'https://example.com/netflix-voucher.png',
-    inStock: true,
-    rating: 4.9,
-    reviewCount: 67,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-  {
-    id: '4',
-    vendorId: 'vendor-3',
-    name: 'Grocery Delivery',
-    description: 'Free grocery delivery service',
-    category: 'services',
-    price: 25,
-    image: 'https://example.com/grocery-delivery.png',
-    inStock: true,
-    rating: 4.4,
-    reviewCount: 123,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-];
+// Types
+interface MarketplaceItem {
+  id: string;
+  name: string;
+  description: string;
+  category: 'airtime' | 'data' | 'vouchers' | 'nft' | 'premium' | 'cosmetic';
+  price: number; // coins
+  originalPrice?: number; // for discounts
+  image: string;
+  stock: number;
+  sold: number;
+  rating: number;
+  reviews: number;
+  seller: {
+    id: string;
+    name: string;
+    verified: boolean;
+  };
+  tags: string[];
+  featured: boolean;
+  limitedTime?: boolean;
+  expiresAt?: string;
+  coinback?: number; // coins earned back
+  createdAt: string;
+}
 
-const mockRedemptions: Redemption[] = [
-  {
-    id: 'redemption-1',
-    userId: '1',
-    itemId: '1',
-    quantity: 1,
-    totalCoins: 50,
-    status: 'completed',
-    deliveryInfo: {
-      phoneNumber: '+2348012345678',
-    },
-    voucherCode: 'MTN-ABC123',
-    createdAt: new Date(Date.now() - 86400000).toISOString(), // 1 day ago
-    updatedAt: new Date(Date.now() - 86400000).toISOString(),
-  },
-];
+interface AuctionItem {
+  id: string;
+  item: MarketplaceItem;
+  startingBid: number;
+  currentBid: number;
+  minimumIncrement: number;
+  totalBids: number;
+  highestBidder?: {
+    id: string;
+    name: string;
+  };
+  auctioneer: {
+    id: string;
+    name: string;
+    verified: boolean;
+  };
+  startTime: string;
+  endTime: string;
+  status: 'upcoming' | 'active' | 'ended' | 'cancelled';
+  winner?: {
+    id: string;
+    name: string;
+    bidAmount: number;
+  };
+  reservePrice?: number;
+  buyNowPrice?: number;
+}
+
+interface Bid {
+  id: string;
+  auctionId: string;
+  bidderId: string;
+  bidderName: string;
+  amount: number;
+  timestamp: string;
+  autoBid?: boolean;
+  maxAutoBid?: number;
+}
+
+interface MarketplaceFilters {
+  category?: string;
+  priceRange?: { min: number; max: number };
+  rating?: number;
+  inStock?: boolean;
+  featured?: boolean;
+  sellerVerified?: boolean;
+  sortBy?: 'price_asc' | 'price_desc' | 'rating' | 'newest' | 'popular';
+}
 
 interface MarketplaceState {
   items: MarketplaceItem[];
-  filteredItems: MarketplaceItem[];
-  redemptions: Redemption[];
-  selectedCategory: string | null;
+  auctions: AuctionItem[];
+  featuredItems: MarketplaceItem[];
+  userBids: Bid[];
+  filters: MarketplaceFilters;
   searchQuery: string;
   loading: boolean;
   error: string | null;
-  page: number;
-  hasMore: boolean;
-  inStockOnly: boolean;
-  sort: 'price_asc' | 'price_desc' | 'rating_desc' | 'newest';
+  auctionsEnabled: boolean;
+  lastUpdated: string | null;
 }
 
+// Initial state
 const initialState: MarketplaceState = {
   items: [],
-  filteredItems: [],
-  redemptions: [],
-  selectedCategory: null,
+  auctions: [],
+  featuredItems: [],
+  userBids: [],
+  filters: {},
   searchQuery: '',
   loading: false,
   error: null,
-  page: 1,
-  hasMore: true,
-  inStockOnly: false,
-  sort: 'newest',
+  auctionsEnabled: false,
+  lastUpdated: null,
 };
 
 // Async thunks
 export const fetchMarketplaceItems = createAsyncThunk(
   'marketplace/fetchItems',
-  async (
-    params: { page?: number; limit?: number } | void,
-    { getState }
-  ) => {
-    try {
-      const state = getState() as { marketplace: typeof initialState };
-      const category = state.marketplace.selectedCategory || undefined;
-      const q = state.marketplace.searchQuery || undefined;
-      const inStock = state.marketplace.inStockOnly || undefined;
-      const sort = state.marketplace.sort || undefined;
-      const page = params?.page ?? 1;
-      const limit = params?.limit ?? 20;
-      const res = await marketplaceAPI.getListings({ limit, category, q, page, inStock, sort });
-      const data: any = res.data;
-      return (data?.items || data || mockMarketplaceItems) as MarketplaceItem[];
-    } catch (_err) {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      return mockMarketplaceItems;
+  async (filters?: MarketplaceFilters) => {
+    const queryParams = new URLSearchParams();
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          if (typeof value === 'object') {
+            queryParams.append(key, JSON.stringify(value));
+          } else {
+            queryParams.append(key, String(value));
+          }
+        }
+      });
     }
+    const response = await fetch(`/api/marketplace/items?${queryParams}`);
+    return response.json();
   }
 );
 
-export const fetchRedemptions = createAsyncThunk(
-  'marketplace/fetchRedemptions',
-  async (userId: string) => {
-    try {
-      const res = await marketplaceAPI.getRedemptions();
-      const data: any = res.data;
-      return (data?.items || data || mockRedemptions) as Redemption[];
-    } catch (_err) {
-      await new Promise(resolve => setTimeout(resolve, 800));
-      return mockRedemptions;
-    }
+export const fetchAuctions = createAsyncThunk(
+  'marketplace/fetchAuctions',
+  async (status?: string) => {
+    const query = status ? `?status=${status}` : '';
+    const response = await fetch(`/api/marketplace/auctions${query}`);
+    return response.json();
   }
 );
 
-export const redeemItem = createAsyncThunk(
-  'marketplace/redeemItem',
-  async (redemptionData: {
+export const placeBid = createAsyncThunk(
+  'marketplace/placeBid',
+  async ({ auctionId, amount, userId }: {
+    auctionId: string;
+    amount: number;
+    userId: string;
+  }) => {
+    const response = await fetch('/api/marketplace/bids', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ auctionId, amount, userId }),
+    });
+    return response.json();
+  }
+);
+
+export const buyNow = createAsyncThunk(
+  'marketplace/buyNow',
+  async ({ auctionId, userId }: { auctionId: string; userId: string }) => {
+    const response = await fetch(`/api/marketplace/auctions/${auctionId}/buy-now`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId }),
+    });
+    return response.json();
+  }
+);
+
+export const purchaseItem = createAsyncThunk(
+  'marketplace/purchaseItem',
+  async ({ itemId, quantity, userId }: {
     itemId: string;
     quantity: number;
-    deliveryInfo: {
-      phoneNumber?: string;
-      email?: string;
-      address?: string;
-    };
+    userId: string;
   }) => {
-    try {
-      const res = await marketplaceAPI.redeem({
-        listingId: redemptionData.itemId,
-        quantity: redemptionData.quantity,
-        deliveryInfo: redemptionData.deliveryInfo,
-      });
-      analytics.track('redeem_initiated', { itemId: redemptionData.itemId, quantity: redemptionData.quantity });
-      return res.data as Redemption;
-    } catch (_err) {
-      // Mock fallback
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      const item = mockMarketplaceItems.find(item => item.id === redemptionData.itemId);
-      if (!item) {
-        throw new Error('Item not found');
-      }
-      const totalCoins = item.price * redemptionData.quantity;
-      const newRedemption: Redemption = {
-        id: 'redemption-' + Date.now(),
-        userId: '1',
-        itemId: redemptionData.itemId,
-        quantity: redemptionData.quantity,
-        totalCoins,
-        status: 'processing',
-        deliveryInfo: redemptionData.deliveryInfo,
-        voucherCode:
-          item.category === 'airtime' || item.category === 'data'
-            ? `${item.name.split(' ')[0].toUpperCase()}-${Math.random().toString(36).substr(2, 6).toUpperCase()}`
-            : undefined,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-      analytics.track('redeem_mock', { itemId: redemptionData.itemId, quantity: redemptionData.quantity });
-      return newRedemption;
-    }
+    const response = await fetch('/api/marketplace/purchase', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ itemId, quantity, userId }),
+    });
+    return response.json();
   }
 );
 
+export const createAuction = createAsyncThunk(
+  'marketplace/createAuction',
+  async (auctionData: {
+    itemId: string;
+    startingBid: number;
+    reservePrice?: number;
+    buyNowPrice?: number;
+    duration: number; // hours
+    userId: string;
+  }) => {
+    const response = await fetch('/api/marketplace/auctions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(auctionData),
+    });
+    return response.json();
+  }
+);
+
+export const fetchUserBids = createAsyncThunk(
+  'marketplace/fetchUserBids',
+  async (userId: string) => {
+    const response = await fetch(`/api/marketplace/bids/user/${userId}`);
+    return response.json();
+  }
+);
+
+export const toggleAuctions = createAsyncThunk(
+  'marketplace/toggleAuctions',
+  async ({ enabled, adminId }: { enabled: boolean; adminId: string }) => {
+    const response = await fetch('/api/marketplace/admin/auctions/toggle', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled, adminId }),
+    });
+    return response.json();
+  }
+);
+
+// Slice
 const marketplaceSlice = createSlice({
   name: 'marketplace',
   initialState,
   reducers: {
-    clearError: (state) => {
-      state.error = null;
+    updateItem: (state, action: PayloadAction<MarketplaceItem>) => {
+      const index = state.items.findIndex(item => item.id === action.payload.id);
+      if (index !== -1) {
+        state.items[index] = action.payload;
+      }
     },
-    setSelectedCategory: (state, action: PayloadAction<string | null>) => {
-      state.selectedCategory = action.payload;
-      state.page = 1;
-      state.filteredItems = filterItems(state.items, action.payload, state.searchQuery);
+    updateAuction: (state, action: PayloadAction<AuctionItem>) => {
+      const index = state.auctions.findIndex(auction => auction.id === action.payload.id);
+      if (index !== -1) {
+        state.auctions[index] = action.payload;
+      }
+    },
+    addBid: (state, action: PayloadAction<Bid>) => {
+      state.userBids.unshift(action.payload);
+    },
+    setFilters: (state, action: PayloadAction<MarketplaceFilters>) => {
+      state.filters = action.payload;
     },
     setSearchQuery: (state, action: PayloadAction<string>) => {
       state.searchQuery = action.payload;
-      state.page = 1;
-      state.filteredItems = filterItems(state.items, state.selectedCategory, action.payload);
     },
-    clearFilters: (state) => {
-      state.selectedCategory = null;
-      state.searchQuery = '';
-      state.inStockOnly = false;
-      state.sort = 'newest';
-      state.filteredItems = state.items;
+    clearMarketplaceError: (state) => {
+      state.error = null;
     },
-    setInStockOnly: (state, action: PayloadAction<boolean>) => {
-      state.inStockOnly = action.payload;
-    },
-    setSort: (state, action: PayloadAction<MarketplaceState['sort']>) => {
-      state.sort = action.payload;
-    },
+    resetMarketplaceState: () => initialState,
   },
   extraReducers: (builder) => {
+    // Fetch marketplace items
     builder
-      // Fetch marketplace items
       .addCase(fetchMarketplaceItems.pending, (state) => {
         state.loading = true;
-        state.error = null;
       })
       .addCase(fetchMarketplaceItems.fulfilled, (state, action) => {
         state.loading = false;
-        const fetchedItems = action.payload;
-        const page = (action.meta.arg as any)?.page ?? 1;
-        const limit = (action.meta.arg as any)?.limit ?? 20;
-        if (page > 1) {
-          state.items = [...state.items, ...fetchedItems];
-        } else {
-          state.items = fetchedItems;
-        }
-        state.filteredItems = filterItems(state.items, state.selectedCategory, state.searchQuery);
-        state.page = page;
-        state.hasMore = fetchedItems.length >= limit;
+        state.items = action.payload.items;
+        state.featuredItems = action.payload.featured;
+        state.lastUpdated = new Date().toISOString();
       })
       .addCase(fetchMarketplaceItems.rejected, (state, action) => {
         state.loading = false;
         state.error = action.error.message || 'Failed to fetch marketplace items';
-      })
-      
-      // Fetch redemptions
-      .addCase(fetchRedemptions.fulfilled, (state, action) => {
-        state.redemptions = action.payload;
-      })
-      
-      // Redeem item
-      .addCase(redeemItem.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(redeemItem.fulfilled, (state, action) => {
-        state.loading = false;
-        state.redemptions.unshift(action.payload);
-        try {
-          analytics.track('redeem_success', { redemptionId: action.payload.id, itemId: action.payload.itemId, quantity: action.payload.quantity });
-        } catch {}
-      })
-      .addCase(redeemItem.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.error.message || 'Failed to redeem item';
-        try {
-          analytics.track('redeem_failure', { error: state.error });
-        } catch {}
+      });
+
+    // Fetch auctions
+    builder
+      .addCase(fetchAuctions.fulfilled, (state, action) => {
+        state.auctions = action.payload;
+      });
+
+    // Place bid
+    builder
+      .addCase(placeBid.fulfilled, (state, action) => {
+        // Update auction with new bid
+        const auction = state.auctions.find(a => a.id === action.payload.auctionId);
+        if (auction) {
+          auction.currentBid = action.payload.amount;
+          auction.totalBids += 1;
+          auction.highestBidder = {
+            id: action.payload.bidderId,
+            name: action.payload.bidderName,
+          };
+        }
+        state.userBids.unshift(action.payload);
+      });
+
+    // Buy now
+    builder
+      .addCase(buyNow.fulfilled, (state, action) => {
+        // Mark auction as ended with winner
+        const auction = state.auctions.find(a => a.id === action.payload.auctionId);
+        if (auction) {
+          auction.status = 'ended';
+          auction.winner = action.payload.winner;
+        }
+      });
+
+    // Purchase item
+    builder
+      .addCase(purchaseItem.fulfilled, (state, action) => {
+        // Update item stock
+        const item = state.items.find(i => i.id === action.payload.itemId);
+        if (item) {
+          item.stock -= action.payload.quantity;
+          item.sold += action.payload.quantity;
+        }
+      });
+
+    // Create auction
+    builder
+      .addCase(createAuction.fulfilled, (state, action) => {
+        state.auctions.unshift(action.payload);
+      });
+
+    // Fetch user bids
+    builder
+      .addCase(fetchUserBids.fulfilled, (state, action) => {
+        state.userBids = action.payload;
+      });
+
+    // Toggle auctions
+    builder
+      .addCase(toggleAuctions.fulfilled, (state, action) => {
+        state.auctionsEnabled = action.payload.enabled;
       });
   },
 });
 
-// Helper function to filter items
-const filterItems = (
-  items: MarketplaceItem[], 
-  category: string | null, 
-  searchQuery: string
-): MarketplaceItem[] => {
-  let filtered = items;
-  
-  if (category) {
-    filtered = filtered.filter(item => item.category === category);
-  }
-  
-  if (searchQuery) {
-    const query = searchQuery.toLowerCase();
-    filtered = filtered.filter(item => 
-      item.name.toLowerCase().includes(query) ||
-      item.description.toLowerCase().includes(query)
-    );
-  }
-  
-  return filtered;
-};
-
-export const { 
-  clearError, 
-  setSelectedCategory, 
-  setSearchQuery, 
-  clearFilters 
+export const {
+  updateItem,
+  updateAuction,
+  addBid,
+  setFilters,
+  setSearchQuery,
+  clearMarketplaceError,
+  resetMarketplaceState,
 } = marketplaceSlice.actions;
 
 export default marketplaceSlice.reducer;

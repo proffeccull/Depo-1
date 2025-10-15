@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "ChainGive",
-    "slug": "chaingive-mobile",
+    "slug": "depo",
     "version": "2.4.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -68,8 +68,9 @@
     "scheme": "chaingive",
     "extra": {
       "eas": {
-        "projectId": "your-project-id-here"
+        "projectId": "98cd198e-0be0-4d67-b4a4-60537858b227"
       }
-    }
+    },
+    "owner": "mt-4ff"
   }
 }

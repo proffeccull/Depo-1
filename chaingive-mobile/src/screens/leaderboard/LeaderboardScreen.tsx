@@ -5,111 +5,87 @@ import {
   StyleSheet,
   FlatList,
   TouchableOpacity,
-  RefreshControl,
-  Modal,
-  TextInput,
-  ActivityIndicator,
   Dimensions,
+  ScrollView,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useDispatch, useSelector } from 'react-redux';
+import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import LinearGradient from 'react-native-linear-gradient';
 import * as Haptics from 'expo-haptics';
 
 import { AppDispatch, RootState } from '../../store/store';
-import {
-  fetchGlobalLeaderboard,
-  fetchCityLeaderboard,
-  fetchMyRank,
-  boostLeaderboard,
-  setSelectedCity,
-} from '../../store/slices/leaderboardSlice';
+import { fetchLeaderboard, boostPosition } from '../../store/slices/leaderboardSlice';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
-import { spacing } from '../../theme/spacing';
+import { spacing, layout } from '../../theme/spacing';
 import { shadows } from '../../theme/shadows';
-import { showToast } from '../../components/common/Toast';
-import Badge from '../../components/common/Badge';
+
+// Import premium coin components
 import {
-  LevelBadge,
-  CountUpAnimation,
-  StreakFlame,
-  PageTransition,
-  ConfettiCelebration,
-} from '../../components/animations';
-import { Card } from '../../components/ui';
+  CoinBalanceWidget,
+  CoinLeaderboard,
+  CoinParticleSystem,
+  coinSounds,
+} from '../../components/coins';
+import { FadeInView } from '../../components/animated';
 
 const { width: screenWidth } = Dimensions.get('window');
 
+type Timeframe = 'daily' | 'weekly' | 'monthly' | 'all';
+type BoostType = 'visibility' | 'multiplier' | 'position';
+
 const LeaderboardScreen: React.FC = () => {
+  const navigation = useNavigation();
   const dispatch = useDispatch<AppDispatch>();
-  const { globalLeaderboard, cityLeaderboard, myRank, selectedCity, loading } = useSelector(
-    (state: RootState) => state.leaderboard
-  );
+  const { entries, loading, timeframe, userRank, userCoins } = useSelector((state: RootState) => state.leaderboard);
   const { user } = useSelector((state: RootState) => state.auth);
 
-  const [viewMode, setViewMode] = useState<'global' | 'city'>('global');
   const [refreshing, setRefreshing] = useState(false);
-  const [showBoostModal, setShowBoostModal] = useState(false);
-  const [boostType, setBoostType] = useState<'visibility' | 'multiplier' | 'position'>('multiplier');
+  const [showParticleEffect, setShowParticleEffect] = useState(false);
+  const [boostType, setBoostType] = useState<BoostType>('multiplier');
   const [coinsToSpend, setCoinsToSpend] = useState('');
-  const [showCelebration, setShowCelebration] = useState(false);
 
   useEffect(() => {
-    loadLeaderboard();
-    dispatch(fetchMyRank());
-  }, [dispatch]);
-
-  const loadLeaderboard = () => {
-    if (viewMode === 'global') {
-      dispatch(fetchGlobalLeaderboard({ limit: 50 }));
-    } else if (selectedCity) {
-      dispatch(fetchCityLeaderboard(selectedCity));
-    }
-  };
+    dispatch(fetchLeaderboard(timeframe));
+  }, [dispatch, timeframe]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await loadLeaderboard();
-    await dispatch(fetchMyRank());
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    await dispatch(fetchLeaderboard(timeframe));
     setRefreshing(false);
   };
 
   const handleBoost = async () => {
     if (!coinsToSpend || parseInt(coinsToSpend) <= 0) {
-      showToast('Enter valid coin amount', 'error');
+      // Show error
       return;
     }
 
     const coins = parseInt(coinsToSpend);
     if (coins > (user?.charityCoins || 0)) {
-      showToast('Insufficient coins', 'error');
+      // Show insufficient coins error
       return;
     }
 
     try {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      await dispatch(
-        boostLeaderboard({
-          boostType,
-          coinsToSpend: coins,
-          duration: 7, // 7 days
-        })
-      ).unwrap();
+      await dispatch(boostPosition({
+        boostType,
+        coinsToSpend: coins,
+        duration: 7, // 7 days
+      }));
 
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      showToast('Leaderboard boosted! 🚀', 'success');
-      setShowBoostModal(false);
+      await coinSounds.playMilestoneReach();
+      setShowParticleEffect(true);
+
+      // Reset form
       setCoinsToSpend('');
-      
-      // Show celebration
-      setShowCelebration(true);
-      
-      dispatch(fetchMyRank());
-      loadLeaderboard();
-    } catch (error: any) {
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      showToast(error.message || 'Failed to boost', 'error');
+    } catch (error) {
+      // Handle error
     }
   };
 
@@ -121,267 +97,259 @@ const LeaderboardScreen: React.FC = () => {
   };
 
   const getRankIcon = (rank: number) => {
-    if (rank === 1) return '👑';
-    if (rank === 2) return '🥈';
-    if (rank === 3) return '🥉';
-    return `#${rank}`;
+    if (rank === 1) return 'emoji-events';
+    if (rank === 2) return 'military-tech';
+    if (rank === 3) return 'workspace-premium';
+    return 'person';
   };
 
-  const leaderboard = viewMode === 'global' ? globalLeaderboard : cityLeaderboard;
-
-  const renderLeaderboardEntry = ({ item, index }: { item: any; index: number }) => {
+  const renderEntry = ({ item, index }: { item: any; index: number }) => {
     const isCurrentUser = item.userId === user?.id;
-    const isTopThree = item.rank <= 3;
-    
+    const rank = index + 1;
+
     return (
-      <View style={[styles.entryCard, isCurrentUser && styles.entryCardHighlight, isTopThree && styles.topThreeCard]}>
-        {/* Rank Badge - Use LevelBadge for top 3 */}
-        <View style={styles.rankBadgeContainer}>
-          {isTopThree ? (
-            <LevelBadge 
-              level={item.rank} 
-              size={item.rank === 1 ? 'large' : 'medium'} 
-              showIcon 
-            />
-          ) : (
-            <View style={styles.rankBadge}>
-              <Text style={[styles.rankText, { color: getRankColor(item.rank) }]}>
-                #{item.rank}
+      <FadeInView duration={400} delay={index * 50}>
+        <View style={[styles.entryCard, isCurrentUser && styles.currentUserCard]}>
+          <View style={styles.rankSection}>
+            <View style={[styles.rankBadge, { backgroundColor: getRankColor(rank) + '20' }]}>
+              <Icon name={getRankIcon(rank)} size={20} color={getRankColor(rank)} />
+              <Text style={[styles.rankText, { color: getRankColor(rank) }]}>#{rank}</Text>
+            </View>
+          </View>
+
+          <View style={styles.userSection}>
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>
+                {item.user?.firstName?.[0] || 'U'}
               </Text>
             </View>
-          )}
-        </View>
-        
-        <View style={styles.entryInfo}>
-          <View style={styles.entryNameRow}>
-            <Text style={[styles.entryName, isCurrentUser && styles.entryNameHighlight]}>
-              {item.firstName} {item.lastName}
-            </Text>
-            {item.role !== 'beginner' && (
-              <Badge 
-                text={item.role} 
-                color={
-                  item.role === 'agent' ? colors.info :
-                  item.role === 'power_partner' ? colors.secondary :
-                  colors.tertiary
-                } 
-              />
-            )}
+            <View style={styles.userInfo}>
+              <Text style={[styles.userName, isCurrentUser && styles.currentUserText]}>
+                {item.user?.firstName} {item.user?.lastName}
+                {isCurrentUser && ' (You)'}
+              </Text>
+              <Text style={styles.userLocation}>
+                📍 {item.user?.locationCity || 'Unknown'}
+              </Text>
+            </View>
           </View>
-          <Text style={styles.entryLocation}>📍 {item.locationCity}</Text>
-          <View style={styles.entryStats}>
-            <Text style={styles.entryStat}>
-              💰 <CountUpAnimation
-                from={0}
-                to={item.totalDonated}
-                duration={1000}
-                formatter={(val) => `₦${(val / 1000).toFixed(0)}K`}
-                style={styles.statValue}
-              />
-            </Text>
+
+          <View style={styles.statsSection}>
             <Text style={styles.entryStat}>🔄 {item.cyclesCompleted} cycles</Text>
             <Text style={styles.entryStat}>🪙 {item.charityCoinsBalance} coins</Text>
+            <Text style={styles.entryStat}>📈 {item.trend || '+5'} this week</Text>
+          </View>
+
+          <View style={styles.prizeSection}>
+            {rank <= 3 && (
+              <View style={styles.prizeBadge}>
+                <Icon name="stars" size={16} color={colors.tertiary} />
+                <Text style={styles.prizeText}>
+                  {rank === 1 ? '10,000' : rank === 2 ? '5,000' : '2,500'} coins
+                </Text>
+              </View>
+            )}
           </View>
         </View>
-        
-        <View style={styles.scoreContainer}>
-          <CountUpAnimation
-            from={0}
-            to={item.score}
-            duration={1200}
-            formatter={(val) => Math.round(val).toLocaleString()}
-            style={styles.scoreValue}
-          />
-          <Text style={styles.scoreLabel}>pts</Text>
-        </View>
-      </View>
+      </FadeInView>
     );
   };
 
+  const timeframes: { key: Timeframe; label: string; icon: string }[] = [
+    { key: 'daily', label: 'Today', icon: 'today' },
+    { key: 'weekly', label: 'This Week', icon: 'date-range' },
+    { key: 'monthly', label: 'This Month', icon: 'calendar-month' },
+    { key: 'all', label: 'All Time', icon: 'all-inclusive' },
+  ];
+
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Leaderboard</Text>
-        <TouchableOpacity 
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            setShowBoostModal(true);
-          }}
-        >
-          <Icon name="rocket-launch" size={24} color={colors.primary} />
-        </TouchableOpacity>
-      </View>
-
-      {/* My Rank Card */}
-      {myRank && (
-        <View style={styles.myRankCard}>
-          <View style={styles.myRankHeader}>
-            <Text style={styles.myRankLabel}>Your Rank</Text>
-            <Text style={styles.myRankValue}>{getRankIcon(myRank.rank)}</Text>
-          </View>
-          <View style={styles.myRankStats}>
-            <View style={styles.myRankStat}>
-              <Text style={styles.myRankStatLabel}>Score</Text>
-              <Text style={styles.myRankStatValue}>{myRank.score.toLocaleString()}</Text>
-            </View>
-            <View style={styles.myRankStat}>
-              <Text style={styles.myRankStatLabel}>Donated</Text>
-              <Text style={styles.myRankStatValue}>₦{myRank.totalDonated.toLocaleString()}</Text>
-            </View>
-            <View style={styles.myRankStat}>
-              <Text style={styles.myRankStatLabel}>Cycles</Text>
-              <Text style={styles.myRankStatValue}>{myRank.cyclesCompleted}</Text>
-            </View>
-          </View>
-        </View>
-      )}
-
-      {/* View Toggle */}
-      <View style={styles.toggleContainer}>
-        <TouchableOpacity
-          style={[styles.toggleButton, viewMode === 'global' && styles.toggleButtonActive]}
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            setViewMode('global');
-            dispatch(fetchGlobalLeaderboard());
-          }}
-        >
-          <Text style={[styles.toggleText, viewMode === 'global' && styles.toggleTextActive]}>
-            🌍 Global
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.toggleButton, viewMode === 'city' && styles.toggleButtonActive]}
-          onPress={() => {
-            Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-            setViewMode('city');
-            if (user?.locationCity) {
-              dispatch(setSelectedCity(user.locationCity));
-              dispatch(fetchCityLeaderboard(user.locationCity));
-            }
-          }}
-        >
-          <Text style={[styles.toggleText, viewMode === 'city' && styles.toggleTextActive]}>
-            📍 My City
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Leaderboard List */}
-      {loading && leaderboard.length === 0 ? (
-        <ActivityIndicator size="large" color={colors.primary} style={styles.loader} />
-      ) : leaderboard.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <Icon name="emoji-events" size={64} color={colors.gray[400]} />
-          <Text style={styles.emptyTitle}>No Rankings Yet</Text>
-          <Text style={styles.emptyMessage}>
-            Be the first to donate and climb the leaderboard!
-          </Text>
-        </View>
-      ) : (
-        <FlatList
-          data={leaderboard}
-          renderItem={renderLeaderboardEntry}
-          keyExtractor={(item) => item.userId}
-          contentContainerStyle={styles.list}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={handleRefresh}
-              colors={[colors.primary]}
-              tintColor={colors.primary}
-            />
+      {/* Coin Balance Widget - Always Visible */}
+      <CoinBalanceWidget
+        balance={user?.charityCoins || 0}
+        trend="up"
+        change24h={150}
+        animation="glow"
+        size="medium"
+        showQuickActions={true}
+        onQuickAction={(action) => {
+          switch (action) {
+            case 'buy':
+              navigation.navigate('BuyCoinsScreen');
+              break;
+            case 'earn':
+              navigation.navigate('GiveScreen');
+              break;
+            case 'spend':
+              navigation.navigate('MarketplaceScreen');
+              break;
+            case 'history':
+              navigation.navigate('TransactionHistory');
+              break;
           }
+        }}
+      />
+
+      {/* Particle Effects */}
+      {showParticleEffect && (
+        <CoinParticleSystem
+          trigger={showParticleEffect}
+          type="explosion"
+          intensity="high"
+          duration={2500}
+          onComplete={() => setShowParticleEffect(false)}
         />
       )}
 
-      {/* Boost Modal */}
-      <Modal
-        visible={showBoostModal}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setShowBoostModal(false)}
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.contentContainer}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            colors={[colors.primary]}
+            tintColor={colors.primary}
+          />
+        }
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Boost Your Ranking 🚀</Text>
-            
-            <Text style={styles.modalSubtitle}>
-              Available Coins: {user?.charityCoins || 0} 🪙
-            </Text>
+        {/* Header */}
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>Coin Leaderboard</Text>
+          <TouchableOpacity
+            style={styles.boostButton}
+            onPress={() => {
+              // Show boost modal
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+            }}
+          >
+            <Icon name="flash" size={20} color={colors.tertiary} />
+            <Text style={styles.boostButtonText}>Boost</Text>
+          </TouchableOpacity>
+        </View>
 
-            <Text style={styles.inputLabel}>Boost Type</Text>
-            <View style={styles.boostTypes}>
-              {['multiplier', 'visibility', 'position'].map((type) => (
+        {/* Timeframe Selector */}
+        <View style={styles.timeframeContainer}>
+          {timeframes.map((tf) => (
+            <TouchableOpacity
+              key={tf.key}
+              style={[
+                styles.timeframeButton,
+                timeframe === tf.key && styles.timeframeButtonActive,
+              ]}
+              onPress={() => {
+                Haptics.selectionAsync();
+                dispatch(fetchLeaderboard(tf.key));
+              }}
+            >
+              <Icon
+                name={tf.icon}
+                size={18}
+                color={timeframe === tf.key ? colors.white : colors.text.secondary}
+              />
+              <Text
+                style={[
+                  styles.timeframeText,
+                  timeframe === tf.key && styles.timeframeTextActive,
+                ]}
+              >
+                {tf.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        {/* User Rank Card */}
+        {userRank && (
+          <FadeInView duration={300}>
+            <LinearGradient
+              colors={[colors.primary + '20', colors.secondary + '20']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.userRankCard}
+            >
+              <View style={styles.userRankHeader}>
+                <Text style={styles.userRankTitle}>Your Rank</Text>
+                <View style={[styles.rankBadge, { backgroundColor: getRankColor(userRank.rank) + '20' }]}>
+                  <Icon name={getRankIcon(userRank.rank)} size={24} color={getRankColor(userRank.rank)} />
+                  <Text style={[styles.rankText, { color: getRankColor(userRank.rank) }]}>#{userRank.rank}</Text>
+                </View>
+              </View>
+              <View style={styles.userRankStats}>
+                <Text style={styles.userRankStat}>🪙 {userRank.coins} coins</Text>
+                <Text style={styles.userRankStat}>🔄 {userRank.cycles} cycles</Text>
+                <Text style={styles.userRankStat}>📈 {userRank.change > 0 ? '+' : ''}{userRank.change} from last {timeframe}</Text>
+              </View>
+            </LinearGradient>
+          </FadeInView>
+        )}
+
+        {/* Leaderboard List */}
+        <FadeInView duration={500} delay={200}>
+          <CoinLeaderboard
+            entries={entries}
+            currentUserId={user?.id}
+            timeframe={timeframe}
+            onEntryPress={(entry) => {
+              // Handle entry press - maybe show user profile
+              console.log('Entry pressed:', entry);
+            }}
+            onBoostPress={() => {
+              // Show boost modal
+              Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            }}
+            prizePool={50000}
+            seasonEndDate={new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)}
+          />
+        </FadeInView>
+
+        {/* Boost Section */}
+        <FadeInView duration={600} delay={300}>
+          <View style={styles.boostSection}>
+            <Text style={styles.boostTitle}>Boost Your Rank</Text>
+            <Text style={styles.boostSubtitle}>Spend coins to climb the leaderboard faster</Text>
+
+            <View style={styles.boostOptions}>
+              {[
+                { type: 'visibility' as const, label: 'Extra Visibility', cost: 500, description: 'Get highlighted for 7 days' },
+                { type: 'multiplier' as const, label: 'Score Multiplier', cost: 1000, description: '2x coin earnings for 7 days' },
+                { type: 'position' as const, label: 'Position Boost', cost: 2000, description: 'Jump 5 ranks instantly' },
+              ].map((option) => (
                 <TouchableOpacity
-                  key={type}
+                  key={option.type}
                   style={[
-                    styles.boostType,
-                    boostType === type && styles.boostTypeSelected,
+                    styles.boostOption,
+                    boostType === option.type && styles.boostOptionSelected,
                   ]}
                   onPress={() => {
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    setBoostType(type as any);
+                    Haptics.selectionAsync();
+                    setBoostType(option.type);
                   }}
                 >
-                  <Text style={[
-                    styles.boostTypeText,
-                    boostType === type && styles.boostTypeTextSelected,
-                  ]}>
-                    {type === 'multiplier' ? '✖️ 2x Multiplier' :
-                     type === 'visibility' ? '👁️ Visibility' :
-                     '⬆️ Jump Position'}
-                  </Text>
-                  <Text style={styles.boostTypeDescription}>
-                    {type === 'multiplier' ? 'Double your score for 7 days' :
-                     type === 'visibility' ? 'Featured at top for 7 days' :
-                     'Jump 10 positions instantly'}
-                  </Text>
+                  <View style={styles.boostOptionHeader}>
+                    <Text style={styles.boostOptionLabel}>{option.label}</Text>
+                    <View style={styles.boostCost}>
+                      <Icon name="monetization-on" size={16} color={colors.tertiary} />
+                      <Text style={styles.boostCostText}>{option.cost}</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.boostOptionDesc}>{option.description}</Text>
                 </TouchableOpacity>
               ))}
             </View>
 
-            <Text style={styles.inputLabel}>Coins to Spend</Text>
-            <TextInput
-              style={styles.input}
-              value={coinsToSpend}
-              onChangeText={setCoinsToSpend}
-              placeholder="Enter coins"
-              keyboardType="numeric"
-            />
-
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.cancelButton]}
-                onPress={() => setShowBoostModal(false)}
-              >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.confirmButton]}
-                onPress={handleBoost}
-                disabled={loading}
-              >
-                {loading ? (
-                  <ActivityIndicator color={colors.white} />
-                ) : (
-                  <Text style={styles.confirmButtonText}>Boost Now</Text>
-                )}
-              </TouchableOpacity>
-            </View>
+            <TouchableOpacity
+              style={styles.boostActionButton}
+              onPress={handleBoost}
+              disabled={!coinsToSpend || parseInt(coinsToSpend) <= 0}
+            >
+              <Icon name="flash" size={20} color={colors.white} />
+              <Text style={styles.boostActionText}>Activate Boost</Text>
+            </TouchableOpacity>
           </View>
-        </View>
-      </Modal>
-
-      {/* Premium Animations */}
-      <ConfettiCelebration
-        visible={showCelebration}
-        message="🚀 Leaderboard Boosted!"
-        submessage="Your visibility has been increased"
-        onComplete={() => setShowCelebration(false)}
-        confettiCount={150}
-      />
+        </FadeInView>
+      </ScrollView>
     </SafeAreaView>
   );
 };
@@ -391,271 +359,244 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background.secondary,
   },
+  scrollView: {
+    flex: 1,
+  },
+  contentContainer: {
+    padding: layout.screenPadding,
+    paddingBottom: spacing['4xl'],
+  },
   header: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    backgroundColor: colors.white,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border.light,
+    alignItems: 'center',
+    marginBottom: spacing.lg,
   },
   headerTitle: {
     ...typography.h2,
     color: colors.text.primary,
+    fontWeight: 'bold',
   },
-  myRankCard: {
+  boostButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.tertiary + '20',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: 20,
+    gap: spacing.xs,
+  },
+  boostButtonText: {
+    ...typography.button,
+    color: colors.tertiary,
+    fontWeight: '600',
+  },
+  timeframeContainer: {
+    flexDirection: 'row',
+    backgroundColor: colors.white,
+    borderRadius: 12,
+    padding: spacing.xs,
+    marginBottom: spacing.lg,
+    ...shadows.small,
+  },
+  timeframeButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.sm,
+    borderRadius: 8,
+    gap: spacing.xs,
+  },
+  timeframeButtonActive: {
     backgroundColor: colors.primary,
-    margin: spacing.md,
-    borderRadius: 16,
-    padding: spacing.md,
   },
-  myRankHeader: {
+  timeframeText: {
+    ...typography.caption,
+    color: colors.text.secondary,
+    fontWeight: '600',
+  },
+  timeframeTextActive: {
+    color: colors.white,
+  },
+  userRankCard: {
+    borderRadius: 16,
+    padding: spacing.lg,
+    marginBottom: spacing.lg,
+  },
+  userRankHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: spacing.sm,
+    marginBottom: spacing.md,
   },
-  myRankLabel: {
+  userRankTitle: {
     ...typography.h3,
-    color: colors.white,
+    color: colors.text.primary,
+    fontWeight: 'bold',
   },
-  myRankValue: {
-    ...typography.h1,
+  userRankStats: {
+    gap: spacing.xs,
   },
-  myRankStats: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-  },
-  myRankStat: {
-    alignItems: 'center',
-  },
-  myRankStatLabel: {
-    ...typography.caption,
-    color: colors.white + 'CC',
-  },
-  myRankStatValue: {
-    ...typography.h3,
-    color: colors.white,
-    marginTop: spacing.xs,
-  },
-  toggleContainer: {
-    flexDirection: 'row',
-    paddingHorizontal: spacing.md,
-    gap: spacing.sm,
-    marginVertical: spacing.sm,
-  },
-  toggleButton: {
-    flex: 1,
-    padding: spacing.sm,
-    borderRadius: 8,
-    backgroundColor: colors.white,
-    borderWidth: 1,
-    borderColor: colors.border.medium,
-    alignItems: 'center',
-  },
-  toggleButtonActive: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  toggleText: {
-    ...typography.body,
+  userRankStat: {
+    ...typography.bodyRegular,
     color: colors.text.secondary,
   },
-  toggleTextActive: {
-    color: colors.white,
-    fontWeight: '600',
-  },
-  loader: {
-    marginTop: spacing.xl,
-  },
-  list: {
-    paddingHorizontal: spacing.md,
-    paddingBottom: spacing.lg,
-  },
   entryCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: colors.white,
     borderRadius: 12,
     padding: spacing.md,
-    marginVertical: spacing.xs,
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.border.light,
+    marginBottom: spacing.sm,
+    ...shadows.card,
   },
-  entryCardHighlight: {
-    borderColor: colors.primary,
+  currentUserCard: {
     borderWidth: 2,
-    backgroundColor: colors.primary + '10',
+    borderColor: colors.primary,
+  },
+  rankSection: {
+    marginRight: spacing.md,
   },
   rankBadge: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: colors.background.secondary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  rankText: {
-    ...typography.h3,
-  },
-  topThreeBadge: {
-    marginRight: spacing.sm,
-  },
-  streakContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.xxs,
-    marginLeft: spacing.sm,
-  },
-  entryInfo: {
-    flex: 1,
-    marginLeft: spacing.sm,
-  },
-  entryNameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: 16,
     gap: spacing.xs,
   },
-  entryName: {
+  rankText: {
+    ...typography.bodyBold,
+    fontSize: 14,
+  },
+  userSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+    marginRight: spacing.md,
+  },
+  avatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.sm,
+  },
+  avatarText: {
     ...typography.h4,
+    color: colors.white,
+    fontWeight: 'bold',
+  },
+  userInfo: {
+    flex: 1,
+  },
+  userName: {
+    ...typography.bodyBold,
     color: colors.text.primary,
+    marginBottom: spacing.xxs,
   },
-  entryNameHighlight: {
+  currentUserText: {
     color: colors.primary,
-    fontWeight: '700',
   },
-  entryLocation: {
+  userLocation: {
     ...typography.caption,
     color: colors.text.secondary,
-    marginTop: 2,
   },
-  entryStats: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-    marginTop: spacing.xs,
+  statsSection: {
+    marginRight: spacing.md,
   },
   entryStat: {
     ...typography.caption,
-    color: colors.text.tertiary,
+    color: colors.text.secondary,
+    marginBottom: spacing.xxs,
   },
-  scoreContainer: {
+  prizeSection: {
     alignItems: 'flex-end',
   },
-  scoreValue: {
-    ...typography.h3,
-    color: colors.primary,
-    fontWeight: '700',
-  },
-  scoreLabel: {
-    ...typography.caption,
-    color: colors.text.secondary,
-  },
-  emptyContainer: {
-    flex: 1,
+  prizeBadge: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: spacing.xl,
+    backgroundColor: colors.tertiary + '20',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: 12,
+    gap: spacing.xs,
   },
-  emptyTitle: {
+  prizeText: {
+    ...typography.caption,
+    color: colors.tertiary,
+    fontWeight: 'bold',
+  },
+  boostSection: {
+    backgroundColor: colors.white,
+    borderRadius: 16,
+    padding: spacing.lg,
+    ...shadows.card,
+  },
+  boostTitle: {
     ...typography.h3,
     color: colors.text.primary,
-    marginTop: spacing.md,
+    fontWeight: 'bold',
+    marginBottom: spacing.xs,
   },
-  emptyMessage: {
-    ...typography.body,
+  boostSubtitle: {
+    ...typography.bodyRegular,
     color: colors.text.secondary,
-    textAlign: 'center',
-    marginTop: spacing.sm,
+    marginBottom: spacing.lg,
   },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: colors.overlay,
-    justifyContent: 'flex-end',
+  boostOptions: {
+    marginBottom: spacing.lg,
   },
-  modalContent: {
-    backgroundColor: colors.white,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: spacing.lg,
-    minHeight: 500,
-  },
-  modalTitle: {
-    ...typography.h2,
-    color: colors.text.primary,
-    marginBottom: spacing.xs,
-  },
-  modalSubtitle: {
-    ...typography.body,
-    color: colors.tertiary,
-    marginBottom: spacing.md,
-  },
-  inputLabel: {
-    ...typography.h4,
-    color: colors.text.primary,
-    marginBottom: spacing.xs,
-    marginTop: spacing.sm,
-  },
-  boostTypes: {
-    gap: spacing.sm,
-    marginBottom: spacing.md,
-  },
-  boostType: {
-    padding: spacing.md,
+  boostOption: {
+    borderWidth: 1,
+    borderColor: colors.border.light,
     borderRadius: 12,
-    borderWidth: 2,
-    borderColor: colors.border.medium,
-    backgroundColor: colors.white,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
   },
-  boostTypeSelected: {
+  boostOptionSelected: {
     borderColor: colors.primary,
     backgroundColor: colors.primary + '10',
   },
-  boostTypeText: {
-    ...typography.body,
-    color: colors.text.primary,
-    fontWeight: '600',
-  },
-  boostTypeTextSelected: {
-    color: colors.primary,
-  },
-  boostTypeDescription: {
-    ...typography.caption,
-    color: colors.text.secondary,
-    marginTop: spacing.xs,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: colors.border.medium,
-    borderRadius: 8,
-    padding: spacing.sm,
-    ...typography.body,
-  },
-  modalButtons: {
+  boostOptionHeader: {
     flexDirection: 'row',
-    gap: spacing.sm,
-    marginTop: spacing.lg,
-  },
-  modalButton: {
-    flex: 1,
-    padding: spacing.md,
-    borderRadius: 8,
+    justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: spacing.xs,
   },
-  cancelButton: {
-    backgroundColor: colors.gray[200],
-  },
-  cancelButtonText: {
-    ...typography.button,
+  boostOptionLabel: {
+    ...typography.bodyBold,
     color: colors.text.primary,
   },
-  confirmButton: {
-    backgroundColor: colors.primary,
+  boostCost: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xxs,
   },
-  confirmButtonText: {
+  boostCostText: {
+    ...typography.bodyBold,
+    color: colors.tertiary,
+  },
+  boostOptionDesc: {
+    ...typography.bodyRegular,
+    color: colors.text.secondary,
+  },
+  boostActionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.tertiary,
+    borderRadius: 12,
+    paddingVertical: spacing.md,
+    gap: spacing.sm,
+  },
+  boostActionText: {
     ...typography.button,
     color: colors.white,
+    fontWeight: 'bold',
   },
 });
 

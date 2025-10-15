@@ -3,14 +3,11 @@ import * as uploadController from '../controllers/upload.controller';
 import { authenticate, requireTier } from '../middleware/auth';
 import { uploadSingle, uploadMultiple } from '../middleware/upload';
 import { rateLimitMiddleware, uploadLimiter } from '../middleware/advancedRateLimiter';
-import { requireFeature } from '../middleware/featureFlag';
-import { FeatureFlag } from '../services/featureFlags.service';
 
 const router = Router();
 
 // All upload routes require authentication
 router.use(authenticate);
-router.use(requireFeature(FeatureFlag.UPLOADS));
 
 /**
  * @route   POST /v1/upload/payment-proof

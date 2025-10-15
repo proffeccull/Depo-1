@@ -22,9 +22,6 @@ export enum FeatureFlag {
   FORCE_RECYCLE = 'force_recycle',
   MATCH_EXPIRATION = 'match_expiration',
   ESCROW_RELEASE = 'escrow_release',
-  ADMIN_PANEL = 'admin_panel',
-  GAMIFICATION = 'gamification',
-  UPLOADS = 'uploads',
 }
 
 /**
@@ -32,10 +29,14 @@ export enum FeatureFlag {
  */
 export async function isFeatureEnabled(featureName: string): Promise<boolean> {
   try {
-    // TODO: Implement feature flags table in database
-    // For now, all features are enabled by default
-    logger.debug(`Feature flag check: ${featureName} (default: enabled)`);
-    return true;
+    const prisma = (await import('../utils/prisma')).default;
+    const featureFlag = await prisma.featureFlag.findUnique({
+      where: { featureName }
+    });
+
+    const isEnabled = featureFlag?.isEnabled ?? true; // Default to enabled if not found
+    logger.debug(`Feature flag check: ${featureName} = ${isEnabled}`);
+    return isEnabled;
   } catch (error) {
     logger.error(`Failed to check feature flag ${featureName}:`, error);
     // Fail open - allow feature if check fails
@@ -51,22 +52,79 @@ export async function toggleFeature(
   isEnabled: boolean,
   adminId: string
 ): Promise<void> {
-  // TODO: Implement feature flags table in database
-  logger.info(`Feature ${featureName} ${isEnabled ? 'enabled' : 'disabled'} by admin ${adminId} (not persisted)`);
+  const prisma = (await import('../utils/prisma')).default;
+
+  await prisma.featureFlag.upsert({
+    where: { featureName },
+    update: {
+      isEnabled,
+      updatedBy: adminId,
+      updatedAt: new Date()
+    },
+    create: {
+      featureName,
+      isEnabled,
+      description: `Feature flag for ${featureName}`,
+      updatedBy: adminId
+    }
+  });
+
+  logger.info(`Feature ${featureName} ${isEnabled ? 'enabled' : 'disabled'} by admin ${adminId}`);
 }
 
 /**
  * Get all feature flags
  */
 export async function getAllFeatureFlags() {
-  // TODO: Implement feature flags table in database
-  return [];
+  const prisma = (await import('../utils/prisma')).default;
+  return await prisma.featureFlag.findMany({
+    orderBy: { featureName: 'asc' }
+  });
 }
 
 /**
  * Initialize default feature flags
  */
 export async function initializeFeatureFlags() {
-  // TODO: Implement feature flags table in database
-  logger.info('✅ Feature flags initialized (using defaults)');
+  const prisma = (await import('../utils/prisma')).default;
+
+  const defaultFlags = [
+    { featureName: 'donations', description: 'Core donation functionality' },
+    { featureName: 'marketplace', description: 'Charity coin marketplace' },
+    { featureName: 'leaderboard', description: 'User leaderboards and rankings' },
+    { featureName: 'referrals', description: 'Referral program' },
+    { featureName: 'disputes', description: 'Dispute resolution system' },
+    { featureName: 'coin_purchases', description: 'Coin purchase from agents' },
+    { featureName: 'agent_network', description: 'Agent verification network' },
+    { featureName: 'kyc_verification', description: 'KYC verification process' },
+    { featureName: 'push_notifications', description: 'Push notification system' },
+    { featureName: 'sms_notifications', description: 'SMS notification system' },
+    { featureName: 'email_notifications', description: 'Email notification system' },
+    { featureName: 'force_recycle', description: 'Force recycle feature' },
+    { featureName: 'match_expiration', description: 'Match expiration system' },
+    { featureName: 'escrow_release', description: 'Escrow release system' },
+    // Premium features
+    { featureName: 'analytics', description: 'Advanced analytics dashboard' },
+    { featureName: 'social_features', description: 'Social circles and posts' },
+    { featureName: 'ai_recommendations', description: 'AI-powered recommendations' },
+    { featureName: 'crypto_gateways', description: 'Crypto payment gateways' },
+    { featureName: 'merchant_services', description: 'Merchant payment services' },
+    { featureName: 'corporate_accounts', description: 'Corporate donation accounts' },
+    { featureName: 'auction_system', description: 'Advanced auction marketplace' },
+    { featureName: 'battle_pass', description: 'Battle pass gamification' },
+  ];
+
+  for (const flag of defaultFlags) {
+    await prisma.featureFlag.upsert({
+      where: { featureName: flag.featureName },
+      update: {},
+      create: {
+        ...flag,
+        isEnabled: true,
+        updatedBy: 'system'
+      }
+    });
+  }
+
+  logger.info('✅ Feature flags initialized with defaults');
 }

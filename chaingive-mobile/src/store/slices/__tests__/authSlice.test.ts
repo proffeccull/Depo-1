@@ -1,4 +1,4 @@
-import authReducer, { loginUser, logout, updateUser } from '../authSlice';
+import authReducer, { login, logout, setUser } from '../authSlice';
 import { configureStore } from '@reduxjs/toolkit';
 
 describe('authSlice', () => {
@@ -21,8 +21,8 @@ describe('authSlice', () => {
     expect(state.loading).toBe(false);
   });
 
-  it('should handle updateUser', () => {
-    const initialUser = {
+  it('should handle setUser', () => {
+    const user = {
       id: 'user-1',
       email: 'test@example.com',
       firstName: 'John',
@@ -33,19 +33,12 @@ describe('authSlice', () => {
       isVerified: true,
       isAgent: false,
     };
-    // To update a user, we must have a user in state first
-    store.dispatch(loginUser.fulfilled({ user: initialUser, token: 'mock-token' }, '', { email: '', password: '' }));
 
-    const userUpdate = {
-      firstName: 'Jane',
-      tier: 'Gold',
-    };
-
-    store.dispatch(updateUser(userUpdate));
+    store.dispatch(setUser(user));
     const state = store.getState().auth;
     
-    expect(state.user).toEqual({ ...initialUser, ...userUpdate });
-    expect(state.user?.firstName).toBe('Jane');
+    expect(state.user).toEqual(user);
+    expect(state.user?.firstName).toBe('John');
   });
 
   it('should handle logout', () => {
@@ -61,10 +54,10 @@ describe('authSlice', () => {
       isVerified: true,
       isAgent: false,
     };
-    store.dispatch(loginUser.fulfilled({ user, token: 'mock-token' }, '', { email: '', password: '' }));
+    store.dispatch(setUser(user));
     
     // Then logout
-    store.dispatch(logout.fulfilled({}, '', undefined));
+    store.dispatch(logout());
     const state = store.getState().auth;
     
     expect(state.user).toBe(null);
@@ -72,10 +65,10 @@ describe('authSlice', () => {
     expect(state.isAuthenticated).toBe(false);
   });
 
-  describe('loginUser', () => {
+  describe('login', () => {
     it('should handle pending state', () => {
       store.dispatch(
-        loginUser.pending('', { email: 'test@example.com', password: 'password' })
+        login.pending('', { email: 'test@example.com', password: 'password' })
       );
       const state = store.getState().auth;
       
@@ -97,10 +90,11 @@ describe('authSlice', () => {
           isAgent: false,
         },
         token: 'mock-jwt-token',
+        refreshToken: 'mock-refresh-token',
       };
 
       store.dispatch(
-        loginUser.fulfilled(payload, '', { email: 'test@example.com', password: 'password' })
+        login.fulfilled(payload, '', { email: 'test@example.com', password: 'password' })
       );
       const state = store.getState().auth;
       
@@ -113,7 +107,7 @@ describe('authSlice', () => {
     it('should handle rejected state', () => {
       const error = new Error('Invalid credentials');
       store.dispatch(
-        loginUser.rejected(error, '', { email: 'test@example.com', password: 'wrong' })
+        login.rejected(error, '', { email: 'test@example.com', password: 'wrong' })
       );
       const state = store.getState().auth;
       
