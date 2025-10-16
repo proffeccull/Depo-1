@@ -1,287 +1,199 @@
 import { Request, Response } from 'express';
 import { MerchantService } from '../services/merchant.service';
-import { PrismaClient } from '@prisma/client';
-import logger from '../utils/logger';
+import { inject } from 'inversify';
+import { controller, httpGet, httpPost, httpPut } from 'inversify-express-utils';
 
-const prisma = new PrismaClient();
-const merchantService = new MerchantService();
-
+@controller('/api/merchant')
 export class MerchantController {
-  /**
-   * Register as a merchant
-   */
+  constructor(
+    @inject('MerchantService') private merchantService: MerchantService
+  ) {}
+
+  @httpPost('/register')
   async registerMerchant(req: Request, res: Response): Promise<void> {
     try {
-      const {
-        businessName,
-        businessType,
-        description,
-        location,
-        contactInfo
-      } = req.body;
-      const userId = (req as any).user?.id;
-
-      // Placeholder response since service methods don't exist yet
-      const merchant = {
-        id: 'merchant_' + Date.now(),
-        userId,
-        businessName,
-        businessType,
-        description,
-        location,
-        contactInfo,
-        isVerified: false,
-        rating: 0,
-        totalReviews: 0,
-        createdAt: new Date().toISOString(),
-        note: 'Merchant registration will be available after database migration'
-      };
-
-      res.status(201).json(merchant);
-    } catch (error: any) {
-      logger.error('Register merchant failed', { error: error.message });
-      res.status(500).json({ error: 'Failed to register merchant' });
+      const merchant = await this.merchantService.createMerchant(req.body);
+      res.status(201).json({
+        success: true,
+        data: merchant
+      });
+    } catch (error) {
+      res.status(400).json({
+        success: false,
+        error: error.message
+      });
     }
   }
 
-  async updateMerchantProfile(req: Request, res: Response): Promise<void> {
+  @httpGet('/:merchantId')
+  async getMerchant(req: Request, res: Response): Promise<void> {
     try {
-      const updates = req.body;
-      const userId = (req as any).user?.id;
+      const merchant = await this.merchantService.getMerchantById(req.params.merchantId);
+      if (!merchant) {
+        return res.status(404).json({
+          success: false,
+          error: 'Merchant not found'
+        });
+      }
 
-      // Placeholder response
-      const merchant = {
-        id: 'merchant_' + userId,
-        userId,
-        ...updates,
-        updatedAt: new Date().toISOString(),
-        note: 'Merchant profile updates will be available after database migration'
-      };
-
-      res.status(200).json(merchant);
-    } catch (error: any) {
-      logger.error('Update merchant profile failed', { error: error.message });
-      res.status(500).json({ error: 'Failed to update merchant profile' });
+      res.json({
+        success: true,
+        data: merchant
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: error.message
+      });
     }
   }
 
-  async getMerchantProfile(req: Request, res: Response): Promise<void> {
+  @httpGet('/search/location')
+  async searchByLocation(req: Request, res: Response): Promise<void> {
     try {
-      const userId = (req as any).user?.id;
+      const { location, limit = 20 } = req.query;
+      const merchants = await this.merchantService.getMerchantsByLocation(
+        location as string,
+        parseInt(limit as string)
+      );
 
-      // Placeholder response
-      const merchant = {
-        id: 'merchant_' + userId,
-        userId,
-        businessName: 'Sample Business',
-        businessType: 'retail',
-        description: 'Sample merchant description',
-        isVerified: false,
-        rating: 4.5,
-        totalReviews: 12,
-        qrCodeUrl: 'https://example.com/qr/sample',
-        note: 'Merchant profiles will be available after database migration'
-      };
-
-      res.status(200).json(merchant);
-    } catch (error: any) {
-      logger.error('Get merchant profile failed', { error: error.message });
-      res.status(500).json({ error: 'Failed to get merchant profile' });
+      res.json({
+        success: true,
+        data: merchants
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: error.message
+      });
     }
   }
 
-  async generateQRCode(req: Request, res: Response): Promise<void> {
-    try {
-      const userId = (req as any).user?.id;
-
-      // Placeholder response
-      const qrCode = {
-        qrCodeUrl: `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=merchant_${userId}`,
-        merchantId: 'merchant_' + userId,
-        note: 'QR codes will be available after database migration'
-      };
-
-      res.status(200).json({ qrCode });
-    } catch (error: any) {
-      logger.error('Generate QR code failed', { error: error.message });
-      res.status(500).json({ error: 'Failed to generate QR code' });
-    }
-  }
-
-  async processQRPayment(req: Request, res: Response): Promise<void> {
-    try {
-      const { merchantId, amount, paymentMethod } = req.body;
-      const userId = (req as any).user?.id;
-
-      // Placeholder response
-      const payment = {
-        id: 'payment_' + Date.now(),
-        merchantId,
-        customerId: userId,
-        amount,
-        paymentMethod,
-        status: 'completed',
-        transactionId: 'txn_' + Date.now(),
-        completedAt: new Date().toISOString(),
-        note: 'QR payments will be available after database migration'
-      };
-
-      res.status(200).json(payment);
-    } catch (error: any) {
-      logger.error('Process QR payment failed', { error: error.message });
-      res.status(500).json({ error: 'Failed to process payment' });
-    }
-  }
-
-  async getMerchantDirectory(req: Request, res: Response): Promise<void> {
-    try {
-      const {
-        businessType,
-        location,
-        page = 1,
-        limit = 20
-      } = req.query;
-
-      // Placeholder response
-      const directory = {
-        merchants: [
-          {
-            id: 'merchant_1',
-            businessName: 'Sample Store',
-            businessType: businessType || 'retail',
-            location: location || 'Lagos',
-            rating: 4.2,
-            isVerified: true,
-            distance: 2.5
-          }
-        ],
-        pagination: {
-          page: parseInt(page as string),
-          limit: parseInt(limit as string),
-          total: 1,
-          totalPages: 1
-        },
-        note: 'Merchant directory will be available after database migration'
-      };
-
-      res.status(200).json(directory);
-    } catch (error: any) {
-      logger.error('Get merchant directory failed', { error: error.message });
-      res.status(500).json({ error: 'Failed to get merchant directory' });
-    }
-  }
-
-  async getMerchantById(req: Request, res: Response): Promise<void> {
-    try {
-      const { merchantId } = req.params;
-
-      // Placeholder response
-      const merchant = {
-        id: merchantId,
-        businessName: 'Sample Merchant',
-        businessType: 'retail',
-        description: 'A sample merchant business',
-        location: { city: 'Lagos', country: 'Nigeria' },
-        contactInfo: { phone: '+2341234567890', email: 'merchant@example.com' },
-        isVerified: true,
-        rating: 4.5,
-        totalReviews: 25,
-        qrCodeUrl: 'https://example.com/qr/' + merchantId,
-        note: 'Merchant details will be available after database migration'
-      };
-
-      res.status(200).json(merchant);
-    } catch (error: any) {
-      logger.error('Get merchant by ID failed', { error: error.message });
-      res.status(500).json({ error: 'Failed to get merchant' });
-    }
-  }
-
-  async updateMerchantRating(req: Request, res: Response): Promise<void> {
-    try {
-      const { merchantId } = req.params;
-      const { rating, review } = req.body;
-
-      // Placeholder response
-      const updatedMerchant = {
-        id: merchantId,
-        rating: rating,
-        totalReviews: 26,
-        note: 'Merchant ratings will be available after database migration'
-      };
-
-      res.status(200).json(updatedMerchant);
-    } catch (error: any) {
-      logger.error('Update merchant rating failed', { error: error.message });
-      res.status(500).json({ error: 'Failed to update rating' });
-    }
-  }
-
-  async getMerchantReviews(req: Request, res: Response): Promise<void> {
-    try {
-      const { merchantId } = req.params;
-      const { page = 1, limit = 10 } = req.query;
-
-      // Placeholder response
-      const reviews = {
-        reviews: [
-          {
-            id: 'review_1',
-            userId: 'user_123',
-            userName: 'John Doe',
-            rating: 5,
-            review: 'Great service!',
-            createdAt: new Date().toISOString()
-          }
-        ],
-        pagination: {
-          page: parseInt(page as string),
-          limit: parseInt(limit as string),
-          total: 1,
-          totalPages: 1
-        },
-        note: 'Merchant reviews will be available after database migration'
-      };
-
-      res.status(200).json(reviews);
-    } catch (error: any) {
-      logger.error('Get merchant reviews failed', { error: error.message });
-      res.status(500).json({ error: 'Failed to get reviews' });
-    }
-  }
-
+  @httpGet('/search/query')
   async searchMerchants(req: Request, res: Response): Promise<void> {
     try {
-      const { q, businessType, location, page = 1, limit = 20 } = req.query;
+      const { q: query, limit = 20 } = req.query;
+      const merchants = await this.merchantService.searchMerchants(
+        query as string,
+        parseInt(limit as string)
+      );
 
-      // Placeholder response
-      const results = {
-        query: q,
-        businessType,
-        location,
-        merchants: [
-          {
-            id: 'merchant_search_1',
-            businessName: 'Found Merchant',
-            businessType: businessType || 'retail',
-            location: location || 'Lagos',
-            rating: 4.0,
-            isVerified: true
-          }
-        ],
-        pagination: {
-          page: parseInt(page as string),
-          limit: parseInt(limit as string),
-          total: 1,
-          totalPages: 1
-        },
-        note: 'Merchant search will be available after database migration'
-      };
+      res.json({
+        success: true,
+        data: merchants
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: error.message
+      });
+    }
+  }
 
-      res.status(200).json(results);
-    } catch (error: any) {
-      logger.error('Search merchants failed', { error: error.message });
-      res.status(500).json({ error: 'Search failed' });
+  @httpPost('/payment-request')
+  async createPaymentRequest(req: Request, res: Response): Promise<void> {
+    try {
+      const paymentRequest = await this.merchantService.createPaymentRequest(req.body);
+      res.status(201).json({
+        success: true,
+        data: paymentRequest
+      });
+    } catch (error) {
+      res.status(400).json({
+        success: false,
+        error: error.message
+      });
+    }
+  }
+
+  @httpGet('/:merchantId/payment-requests')
+  async getMerchantPaymentRequests(req: Request, res: Response): Promise<void> {
+    try {
+      const { merchantId } = req.params;
+      const { status } = req.query;
+
+      const paymentRequests = await this.merchantService.getMerchantPaymentRequests(
+        merchantId,
+        status as string
+      );
+
+      res.json({
+        success: true,
+        data: paymentRequests
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: error.message
+      });
+    }
+  }
+
+  @httpPost('/payment/:paymentRequestId/process')
+  async processPayment(req: Request, res: Response): Promise<void> {
+    try {
+      const { paymentRequestId } = req.params;
+      const { userId, amount } = req.body;
+
+      const payment = await this.merchantService.processPayment(
+        paymentRequestId,
+        userId,
+        amount
+      );
+
+      res.json({
+        success: true,
+        data: payment
+      });
+    } catch (error) {
+      res.status(400).json({
+        success: false,
+        error: error.message
+      });
+    }
+  }
+
+  @httpGet('/:merchantId/analytics')
+  async getMerchantAnalytics(req: Request, res: Response): Promise<void> {
+    try {
+      const { merchantId } = req.params;
+      const { startDate, endDate } = req.query;
+
+      const analytics = await this.merchantService.getMerchantAnalytics(
+        merchantId,
+        new Date(startDate as string),
+        new Date(endDate as string)
+      );
+
+      res.json({
+        success: true,
+        data: analytics
+      });
+    } catch (error) {
+      res.status(500).json({
+        success: false,
+        error: error.message
+      });
+    }
+  }
+
+  @httpPut('/:merchantId/status')
+  async updateMerchantStatus(req: Request, res: Response): Promise<void> {
+    try {
+      const { merchantId } = req.params;
+      const { status } = req.body;
+
+      await this.merchantService.updateMerchantStatus(merchantId, status);
+
+      res.json({
+        success: true,
+        message: 'Merchant status updated successfully'
+      });
+    } catch (error) {
+      res.status(400).json({
+        success: false,
+        error: error.message
+      });
     }
   }
 }

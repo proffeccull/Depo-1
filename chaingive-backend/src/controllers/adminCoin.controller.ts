@@ -386,3 +386,272 @@ export const getCoinStats = async (req: Request, res: Response, next: NextFuncti
     next(error);
   }
 };
+
+/**
+ * Mint coins to agent (admin override)
+ */
+export const mintCoinsToAgent = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const { agentId } = req.params;
+    const { amount, reason } = req.body;
+    const adminId = req.user!.id;
+
+    if (amount <= 0 || amount > 1000000) {
+      throw new AppError('Invalid mint amount (1-1,000,000)', 400, 'INVALID_AMOUNT');
+    }
+
+    // Get agent current balance
+    const agent = await prisma.agent.findUnique({
+      where: { id: agentId },
+      select: {
+        id: true,
+        agentCode: true,
+        coinBalance: true,
+        user: {
+          select: {
+            firstName: true,
+            lastName: true,
+          }
+        }
+      }
+    });
+
+    if (!agent) {
+      throw new AppError('Agent not found', 404, 'AGENT_NOT_FOUND');
+    }
+
+    // Mint coins to agent
+    const newBalance = agent.coinBalance + amount;
+    await prisma.agent.update({
+      where: { id: agentId },
+      data: {
+        coinBalance: newBalance,
+        totalCoinsStocked: { increment: amount },
+      }
+    });
+
+    // Log admin action
+    await prisma.adminAction.create({
+      data: {
+        adminId,
+        action: 'mint_coins_to_agent',
+        targetId: agentId,
+        details: JSON.stringify({
+          amount,
+          oldBalance: agent.coinBalance,
+          newBalance,
+          reason,
+          minted: true
+        })
+      }
+    });
+
+    logger.warn(`Admin ${adminId} minted ${amount} coins to agent ${agent.agentCode}. New balance: ${newBalance}`);
+
+    res.status(200).json({
+      success: true,
+      message: `Successfully minted ${amount} coins to agent`,
+      data: {
+        agentId,
+        agentCode: agent.agentCode,
+        agentName: `${agent.user.firstName} ${agent.user.lastName}`,
+        coinsMinted: amount,
+        oldBalance: agent.coinBalance,
+        newBalance,
+        reason
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Burn coins from agent (admin override)
+ */
+export const burnCoinsFromAgent = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const { agentId } = req.params;
+    const { amount, reason } = req.body;
+    const adminId = req.user!.id;
+
+    if (amount <= 0) {
+      throw new AppError('Invalid burn amount (must be positive)', 400, 'INVALID_AMOUNT');
+    }
+
+    // Get agent current balance
+    const agent = await prisma.agent.findUnique({
+      where: { id: agentId },
+      select: {
+        id: true,
+        agentCode: true,
+        coinBalance: true,
+        user: {
+          select: {
+            firstName: true,
+            lastName: true,
+          }
+        }
+      }
+    });
+
+    if (!agent) {
+      throw new AppError('Agent not found', 404, 'AGENT_NOT_FOUND');
+    }
+
+    if (agent.coinBalance < amount) {
+      throw new AppError('Insufficient coin balance for burn operation', 400, 'INSUFFICIENT_BALANCE');
+    }
+
+    // Burn coins from agent
+    const newBalance = agent.coinBalance - amount;
+    await prisma.agent.update({
+      where: { id: agentId },
+      data: {
+        coinBalance: newBalance,
+      }
+    });
+
+    // Log admin action
+    await prisma.adminAction.create({
+      data: {
+        adminId,
+        action: 'burn_coins_from_agent',
+        targetId: agentId,
+        details: JSON.stringify({
+          amount,
+          oldBalance: agent.coinBalance,
+          newBalance,
+          reason,
+          burned: true
+        })
+      }
+    });
+
+    logger.warn(`Admin ${adminId} burned ${amount} coins from agent ${agent.agentCode}. New balance: ${newBalance}`);
+
+    res.status(200).json({
+      success: true,
+      message: `Successfully burned ${amount} coins from agent`,
+      data: {
+        agentId,
+        agentCode: agent.agentCode,
+        agentName: `${agent.user.firstName} ${agent.user.lastName}`,
+        coinsBurned: amount,
+        oldBalance: agent.coinBalance,
+        newBalance,
+        reason
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Transfer coins between agents (admin override)
+ */
+export const transferCoinsBetweenAgents = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const { fromAgentId, toAgentId, amount, reason } = req.body;
+    const adminId = req.user!.id;
+
+    if (amount <= 0) {
+      throw new AppError('Invalid transfer amount (must be positive)', 400, 'INVALID_AMOUNT');
+    }
+
+    if (fromAgentId === toAgentId) {
+      throw new AppError('Cannot transfer coins to the same agent', 400, 'SAME_AGENT');
+    }
+
+    // Get both agents
+    const [fromAgent, toAgent] = await Promise.all([
+      prisma.agent.findUnique({
+        where: { id: fromAgentId },
+        select: {
+          id: true,
+          agentCode: true,
+          coinBalance: true,
+          user: { select: { firstName: true, lastName: true } }
+        }
+      }),
+      prisma.agent.findUnique({
+        where: { id: toAgentId },
+        select: {
+          id: true,
+          agentCode: true,
+          coinBalance: true,
+          user: { select: { firstName: true, lastName: true } }
+        }
+      })
+    ]);
+
+    if (!fromAgent || !toAgent) {
+      throw new AppError('One or both agents not found', 404, 'AGENT_NOT_FOUND');
+    }
+
+    if (fromAgent.coinBalance < amount) {
+      throw new AppError('Insufficient coin balance for transfer', 400, 'INSUFFICIENT_BALANCE');
+    }
+
+    // Transfer coins in transaction
+    await prisma.$transaction([
+      prisma.agent.update({
+        where: { id: fromAgentId },
+        data: { coinBalance: { decrement: amount } }
+      }),
+      prisma.agent.update({
+        where: { id: toAgentId },
+        data: { coinBalance: { increment: amount } }
+      })
+    ]);
+
+    // Log admin action
+    await prisma.adminAction.create({
+      data: {
+        adminId,
+        action: 'transfer_coins_between_agents',
+        details: JSON.stringify({
+          fromAgentId,
+          toAgentId,
+          amount,
+          fromAgentCode: fromAgent.agentCode,
+          toAgentCode: toAgent.agentCode,
+          fromOldBalance: fromAgent.coinBalance,
+          toOldBalance: toAgent.coinBalance,
+          fromNewBalance: fromAgent.coinBalance - amount,
+          toNewBalance: toAgent.coinBalance + amount,
+          reason,
+          transferred: true
+        })
+      }
+    });
+
+    logger.warn(`Admin ${adminId} transferred ${amount} coins from agent ${fromAgent.agentCode} to ${toAgent.agentCode}`);
+
+    res.status(200).json({
+      success: true,
+      message: `Successfully transferred ${amount} coins between agents`,
+      data: {
+        fromAgent: {
+          id: fromAgentId,
+          code: fromAgent.agentCode,
+          name: `${fromAgent.user.firstName} ${fromAgent.user.lastName}`,
+          oldBalance: fromAgent.coinBalance,
+          newBalance: fromAgent.coinBalance - amount
+        },
+        toAgent: {
+          id: toAgentId,
+          code: toAgent.agentCode,
+          name: `${toAgent.user.firstName} ${toAgent.user.lastName}`,
+          oldBalance: toAgent.coinBalance,
+          newBalance: toAgent.coinBalance + amount
+        },
+        amount,
+        reason
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};

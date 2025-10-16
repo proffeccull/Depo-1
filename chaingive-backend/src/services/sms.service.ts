@@ -248,3 +248,9 @@ export const smsService = new SMSService();
 export async function sendSMS(to: string, message: string, from?: string): Promise<SMSResponse> {
   return smsService.sendSMS({ to, message, from });
 }
+
+// Export KYC approval SMS function
+export async function sendKYCApprovalSMS(to: string, userName: string): Promise<SMSResponse> {
+  const message = `Hi ${userName}, your KYC verification has been approved! You can now access all ChainGive features.`;
+  return smsService.sendSMS({ to, message });
+}

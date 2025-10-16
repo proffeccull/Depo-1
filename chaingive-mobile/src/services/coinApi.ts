@@ -1,9 +1,10 @@
-import axios from 'axios';
+import axiosImport from 'axios';
 
 // API Base Configuration
 const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3001/api';
 
-const coinApi = axios.create({
+const axios = (axiosImport as any)?.default ?? (axiosImport as any);
+const coinApi = (axios as any).create({
   baseURL: API_BASE_URL,
   timeout: 10000,
   headers: {

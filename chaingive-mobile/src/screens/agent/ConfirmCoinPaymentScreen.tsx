@@ -287,8 +287,7 @@ const ConfirmCoinPaymentScreen: React.FC = () => {
   );
 
   return (
-    <PageTransition type="slideUp">
-      <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
@@ -305,7 +304,7 @@ const ConfirmCoinPaymentScreen: React.FC = () => {
       <FlatList
         data={purchases}
         renderItem={renderRequestCard}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item: PendingCoinPurchase) => item.id}
         ListEmptyComponent={loading ? null : renderEmptyState}
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}

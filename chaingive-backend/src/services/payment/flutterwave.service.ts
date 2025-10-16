@@ -87,3 +87,9 @@ export class FlutterwaveService {
     const crypto = require('crypto');
     const hash = crypto
       .createHmac('sha256', this.config.secretKey)
+      .update(JSON.stringify(payload))
+      .digest('hex');
+
+    return hash === signature;
+  }
+}

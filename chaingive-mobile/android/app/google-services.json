@@ -1,36 +1,26 @@
 {
   "project_info": {
-    "project_number": "123456789",
-    "project_id": "chaingive-mobile",
-    "storage_bucket": "chaingive-mobile.appspot.com"
+    "project_number": "728494912341",
+    "project_id": "depo-88964",
+    "storage_bucket": "depo-88964.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:123456789:android:abcdef123456",
+        "mobilesdk_app_id": "1:728494912341:android:0021019bb75987ec8b35dc",
         "android_client_info": {
-          "package_name": "com.chaingive.mobile"
+          "package_name": "com.company.depo"
         }
       },
-      "oauth_client": [
-        {
-          "client_id": "123456789-abcdef123456.apps.googleusercontent.com",
-          "client_type": 3
-        }
-      ],
+      "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyDummyKeyForDevelopment123456789"
+          "current_key": "AIzaSyBAHzTpPUnxMGV6apw8ds_UbNOkiLQHE3A"
         }
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": [
-            {
-              "client_id": "123456789-abcdef123456.apps.googleusercontent.com",
-              "client_type": 3
-            }
-          ]
+          "other_platform_oauth_client": []
         }
       }
     }

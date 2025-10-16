@@ -1,0 +1,368 @@
+{
+  "dashboard": {
+    "id": null,
+    "title": "ChainGive Advanced Analytics",
+    "tags": ["chaingive", "advanced", "analytics"],
+    "timezone": "browser",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Real-time Active Users",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "chaingive_active_users_total",
+            "legendFormat": "Active Users"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "none",
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "red",
+                  "value": null
+                },
+                {
+                  "color": "orange",
+                  "value": 10
+                },
+                {
+                  "color": "green",
+                  "value": 50
+                }
+              ]
+            }
+          }
+        },
+        "options": {
+          "reduceOptions": {
+            "values": false,
+            "calcs": ["lastNotNull"],
+            "fields": ""
+          }
+        }
+      },
+      {
+        "id": 2,
+        "title": "Memory Leak Detection",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(chaingive_system_memory_usage_bytes{type=\"heap_used\"}[5m])",
+            "legendFormat": "Heap Growth Rate"
+          },
+          {
+            "expr": "increase(chaingive_system_memory_usage_bytes{type=\"external\"}[5m])",
+            "legendFormat": "External Memory Growth"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "bytes/sec"
+          }
+        }
+      },
+      {
+        "id": 3,
+        "title": "GC Performance",
+        "type": "bargauge",
+        "targets": [
+          {
+            "expr": "rate(process_gc_duration_seconds_total[5m]) * 1000",
+            "legendFormat": "GC Duration (ms/sec)"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "ms",
+            "max": 100,
+            "min": 0
+          }
+        }
+      },
+      {
+        "id": 4,
+        "title": "API Rate Limiting",
+        "type": "table",
+        "targets": [
+          {
+            "expr": "rate(chaingive_http_requests_total{status_code=~\"429|403\"}[5m])",
+            "legendFormat": "Rate Limited Requests"
+          },
+          {
+            "expr": "rate(chaingive_http_requests_total[5m])",
+            "legendFormat": "Total Requests"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "reqps"
+          }
+        }
+      },
+      {
+        "id": 5,
+        "title": "User Journey Funnel",
+        "type": "bargauge",
+        "targets": [
+          {
+            "expr": "chaingive_active_users_total",
+            "legendFormat": "Active Users"
+          },
+          {
+            "expr": "chaingive_matches_created_total",
+            "legendFormat": "Matches Created"
+          },
+          {
+            "expr": "chaingive_donations_total{status=\"completed\"}",
+            "legendFormat": "Completed Donations"
+          }
+        ],
+        "options": {
+          "reduceOptions": {
+            "values": false,
+            "calcs": ["lastNotNull"],
+            "fields": ""
+          },
+          "orientation": "horizontal",
+          "displayMode": "basic"
+        }
+      },
+      {
+        "id": 6,
+        "title": "Transaction Conversion Rates",
+        "type": "piechart",
+        "targets": [
+          {
+            "expr": "chaingive_donations_total",
+            "legendFormat": "{{ status }}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            }
+          }
+        }
+      },
+      {
+        "id": 7,
+        "title": "Historical Performance Trends",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.95, rate(chaingive_http_request_duration_seconds_bucket[1h]))",
+            "legendFormat": "95th percentile (1h)"
+          },
+          {
+            "expr": "histogram_quantile(0.95, rate(chaingive_http_request_duration_seconds_bucket[24h]))",
+            "legendFormat": "95th percentile (24h)"
+          },
+          {
+            "expr": "histogram_quantile(0.95, rate(chaingive_http_request_duration_seconds_bucket[7d]))",
+            "legendFormat": "95th percentile (7d)"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "s"
+          }
+        }
+      },
+      {
+        "id": 8,
+        "title": "Error Rate Trends",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "rate(chaingive_application_errors_total[5m])",
+            "legendFormat": "Error Rate (5m)"
+          },
+          {
+            "expr": "rate(chaingive_application_errors_total[1h])",
+            "legendFormat": "Error Rate (1h)"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "errors/sec"
+          }
+        }
+      },
+      {
+        "id": 9,
+        "title": "Business KPIs Comparison",
+        "type": "table",
+        "targets": [
+          {
+            "expr": "increase(chaingive_donations_total{status=\"completed\"}[1d])",
+            "legendFormat": "Daily Donations"
+          },
+          {
+            "expr": "increase(chaingive_donation_amount_total[1d])",
+            "legendFormat": "Daily Volume"
+          },
+          {
+            "expr": "increase(chaingive_matches_created_total[1d])",
+            "legendFormat": "Daily Matches"
+          },
+          {
+            "expr": "avg_over_time(chaingive_active_users_total[1d])",
+            "legendFormat": "Avg Daily Users"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "none"
+          }
+        }
+      },
+      {
+        "id": 10,
+        "title": "System Resource Forecasting",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "predict_linear(chaingive_system_cpu_usage_percent[1h], 3600)",
+            "legendFormat": "CPU Usage (1h forecast)"
+          },
+          {
+            "expr": "predict_linear(chaingive_system_memory_usage_bytes{type=\"heap_used\"}[1h], 3600)",
+            "legendFormat": "Memory Usage (1h forecast)"
+          }
+        ]
+      },
+      {
+        "id": 11,
+        "title": "A/B Testing Metrics",
+        "type": "table",
+        "targets": [
+          {
+            "expr": "chaingive_http_requests_total{route=~\"/v1/.*\"}",
+            "legendFormat": "{{ route }}"
+          }
+        ],
+        "transformations": [
+          {
+            "id": "organize",
+            "options": {
+              "excludeByName": {
+                "Time": true
+              },
+              "indexByName": {},
+              "renameByName": {}
+            }
+          }
+        ]
+      },
+      {
+        "id": 12,
+        "title": "External API Performance",
+        "type": "heatmap",
+        "targets": [
+          {
+            "expr": "chaingive_external_service_response_time_seconds",
+            "legendFormat": "{{ service }} - {{ endpoint }}"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "s"
+          }
+        }
+      }
+    ],
+    "time": {
+      "from": "now-24h",
+      "to": "now"
+    },
+    "timepicker": {
+      "refresh_intervals": ["5s", "10s", "30s", "1m", "5m", "15m", "30m", "1h", "2h", "1d"]
+    },
+    "templating": {
+      "list": [
+        {
+          "type": "interval",
+          "name": "interval",
+          "label": "Interval",
+          "current": {
+            "text": "auto",
+            "value": "$__auto_interval_interval"
+          },
+          "options": [
+            {
+              "text": "auto",
+              "value": "$__auto_interval_interval",
+              "selected": true
+            },
+            {
+              "text": "1m",
+              "value": "1m"
+            },
+            {
+              "text": "5m",
+              "value": "5m"
+            },
+            {
+              "text": "10m",
+              "value": "10m"
+            },
+            {
+              "text": "30m",
+              "value": "30m"
+            },
+            {
+              "text": "1h",
+              "value": "1h"
+            },
+            {
+              "text": "6h",
+              "value": "6h"
+            },
+            {
+              "text": "12h",
+              "value": "12h"
+            },
+            {
+              "text": "1d",
+              "value": "1d"
+            },
+            {
+              "text": "7d",
+              "value": "7d"
+            },
+            {
+              "text": "30d",
+              "value": "30d"
+            }
+          ]
+        }
+      ]
+    },
+    "annotations": {
+      "list": [
+        {
+          "builtIn": 1,
+          "datasource": "-- Grafana --",
+          "enable": true,
+          "hide": true,
+          "iconColor": "rgba(0, 211, 255, 1)",
+          "name": "Annotations & Alerts",
+          "type": "dashboard"
+        }
+      ]
+    },
+    "refresh": "5s",
+    "schemaVersion": 27,
+    "version": 0,
+    "links": [],
+    "liveNow": true
+  }
+}

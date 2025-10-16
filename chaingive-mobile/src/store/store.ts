@@ -1,4 +1,7 @@
 import { configureStore } from '@reduxjs/toolkit';
+import { persistStore, persistReducer } from 'redux-persist';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { combineReducers } from '@reduxjs/toolkit';
 import authReducer from './slices/authSlice';
 import gamificationReducer from './slices/gamificationSlice';
 import coinPurchaseReducer from './slices/coinPurchaseSlice';
@@ -27,36 +30,46 @@ import merchantReducer from '../redux/slices/merchantSlice';
 import corporateReducer from '../redux/slices/corporateSlice';
 import battlePassReducer from '../redux/slices/battlePassSlice';
 
+const persistConfig = {
+  key: 'root',
+  storage: AsyncStorage,
+  whitelist: ['auth', 'coin', 'subscription'],
+};
+
+const rootReducer = combineReducers({
+  auth: authReducer,
+  gamification: gamificationReducer,
+  coinPurchase: coinPurchaseReducer,
+  coin: coinReducer,
+  marketplace: marketplaceReducer,
+  leaderboard: leaderboardReducer,
+  analytics: analyticsReducer,
+  subscription: subscriptionReducer,
+  social: socialReducer,
+  challenges: challengesReducer,
+  ai: aiReducer,
+  nft: nftReducer,
+  predictiveAnalytics: predictiveAnalyticsReducer,
+  charityCategories: charityCategoriesReducer,
+  crew: crewReducer,
+  trust: trustReducer,
+  weeklyTargets: weeklyTargetsReducer,
+  userLevels: userLevelsReducer,
+  charitableNFT: charitableNFTReducer,
+  userManagement: userManagementReducer,
+  auction: auctionReducer,
+  circles: circlesReducer,
+  events: eventsReducer,
+  cryptoGateway: cryptoGatewayReducer,
+  merchant: merchantReducer,
+  corporate: corporateReducer,
+  battlePass: battlePassReducer,
+});
+
+const persistedReducer = persistReducer(persistConfig, rootReducer);
+
 export const store = configureStore({
-  reducer: {
-    auth: authReducer,
-    gamification: gamificationReducer,
-    coinPurchase: coinPurchaseReducer,
-    coin: coinReducer,
-    marketplace: marketplaceReducer,
-    leaderboard: leaderboardReducer,
-    analytics: analyticsReducer,
-    subscription: subscriptionReducer,
-    social: socialReducer,
-    challenges: challengesReducer,
-    ai: aiReducer,
-    nft: nftReducer,
-    predictiveAnalytics: predictiveAnalyticsReducer,
-    charityCategories: charityCategoriesReducer,
-    crew: crewReducer,
-    trust: trustReducer,
-    weeklyTargets: weeklyTargetsReducer,
-    userLevels: userLevelsReducer,
-    charitableNFT: charitableNFTReducer,
-    userManagement: userManagementReducer,
-    auction: auctionReducer,
-    circles: circlesReducer,
-    events: eventsReducer,
-    cryptoGateway: cryptoGatewayReducer,
-    merchant: merchantReducer,
-    corporate: corporateReducer,
-    battlePass: battlePassReducer,
-  },
+  reducer: persistedReducer,
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({
       serializableCheck: {
@@ -64,6 +77,8 @@ export const store = configureStore({
       },
     }),
 });
+
+export const persistor = persistStore(store);
 
 export type RootState = ReturnType<typeof store.getState>;
 export type AppDispatch = typeof store.dispatch;

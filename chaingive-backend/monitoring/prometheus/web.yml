@@ -1,0 +1,9 @@
+basic_auth_users:
+  admin: $2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LeXt6UqFiO8qJW5m6  # changeme123
+
+tls_server_config:
+  cert_file: /etc/ssl/certs/prometheus.crt
+  key_file: /etc/ssl/private/prometheus.key
+
+http_server_config:
+  http2: true

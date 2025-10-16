@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
-import { AppError } from './errorHandler';
+import { AppError } from '../utils/AppError';
 import prisma from '../utils/prisma';
 
 export interface AuthRequest extends Request {
@@ -12,6 +12,8 @@ export interface AuthRequest extends Request {
     lastName: string;
     role: string;
     tier: number;
+    roleId?: string;
+    permissions?: string[];
   };
 }
 
@@ -24,14 +26,14 @@ export const authenticate = async (
     const authHeader = req.headers.authorization;
 
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      throw new AppError('No token provided', 401, 'UNAUTHORIZED');
+      throw new AppError('No token provided', 401);
     }
 
     const token = authHeader.substring(7);
     const secret = process.env.JWT_SECRET;
 
     if (!secret) {
-      throw new AppError('JWT secret not configured', 500, 'CONFIG_ERROR');
+      throw new AppError('JWT secret not configured', 500);
     }
 
     const decoded = jwt.verify(token, secret) as {
@@ -44,7 +46,6 @@ export const authenticate = async (
       tier: number;
     };
 
-    // Verify user exists and is active
     const user = await prisma.user.findUnique({
       where: { id: decoded.id },
       select: {
@@ -55,21 +56,18 @@ export const authenticate = async (
         lastName: true,
         role: true,
         tier: true,
-        isActive: true,
-        isBanned: true,
+        trustScore: true,
+        isAgent: true,
+        isVerified: true,
+        charityCoins: true,
+        createdAt: true,
+        updatedAt: true,
+        balance: true,
       },
     });
 
     if (!user) {
-      throw new AppError('User not found', 404, 'USER_NOT_FOUND');
-    }
-
-    if (!user.isActive) {
-      throw new AppError('Account is inactive', 403, 'ACCOUNT_INACTIVE');
-    }
-
-    if (user.isBanned) {
-      throw new AppError('Account is banned', 403, 'ACCOUNT_BANNED');
+      throw new AppError('User not found', 404);
     }
 
     req.user = {
@@ -80,14 +78,15 @@ export const authenticate = async (
       lastName: user.lastName,
       role: user.role,
       tier: user.tier,
+      permissions: [],
     };
 
     next();
   } catch (error) {
     if (error instanceof jwt.JsonWebTokenError) {
-      next(new AppError('Invalid token', 401, 'INVALID_TOKEN'));
+      next(new AppError('Invalid token', 401));
     } else if (error instanceof jwt.TokenExpiredError) {
-      next(new AppError('Token expired', 401, 'TOKEN_EXPIRED'));
+      next(new AppError('Token expired', 401));
     } else {
       next(error);
     }
@@ -97,41 +96,15 @@ export const authenticate = async (
 export const requireRole = (...roles: string[]) => {
   return (req: AuthRequest, res: Response, next: NextFunction) => {
     if (!req.user) {
-      return next(new AppError('Unauthorized', 401, 'UNAUTHORIZED'));
+      return next(new AppError('Unauthorized', 401));
     }
 
     if (!roles.includes(req.user.role)) {
-      return next(
-        new AppError(
-          'Insufficient permissions',
-          403,
-          'FORBIDDEN',
-          { required: roles, current: req.user.role }
-        )
-      );
+      return next(new AppError('Insufficient permissions', 403));
     }
 
     next();
   };
 };
 
-export const requireTier = (minTier: number) => {
-  return (req: AuthRequest, res: Response, next: NextFunction) => {
-    if (!req.user) {
-      return next(new AppError('Unauthorized', 401, 'UNAUTHORIZED'));
-    }
-
-    if (req.user.tier < minTier) {
-      return next(
-        new AppError(
-          `Tier ${minTier} or higher required`,
-          403,
-          'INSUFFICIENT_TIER',
-          { required: minTier, current: req.user.tier }
-        )
-      );
-    }
-
-    next();
-  };
-};
+export const authMiddleware = authenticate;

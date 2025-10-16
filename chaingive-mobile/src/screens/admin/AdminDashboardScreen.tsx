@@ -1,629 +1,506 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
-  StyleSheet,
   ScrollView,
   TouchableOpacity,
   RefreshControl,
-  Dimensions,
   Alert,
+  StyleSheet,
+  Dimensions,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { AdminStackParamList } from '../../navigation/AdminNavigator';
+import { useAdmin } from '../../hooks/useAdmin';
+import { Card, Button, Badge, LoadingSpinner } from '../../components/common';
+import { colors, spacing, typography, borderRadius } from '../../theme';
 import Icon from 'react-native-vector-icons/MaterialIcons';
-import * as Haptics from 'expo-haptics';
+import { LineChart, BarChart, PieChart } from 'react-native-chart-kit';
 
-import { colors } from '../../theme/colors';
-import { typography } from '../../theme/typography';
-import { spacing } from '../../theme/spacing';
-import { shadows } from '../../theme/shadows';
-import GradientCard from '../../components/common/GradientCard';
-import EnhancedBadge from '../../components/common/EnhancedBadge';
-import { AnimatedNumber } from '../../components/animated';
-import { CardSkeleton, ListSkeleton } from '../../components/skeletons';
-import { adminService } from '../../services';
-import type { AdminMetric, AdminQuickStat, AdminActivity } from '../../services/adminService';
-import {
-  PageTransition,
-  CountUpAnimation,
-  PulseRing,
-  ConfettiCelebration,
-  LottieSuccess,
-} from '../../components/animations';
+type AdminDashboardNavigationProp = NativeStackNavigationProp<AdminStackParamList>;
 
-const { width: screenWidth } = Dimensions.get('window');
-const cardWidth = (screenWidth - (spacing.md * 3)) / 2;
-
-// Use types from adminService
-type MetricCard = AdminMetric & { color: string };
-type QuickStat = AdminQuickStat & { urgent?: boolean; action: () => void };
-type ActivityItem = AdminActivity & { icon: string; urgent?: boolean };
-
-const AdminDashboardScreen: React.FC = () => {
-  const navigation = useNavigation<any>();
-  const [loading, setLoading] = useState(true);
+export default function AdminDashboardScreen() {
+  const navigation = useNavigation<AdminDashboardNavigationProp>();
+  const { dashboardStats, systemHealth, refreshData, loading } = useAdmin();
   const [refreshing, setRefreshing] = useState(false);
-  const [metrics, setMetrics] = useState<MetricCard[]>([]);
-  const [quickStats, setQuickStats] = useState<QuickStat[]>([]);
-  const [recentActivity, setRecentActivity] = useState<ActivityItem[]>([]);
-  const [showCelebration, setShowCelebration] = useState(false);
-  const [showSuccess, setShowSuccess] = useState(false);
 
   useEffect(() => {
-    loadDashboardData();
+    loadData();
   }, []);
 
-  const loadDashboardData = async () => {
+  const loadData = async () => {
     try {
-      const dashboardData = await adminService.getDashboard();
-      
-      // Map metrics with colors
-      const metricsWithColors: MetricCard[] = dashboardData.metrics.map((metric, index) => {
-        const colorMap = [colors.primary, colors.success, colors.info, colors.gold];
-        return {
-          ...metric,
-          color: colorMap[index % colorMap.length],
-        };
-      });
-
-      // Map quick stats with actions
-      const quickStatsWithActions: QuickStat[] = dashboardData.quickStats.map((stat) => ({
-        ...stat,
-        label: stat.title,
-        urgent: ['Pending KYC', 'Open Disputes', 'Failed Txns'].includes(stat.title),
-        action: () => handleQuickStatPress(stat.title),
-      }));
-
-      // Map activity items with icons and urgency
-      const activityWithMetadata: ActivityItem[] = dashboardData.recentActivity.map((activity) => {
-        const iconMap: Record<string, string> = {
-          user: 'person-add',
-          donation: 'favorite',
-          transaction: 'account-balance-wallet',
-          verification: 'verified',
-          marketplace: 'shopping-bag',
-        };
-        
-        return {
-          ...activity,
-          icon: iconMap[activity.type] || 'info',
-          urgent: activity.status === 'pending',
-        };
-      });
-
-      setMetrics(metricsWithColors);
-      setQuickStats(quickStatsWithActions);
-      setRecentActivity(activityWithMetadata);
-      setLoading(false);
+      await refreshData();
     } catch (error) {
-      console.error('Failed to load admin dashboard:', error);
-      Alert.alert(
-        'Error',
-        'Failed to load dashboard data. Please try again.',
-        [{ text: 'OK' }]
-      );
-      setLoading(false);
+      Alert.alert('Error', 'Failed to load dashboard data');
     }
   };
 
-  const handleQuickStatPress = (title: string) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    
-    // Navigate to relevant admin screen based on title
-    switch (title) {
-      case 'Pending KYC':
-        navigation.navigate('UserManagement', { filter: 'pending_kyc' });
-        break;
-      case 'Open Disputes':
-        navigation.navigate('DisputeManagement');
-        break;
-      case 'Failed Txns':
-      case 'Failed Transactions':
-        navigation.navigate('TransactionMonitoring', { filter: 'failed' });
-        break;
-      case 'Active Agents':
-        navigation.navigate('AgentManagement');
-        break;
-      default:
-        console.log('Quick stat pressed:', title);
-    }
-  };
-
-  const handleQuickActionPress = (action: string) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    
-    switch (action) {
-      case 'Manage Users':
-        navigation.navigate('UserManagement');
-        break;
-      case 'Transactions':
-        navigation.navigate('TransactionMonitoring');
-        break;
-      case 'Disputes':
-        navigation.navigate('DisputeManagement');
-        break;
-      case 'Settings':
-        navigation.navigate('AdminSettings');
-        break;
-      default:
-        console.log('Quick action pressed:', action);
-    }
-  };
-
-  const handleActivityPress = (activity: ActivityItem) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    
-    switch (activity.type) {
-      case 'user':
-        navigation.navigate('UserDetail', { userId: activity.user });
-        break;
-      case 'transaction':
-        navigation.navigate('TransactionDetail', { transactionId: activity.id });
-        break;
-      case 'verification':
-        navigation.navigate('VerificationDetail', { requestId: activity.id });
-        break;
-      default:
-        console.log('Activity pressed:', activity);
-    }
-  };
-
-  const handleRefresh = async () => {
+  const onRefresh = async () => {
     setRefreshing(true);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    await loadDashboardData();
+    await loadData();
     setRefreshing(false);
   };
 
-  const formatNumber = (value: number): string => {
-    if (value >= 1000000) {
-      return `${(value / 1000000).toFixed(1)}M`;
-    } else if (value >= 1000) {
-      return `${(value / 1000).toFixed(1)}K`;
-    }
-    return value.toString();
+  const navigateToSection = (screen: keyof AdminStackParamList) => {
+    navigation.navigate(screen);
   };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('en-NG', {
-      style: 'currency',
-      currency: 'NGN',
-      minimumFractionDigits: 0,
-    }).format(amount);
+  const getHealthStatusColor = (status: string) => {
+    switch (status) {
+      case 'healthy':
+        return colors.success;
+      case 'degraded':
+        return colors.warning;
+      case 'unhealthy':
+        return colors.error;
+      default:
+        return colors.text.secondary;
+    }
   };
+
+  if (loading && !dashboardStats) {
+    return <LoadingSpinner />;
+  }
 
   return (
-    <PageTransition type="fadeIn">
-      <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.headerTitle}>Admin Dashboard</Text>
-          <Text style={styles.headerSubtitle}>Platform Overview</Text>
+    <ScrollView
+      style={styles.container}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+      }
+    >
+      {/* System Health Status */}
+      <Card style={styles.healthCard}>
+        <View style={styles.healthHeader}>
+          <Text style={styles.sectionTitle}>System Health</Text>
+          <Badge
+            text={systemHealth?.status || 'Unknown'}
+            color={getHealthStatusColor(systemHealth?.status || 'unknown')}
+          />
         </View>
-        <TouchableOpacity
-          style={styles.notificationButton}
-          onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)}
-        >
-          <Icon name="notifications" size={24} color={colors.text.primary} />
-          <EnhancedBadge value={5} pulse position="top-right" />
-        </TouchableOpacity>
+
+        <View style={styles.healthMetrics}>
+          <View style={styles.metric}>
+            <Text style={styles.metricLabel}>Database</Text>
+            <Text style={[styles.metricValue, {
+              color: getHealthStatusColor(systemHealth?.services?.database?.status || 'unknown')
+            }]}>
+              {systemHealth?.services?.database?.status || 'Unknown'}
+            </Text>
+          </View>
+
+          <View style={styles.metric}>
+            <Text style={styles.metricLabel}>Response Time</Text>
+            <Text style={styles.metricValue}>
+              {systemHealth?.services?.database?.responseTime || 'N/A'}
+            </Text>
+          </View>
+
+          <View style={styles.metric}>
+            <Text style={styles.metricLabel}>Memory Usage</Text>
+            <Text style={styles.metricValue}>
+              {systemHealth?.system?.memory?.usagePercent || 0}%
+            </Text>
+          </View>
+        </View>
+      </Card>
+
+      {/* Key Metrics */}
+      <View style={styles.metricsGrid}>
+        <Card style={styles.metricCard}>
+          <Text style={styles.metricNumber}>
+            {dashboardStats?.overview?.totalUsers || 0}
+          </Text>
+          <Text style={styles.metricLabel}>Total Users</Text>
+          <Text style={styles.metricChange}>
+            +{dashboardStats?.today?.newUsers || 0} today
+          </Text>
+        </Card>
+
+        <Card style={styles.metricCard}>
+          <Text style={styles.metricNumber}>
+            ₦{dashboardStats?.overview?.totalVolume?.toLocaleString() || 0}
+          </Text>
+          <Text style={styles.metricLabel}>Total Volume</Text>
+          <Text style={styles.metricChange}>
+            +₦{dashboardStats?.today?.volume?.toLocaleString() || 0} today
+          </Text>
+        </Card>
+
+        <Card style={styles.metricCard}>
+          <Text style={styles.metricNumber}>
+            {dashboardStats?.overview?.totalAgents || 0}
+          </Text>
+          <Text style={styles.metricLabel}>Active Agents</Text>
+          <Text style={styles.metricChange}>Verified</Text>
+        </Card>
+
+        <Card style={styles.metricCard}>
+          <Text style={styles.metricNumber}>
+            {dashboardStats?.overview?.totalCoinsInCirculation || 0}
+          </Text>
+          <Text style={styles.metricLabel}>Coins in Circulation</Text>
+          <Text style={styles.metricChange}>Active</Text>
+        </Card>
       </View>
 
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.contentContainer}
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={handleRefresh}
-            colors={[colors.primary]}
-            tintColor={colors.primary}
+      {/* Charts Section */}
+      <View style={styles.chartsSection}>
+        <Text style={styles.sectionTitle}>Analytics Overview</Text>
+
+        {/* User Growth Chart */}
+        <Card style={styles.chartCard}>
+          <Text style={styles.chartTitle}>User Growth (Last 7 Days)</Text>
+          <LineChart
+            data={{
+              labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+              datasets: [{
+                data: [20, 45, 28, 80, 99, 43, 50],
+              }],
+            }}
+            width={Dimensions.get('window').width - 40}
+            height={220}
+            chartConfig={{
+              backgroundColor: colors.surface,
+              backgroundGradientFrom: colors.surface,
+              backgroundGradientTo: colors.surface,
+              decimalPlaces: 0,
+              color: (opacity = 1) => `rgba(26, 255, 146, ${opacity})`,
+              labelColor: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
+              style: {
+                borderRadius: 16,
+              },
+              propsForDots: {
+                r: '6',
+                strokeWidth: '2',
+                stroke: colors.primary,
+              },
+            }}
+            bezier
+            style={styles.chart}
           />
-        }
-      >
-        {/* Key Metrics */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Key Metrics</Text>
-          {loading ? (
-            <View style={styles.metricsGrid}>
-              {[1, 2, 3, 4].map((i) => (
-                <CardSkeleton key={i} width={cardWidth} height={120} />
-              ))}
-            </View>
-          ) : (
-            <View style={styles.metricsGrid}>
-              {metrics.map((metric, index) => (
-                <TouchableOpacity
-                  key={index}
-                  style={[styles.metricCard, { width: cardWidth }]}
-                  onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)}
-                >
-                  <View style={[styles.metricIcon, { backgroundColor: `${metric.color}20` }]}>
-                    <Icon name={metric.icon} size={28} color={metric.color} />
-                  </View>
-                  <Text style={styles.metricLabel}>{metric.label}</Text>
-                  <CountUpAnimation
-                    value={typeof metric.value === 'number' ? metric.value : parseFloat(metric.value.toString())}
-                    style={styles.metricValue}
-                    prefix={metric.label === 'Total Volume' ? '₦' : ''}
-                    suffix={metric.label === 'Success Rate' ? '%' : ''}
-                    decimals={metric.label === 'Success Rate' ? 1 : 0}
-                  />
-                  <View style={styles.metricChange}>
-                    <Icon
-                      name={metric.trend === 'up' ? 'trending-up' : 'trending-down'}
-                      size={14}
-                      color={metric.trend === 'up' ? colors.success : colors.error}
-                    />
-                    <Text
-                      style={[
-                        styles.changeText,
-                        { color: metric.trend === 'up' ? colors.success : colors.error },
-                      ]}
-                    >
-                      {metric.change}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
-              ))}
-            </View>
-          )}
-        </View>
+        </Card>
 
-        {/* Quick Stats */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Quick Stats</Text>
-          {loading ? (
-            <View style={styles.quickStatsGrid}>
-              {[1, 2, 3, 4].map((i) => (
-                <CardSkeleton key={i} width={cardWidth} height={80} />
-              ))}
-            </View>
-          ) : (
-            <View style={styles.quickStatsGrid}>
-              {quickStats.map((stat, index) => (
-                stat.urgent ? (
-                  <PulseRing size={cardWidth} color={colors.error} key={index}>
-                    <TouchableOpacity
-                      style={[
-                        styles.quickStatCard,
-                        { width: cardWidth },
-                        styles.urgentCard,
-                      ]}
-                      onPress={() => {
-                        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                        stat.action();
-                      }}
-                    >
-                      <View style={styles.quickStatHeader}>
-                        <Icon
-                          name={stat.icon}
-                          size={24}
-                          color={colors.error}
-                        />
-                        <EnhancedBadge
-                          value="!"
-                          color={colors.error}
-                          size="small"
-                          pulse
-                        />
-                      </View>
-                      <CountUpAnimation
-                        value={stat.value}
-                        style={[styles.quickStatValue, { color: colors.error }]}
-                      />
-                      <Text style={styles.quickStatLabel}>{stat.label}</Text>
-                    </TouchableOpacity>
-                  </PulseRing>
-                ) : (
-                  <TouchableOpacity
-                    key={index}
-                    style={[
-                      styles.quickStatCard,
-                      { width: cardWidth },
-                    ]}
-                    onPress={() => {
-                      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                      stat.action();
-                    }}
-                  >
-                    <View style={styles.quickStatHeader}>
-                      <Icon
-                        name={stat.icon}
-                        size={24}
-                        color={colors.text.secondary}
-                      />
-                    </View>
-                    <CountUpAnimation
-                      value={stat.value}
-                      style={styles.quickStatValue}
-                    />
-                    <Text style={styles.quickStatLabel}>{stat.label}</Text>
-                  </TouchableOpacity>
-                )
-              ))}
-            </View>
-          )}
-        </View>
+        {/* Transaction Volume Chart */}
+        <Card style={styles.chartCard}>
+          <Text style={styles.chartTitle}>Transaction Volume by Day</Text>
+          <BarChart
+            data={{
+              labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+              datasets: [{
+                data: [20000, 45000, 28000, 80000, 99000, 43000, 50000],
+              }],
+            }}
+            width={Dimensions.get('window').width - 40}
+            height={220}
+            chartConfig={{
+              backgroundColor: colors.surface,
+              backgroundGradientFrom: colors.surface,
+              backgroundGradientTo: colors.surface,
+              decimalPlaces: 0,
+              color: (opacity = 1) => `rgba(255, 165, 0, ${opacity})`,
+              labelColor: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
+              style: {
+                borderRadius: 16,
+              },
+            }}
+            style={styles.chart}
+            showValuesOnTopOfBars
+          />
+        </Card>
 
-        {/* Recent Activity */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Recent Activity</Text>
-            <TouchableOpacity
-              onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
-            >
-              <Text style={styles.viewAllText}>View All</Text>
-            </TouchableOpacity>
+        {/* User Distribution Pie Chart */}
+        <Card style={styles.chartCard}>
+          <Text style={styles.chartTitle}>User Distribution by Tier</Text>
+          <PieChart
+            data={[
+              {
+                name: 'Tier 1',
+                population: 215,
+                color: colors.primary,
+                legendFontColor: colors.text.primary,
+                legendFontSize: 15,
+              },
+              {
+                name: 'Tier 2',
+                population: 280,
+                color: colors.success,
+                legendFontColor: colors.text.primary,
+                legendFontSize: 15,
+              },
+              {
+                name: 'Tier 3',
+                population: 52,
+                color: colors.warning,
+                legendFontColor: colors.text.primary,
+                legendFontSize: 15,
+              },
+            ]}
+            width={Dimensions.get('window').width - 40}
+            height={220}
+            chartConfig={{
+              color: (opacity = 1) => `rgba(255, 255, 255, ${opacity})`,
+            }}
+            accessor="population"
+            backgroundColor="transparent"
+            paddingLeft="15"
+            style={styles.chart}
+          />
+        </Card>
+      </View>
+
+      {/* Quick Actions */}
+      <View style={styles.actionsSection}>
+        <Text style={styles.sectionTitle}>Quick Actions</Text>
+
+        <View style={styles.actionsGrid}>
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => navigateToSection('UserManagement')}
+          >
+            <Icon name="people" size={24} color={colors.primary} />
+            <Text style={styles.actionText}>User Management</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => navigateToSection('TransactionMonitoring')}
+          >
+            <Icon name="account-balance-wallet" size={24} color={colors.primary} />
+            <Text style={styles.actionText}>Transactions</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => navigateToSection('CoinManagement')}
+          >
+            <Icon name="monetization-on" size={24} color={colors.primary} />
+            <Text style={styles.actionText}>Coin System</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => navigateToSection('FeatureFlags')}
+          >
+            <Icon name="flag" size={24} color={colors.primary} />
+            <Text style={styles.actionText}>Feature Flags</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => navigateToSection('AuditLogs')}
+          >
+            <Icon name="history" size={24} color={colors.primary} />
+            <Text style={styles.actionText}>Audit Logs</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => navigateToSection('SystemHealth')}
+          >
+            <Icon name="health-and-safety" size={24} color={colors.primary} />
+            <Text style={styles.actionText}>System Health</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* Pending Items */}
+      <View style={styles.pendingSection}>
+        <Text style={styles.sectionTitle}>Pending Actions</Text>
+
+        <Card style={styles.pendingCard}>
+          <View style={styles.pendingItem}>
+            <View style={styles.pendingInfo}>
+              <Text style={styles.pendingTitle}>KYC Verifications</Text>
+              <Text style={styles.pendingCount}>
+                {dashboardStats?.pending?.kycVerifications || 0} pending
+              </Text>
+            </View>
+            <Button
+              title="Review"
+              size="small"
+              onPress={() => navigateToSection('KYCApprovals')}
+            />
           </View>
 
-          {loading ? (
-            <ListSkeleton count={5}>
-              <CardSkeleton height={70} />
-            </ListSkeleton>
-          ) : (
-            <View>
-              {recentActivity.map((activity) => (
-                <TouchableOpacity
-                  key={activity.id}
-                  style={[styles.activityItem, activity.urgent && styles.urgentActivity]}
-                  onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
-                >
-                  <View
-                    style={[
-                      styles.activityIcon,
-                      { backgroundColor: activity.urgent ? `${colors.error}20` : `${colors.primary}20` },
-                    ]}
-                  >
-                    <Icon
-                      name={activity.icon}
-                      size={20}
-                      color={activity.urgent ? colors.error : colors.primary}
-                    />
-                  </View>
-                  <View style={styles.activityContent}>
-                    <Text style={styles.activityMessage}>{activity.message}</Text>
-                    <Text style={styles.activityTime}>{activity.time}</Text>
-                  </View>
-                  {activity.urgent && (
-                    <EnhancedBadge
-                      value="Urgent"
-                      color={colors.error}
-                      size="small"
-                      variant="solid"
-                      position="inline"
-                    />
-                  )}
-                </TouchableOpacity>
-              ))}
+          <View style={styles.pendingItem}>
+            <View style={styles.pendingInfo}>
+              <Text style={styles.pendingTitle}>Coin Purchases</Text>
+              <Text style={styles.pendingCount}>
+                {dashboardStats?.pending?.purchaseRequests || 0} pending
+              </Text>
             </View>
-          )}
-        </View>
-
-        {/* Quick Actions */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Quick Actions</Text>
-          <View style={styles.quickActionsGrid}>
-            {[
-              { icon: 'people', label: 'Manage Users', color: colors.primary },
-              { icon: 'money', label: 'Transactions', color: colors.success },
-              { icon: 'gavel', label: 'Disputes', color: colors.error },
-              { icon: 'settings', label: 'Settings', color: colors.gray[600] },
-            ].map((action, index) => (
-              <TouchableOpacity
-                key={index}
-                style={[styles.quickActionCard, { width: cardWidth }]}
-                onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)}
-              >
-                <View style={[styles.quickActionIcon, { backgroundColor: `${action.color}20` }]}>
-                  <Icon name={action.icon} size={32} color={action.color} />
-                </View>
-                <Text style={styles.quickActionLabel}>{action.label}</Text>
-              </TouchableOpacity>
-            ))}
+            <Button
+              title="Review"
+              size="small"
+              onPress={() => navigateToSection('CoinPurchaseApprovals')}
+            />
           </View>
-        </View>
 
-        {/* Bottom padding for floating tab bar */}
-        <View style={{ height: 100 }} />
-      </ScrollView>
+          <View style={styles.pendingItem}>
+            <View style={styles.pendingInfo}>
+              <Text style={styles.pendingTitle}>Disputes</Text>
+              <Text style={styles.pendingCount}>
+                {dashboardStats?.pending?.disputes || 0} active
+              </Text>
+            </View>
+            <Button
+              title="Review"
+              size="small"
+              onPress={() => navigateToSection('DisputeManagement')}
+            />
+          </View>
+        </Card>
+      </View>
 
-      {/* Success Animation */}
-      {showSuccess && (
-        <LottieSuccess
-          size={200}
-          onComplete={() => setShowSuccess(false)}
-        />
-      )}
-
-      {/* Celebration for major milestones */}
-      {showCelebration && <ConfettiCelebration />}
-    </SafeAreaView>
-  </PageTransition>
+      {/* Recent Activity */}
+      <View style={styles.activitySection}>
+        <Text style={styles.sectionTitle}>Recent Activity</Text>
+        <Card style={styles.activityCard}>
+          <Text style={styles.noActivityText}>Recent admin actions will appear here</Text>
+        </Card>
+      </View>
+    </ScrollView>
   );
-};
+}
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background.default,
+    backgroundColor: colors.background,
+    padding: spacing.md,
   },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-    backgroundColor: colors.white,
-    ...shadows.small,
+  healthCard: {
+    marginBottom: spacing.lg,
   },
-  headerTitle: {
-    ...typography.h2,
-    color: colors.text.primary,
-  },
-  headerSubtitle: {
-    ...typography.bodySmall,
-    color: colors.text.secondary,
-    marginTop: spacing.xxs,
-  },
-  notificationButton: {
-    padding: spacing.sm,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  contentContainer: {
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.md,
-  },
-  section: {
-    marginBottom: spacing.xl,
-  },
-  sectionHeader: {
+  healthHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: spacing.md,
   },
   sectionTitle: {
-    ...typography.h3,
+    ...typography.h2,
     color: colors.text.primary,
     marginBottom: spacing.md,
   },
-  viewAllText: {
-    ...typography.bodySmallBold,
-    color: colors.primary,
+  healthMetrics: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+  },
+  metric: {
+    alignItems: 'center',
+  },
+  metricLabel: {
+    ...typography.caption,
+    color: colors.text.secondary,
+    marginBottom: spacing.xs,
+  },
+  metricValue: {
+    ...typography.body,
+    fontWeight: '600',
   },
   metricsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: spacing.md,
+    justifyContent: 'space-between',
+    marginBottom: spacing.lg,
   },
   metricCard: {
-    backgroundColor: colors.white,
-    borderRadius: 12,
-    padding: spacing.md,
-    ...shadows.card,
-  },
-  metricIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: 12,
-    justifyContent: 'center',
+    width: '48%',
     alignItems: 'center',
-    marginBottom: spacing.sm,
+    padding: spacing.md,
+    marginBottom: spacing.md,
   },
-  metricLabel: {
-    ...typography.bodySmall,
-    color: colors.text.secondary,
-    marginBottom: spacing.xxs,
-  },
-  metricValue: {
-    ...typography.h2,
-    color: colors.text.primary,
-    marginBottom: spacing.xxs,
+  metricNumber: {
+    ...typography.h1,
+    color: colors.primary,
+    fontWeight: 'bold',
   },
   metricChange: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xxs,
-  },
-  changeText: {
     ...typography.caption,
-    fontWeight: '600',
+    color: colors.success,
+    marginTop: spacing.xs,
   },
-  quickStatsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: spacing.md,
+  chartsSection: {
+    marginBottom: spacing.lg,
   },
-  quickStatCard: {
-    backgroundColor: colors.white,
-    borderRadius: 12,
+  chartCard: {
+    marginBottom: spacing.lg,
     padding: spacing.md,
-    alignItems: 'center',
-    ...shadows.card,
   },
-  urgentCard: {
-    borderWidth: 2,
-    borderColor: colors.error,
-  },
-  quickStatHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: spacing.sm,
-  },
-  quickStatValue: {
-    ...typography.h1,
+  chartTitle: {
+    ...typography.h3,
     color: colors.text.primary,
-    marginBottom: spacing.xxs,
-  },
-  quickStatLabel: {
-    ...typography.caption,
-    color: colors.text.secondary,
+    marginBottom: spacing.md,
     textAlign: 'center',
   },
-  activityItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.white,
-    borderRadius: 12,
-    padding: spacing.md,
-    marginBottom: spacing.sm,
-    ...shadows.small,
+  chart: {
+    marginVertical: spacing.md,
+    borderRadius: borderRadius.md,
   },
-  urgentActivity: {
-    borderLeftWidth: 4,
-    borderLeftColor: colors.error,
+  actionsSection: {
+    marginBottom: spacing.lg,
   },
-  activityIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: spacing.md,
-  },
-  activityContent: {
-    flex: 1,
-  },
-  activityMessage: {
-    ...typography.bodyRegular,
-    color: colors.text.primary,
-    marginBottom: spacing.xxs,
-  },
-  activityTime: {
-    ...typography.caption,
-    color: colors.text.secondary,
-  },
-  quickActionsGrid: {
+  actionsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: spacing.md,
+    justifyContent: 'space-between',
   },
-  quickActionCard: {
-    backgroundColor: colors.white,
-    borderRadius: 12,
+  actionButton: {
+    width: '30%',
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.md,
+    padding: spacing.md,
+    alignItems: 'center',
+    marginBottom: spacing.md,
+    ...colors.shadow,
+  },
+  actionText: {
+    ...typography.caption,
+    color: colors.primary,
+    marginTop: spacing.xs,
+    textAlign: 'center',
+  },
+  pendingSection: {
+    marginBottom: spacing.lg,
+  },
+  pendingCard: {
+    padding: spacing.md,
+  },
+  pendingItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  pendingInfo: {
+    flex: 1,
+  },
+  pendingTitle: {
+    ...typography.body,
+    fontWeight: '600',
+    color: colors.text.primary,
+  },
+  pendingCount: {
+    ...typography.caption,
+    color: colors.warning,
+    marginTop: spacing.xs,
+  },
+  activitySection: {
+    marginBottom: spacing.lg,
+  },
+  activityCard: {
     padding: spacing.lg,
     alignItems: 'center',
-    ...shadows.card,
   },
-  quickActionIcon: {
-    width: 64,
-    height: 64,
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: spacing.sm,
-  },
-  quickActionLabel: {
-    ...typography.bodySmallBold,
-    color: colors.text.primary,
+  noActivityText: {
+    ...typography.body,
+    color: colors.text.secondary,
     textAlign: 'center',
   },
 });
-
-export default AdminDashboardScreen;

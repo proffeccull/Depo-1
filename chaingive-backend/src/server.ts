@@ -1,3 +1,4 @@
+import './instrument';
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -5,11 +6,14 @@ import morgan from 'morgan';
 import dotenv from 'dotenv';
 import { errorHandler } from './middleware/errorHandler';
 import { notFoundHandler } from './middleware/notFoundHandler';
-import { rateLimiter } from './middleware/rateLimiter';
+import { rateLimiter, authLimiter } from './middleware/rateLimiter';
 import { sentryRequestHandler, sentryTracingHandler, sentryErrorHandler } from './middleware/sentryHandler';
 import logger from './utils/logger';
 import { startScheduledJobs } from './jobs';
 import { initializeSentry } from './services/sentry.service';
+import websocketService from './services/websocket.service';
+import { swaggerUi, specs } from './utils/swagger';
+import { initializeMetrics, httpMetricsMiddleware } from './services/metrics.service';
 
 // Routes
 import authRoutes from './routes/auth.routes';
@@ -24,6 +28,9 @@ import agentCoinRoutes from './routes/agentCoin.routes';
 import adminCoinRoutes from './routes/adminCoin.routes';
 import adminRoutes from './routes/admin.routes';
 import adminAdvancedRoutes from './routes/adminAdvanced.routes';
+import adminGodModeRoutes from './routes/adminGodMode.routes';
+import adminSystemRoutes from './routes/adminSystem.routes';
+import adminAuthRoutes from './routes/adminAuth.routes';
 import matchRoutes from './routes/match.routes';
 import leaderboardRoutes from './routes/leaderboard.routes';
 import notificationRoutes from './routes/notification.routes';
@@ -46,6 +53,10 @@ import webhooksRoutes from './routes/webhooks.routes';
 
 // Load environment variables
 dotenv.config();
+
+// Validate required environment variables
+import { validateEnv } from './config/env';
+validateEnv();
 
 // Initialize Sentry (must be before Express app)
 initializeSentry();
@@ -71,6 +82,9 @@ app.use(morgan('combined', { stream: { write: (message) => logger.info(message.t
 // Rate limiting
 app.use(rateLimiter);
 
+// HTTP Metrics middleware
+app.use(httpMetricsMiddleware);
+
 // Health check
 app.get(['/','/health'], (req, res) => {
   res.json({
@@ -81,6 +95,12 @@ app.get(['/','/health'], (req, res) => {
   });
 });
 app.head(['/','/health'], (_req, res) => res.sendStatus(200));
+
+// Swagger documentation
+if (process.env.NODE_ENV !== 'production') {
+  app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
+  logger.info('📚 Swagger docs available at http://localhost:' + PORT + '/api-docs');
+}
 
 // API Routes
 app.use(`/${API_VERSION}/auth`, authRoutes);
@@ -94,7 +114,10 @@ app.use(`/${API_VERSION}/agents`, agentRoutes);
 app.use(`/${API_VERSION}/agents`, agentCoinRoutes); // Agent coin management
 app.use(`/${API_VERSION}/admin/coins`, adminCoinRoutes); // Admin coin management
 app.use(`/${API_VERSION}/admin/advanced`, adminAdvancedRoutes); // Admin advanced features
+app.use(`/${API_VERSION}/admin/godmode`, adminGodModeRoutes); // God mode admin features
+app.use(`/${API_VERSION}/admin/system`, adminSystemRoutes); // System monitoring
 app.use(`/${API_VERSION}/admin`, adminRoutes); // Admin general management
+app.use(`/${API_VERSION}/admin/auth`, adminAuthRoutes); // Admin authentication with MFA
 app.use(`/${API_VERSION}/matches`, matchRoutes);
 app.use(`/${API_VERSION}/leaderboard`, leaderboardRoutes);
 app.use(`/${API_VERSION}/notifications`, notificationRoutes);
@@ -115,6 +138,18 @@ app.use(`/${API_VERSION}/corporate`, corporateRoutes);
 // Webhook Routes (no auth required)
 app.use('/webhooks', webhooksRoutes);
 
+// Prometheus metrics endpoint
+app.get('/metrics', async (req, res) => {
+  try {
+    const { getMetrics } = await import('./services/metrics.service');
+    const metrics = await getMetrics();
+    res.set('Content-Type', 'text/plain; charset=utf-8');
+    res.send(metrics);
+  } catch (error) {
+    res.status(500).send('Error generating metrics');
+  }
+});
+
 // Serve uploaded files statically
 app.use('/uploads', express.static('uploads'));
 
@@ -123,18 +158,44 @@ app.use(sentryErrorHandler);
 app.use(notFoundHandler);
 app.use(errorHandler);
 
+// Initialize metrics collection
+initializeMetrics();
+logger.info('📊 Metrics collection initialized');
+
 // Start server
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   logger.info(`🚀 ChainGive API Server running on port ${PORT}`);
   logger.info(`📝 Environment: ${process.env.NODE_ENV}`);
   logger.info(`🔗 API Version: ${API_VERSION}`);
   logger.info(`🌍 Health check: http://localhost:${PORT}/health`);
-  
+  logger.info(`📈 Prometheus metrics: http://localhost:${PORT}/metrics`);
+
+  // Initialize WebSocket server
+  websocketService.initialize(server);
+  logger.info('🔌 WebSocket server initialized');
+
   // Start background jobs
   if (process.env.NODE_ENV !== 'test') {
     startScheduledJobs();
     logger.info('⏰ Background jobs scheduled');
   }
+});
+
+// Graceful shutdown
+process.on('SIGTERM', () => {
+  logger.info('SIGTERM received, shutting down gracefully');
+  server.close(() => {
+    websocketService.shutdown();
+    process.exit(0);
+  });
+});
+
+process.on('SIGINT', () => {
+  logger.info('SIGINT received, shutting down gracefully');
+  server.close(() => {
+    websocketService.shutdown();
+    process.exit(0);
+  });
 });
 
 export default app;

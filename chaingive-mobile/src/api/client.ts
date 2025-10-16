@@ -1,9 +1,12 @@
-import axios, { AxiosInstance, AxiosError } from 'axios';
+import axiosImport, { AxiosInstance, AxiosError } from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const BASE_URL = 'http://localhost:3000/api/v1';
 
-export const apiClient: AxiosInstance = axios.create({
+// Ensure compatibility with different module interop behaviors
+const axios = (axiosImport as any)?.default ?? (axiosImport as any);
+
+export const apiClient: AxiosInstance = (axios as any).create({
   baseURL: BASE_URL,
   timeout: 10000,
   headers: {

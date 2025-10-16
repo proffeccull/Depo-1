@@ -1,76 +1,35 @@
 {
   "expo": {
     "name": "ChainGive",
-    "slug": "depo",
-    "version": "2.4.0",
+    "slug": "chaingive",
+    "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#FF6B35"
-    },
-    "updates": {
-      "fallbackToCacheTimeout": 0
+      "backgroundColor": "#ffffff"
     },
     "assetBundlePatterns": [
       "**/*"
     ],
     "ios": {
-      "supportsTablet": true,
-      "bundleIdentifier": "com.chaingive.mobile",
-      "infoPlist": {
-        "NSCameraUsageDescription": "ChainGive needs camera access for profile photos and KYC verification.",
-        "NSPhotoLibraryUsageDescription": "ChainGive needs photo library access to select images.",
-        "NSLocationWhenInUseUsageDescription": "ChainGive needs your location to find nearby agents."
-      }
+      "supportsTablet": true
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#FF6B35"
-      },
-      "package": "com.chaingive.mobile",
-      "permissions": [
-        "CAMERA",
-        "READ_EXTERNAL_STORAGE",
-        "WRITE_EXTERNAL_STORAGE",
-        "ACCESS_FINE_LOCATION",
-        "ACCESS_COARSE_LOCATION",
-        "VIBRATE",
-        "RECEIVE_BOOT_COMPLETED"
-      ],
-      "googleServicesFile": "./google-services.json",
-      "useNextNotificationsApi": true
+        "backgroundColor": "#ffffff"
+      }
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "notification": {
-      "icon": "./assets/notification-icon.png",
-      "color": "#FF6B35",
-      "androidMode": "default",
-      "androidCollapsedTitle": "#{unread_notifications} new notifications"
-    },
-    "plugins": [
-      [
-        "expo-notifications",
-        {
-          "icon": "./assets/notification-icon.png",
-          "color": "#FF6B35",
-          "sounds": [
-            "./assets/sounds/notification.wav"
-          ]
-        }
-      ]
-    ],
-    "scheme": "chaingive",
     "extra": {
       "eas": {
-        "projectId": "98cd198e-0be0-4d67-b4a4-60537858b227"
+        "projectId": "8e1c1495-625c-41e9-87cf-4297871f2f44"
       }
-    },
-    "owner": "mt-4ff"
+    }
   }
 }

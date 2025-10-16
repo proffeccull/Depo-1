@@ -26,26 +26,27 @@ import { WeeklyTargetsScreen } from '../screens/gamification/WeeklyTargetsScreen
 import { UserLevelsScreen } from '../screens/gamification/UserLevelsScreen';
 import { CharitableNFTGalleryScreen } from '../screens/gamification/CharitableNFTGalleryScreen';
 
-// Merchant screens
-import MerchantDirectoryScreen from '../screens/merchant/MerchantDirectoryScreen';
-import MerchantDetailScreen from '../screens/merchant/MerchantDetailScreen';
-import QRPaymentScreen from '../screens/merchant/QRPaymentScreen';
-import MerchantDashboardScreen from '../screens/merchant/MerchantDashboardScreen';
+// Merchant screens (stubbed)
+const MerchantDirectoryScreen = () => <StubScreen name="MerchantDirectoryScreen" />;
+const MerchantDetailScreen = () => <StubScreen name="MerchantDetailScreen" />;
+const QRPaymentScreen = () => <StubScreen name="QRPaymentScreen" />;
+const MerchantDashboardScreen = () => <StubScreen name="MerchantDashboardScreen" />;
 
-// Corporate screens
-import CorporateSignupScreen from '../screens/corporate/CorporateSignupScreen';
-import CorporateDashboardScreen from '../screens/corporate/CorporateDashboardScreen';
-import TeamManagementScreen from '../screens/corporate/TeamManagementScreen';
-import CSRTrackingScreen from '../screens/corporate/CSRTrackingScreen';
-import BulkOperationsScreen from '../screens/corporate/BulkOperationsScreen';
+// Corporate screens (stubbed)
+import StubScreen from '../screens/_stubs/StubScreen';
+const CorporateSignupScreen = () => <StubScreen name="CorporateSignupScreen" />;
+const CorporateDashboardScreen = () => <StubScreen name="CorporateDashboardScreen" />;
+const TeamManagementScreen = () => <StubScreen name="TeamManagementScreen" />;
+const CSRTrackingScreen = () => <StubScreen name="CSRTrackingScreen" />;
+const BulkOperationsScreen = () => <StubScreen name="BulkOperationsScreen" />;
 
-// AI screens
-import SmartAssistantScreen from '../screens/ai/SmartAssistantScreen';
-import DonationRecommendationCard from '../screens/ai/DonationRecommendationCard';
-import OptimalTimingWidget from '../screens/ai/OptimalTimingWidget';
-import AIInsightsDashboard from '../screens/ai/AIInsightsDashboard';
-import AIMatchingScreen from '../screens/ai/AIMatchingScreen';
-import AIRecommendationsScreen from '../screens/ai/AIRecommendationsScreen';
+// AI screens (stubbed)
+const SmartAssistantScreen = () => <StubScreen name="SmartAssistantScreen" />;
+const DonationRecommendationCard = () => <StubScreen name="DonationRecommendationCard" />;
+const OptimalTimingWidget = () => <StubScreen name="OptimalTimingWidget" />;
+const AIInsightsDashboard = () => <StubScreen name="AIInsightsDashboard" />;
+const AIMatchingScreen = () => <StubScreen name="AIMatchingScreen" />;
+const AIRecommendationsScreen = () => <StubScreen name="AIRecommendationsScreen" />;
 
 // Subscription screens
 import SubscriptionPlansScreen from '../screens/subscription/SubscriptionPlansScreen';
@@ -54,48 +55,55 @@ import SubscriptionSuccessScreen from '../screens/subscription/SubscriptionSucce
 import AutoRenewalSettingsScreen from '../screens/subscription/AutoRenewalSettingsScreen';
 import CoinPaymentScreen from '../screens/subscription/CoinPaymentScreen';
 
-// Admin screens
-import AdminDashboardScreen from '../screens/admin/AdminDashboardScreen';
-import UserManagementScreen from '../screens/admin/UserManagementScreen';
-import TransactionMonitoringScreen from '../screens/admin/TransactionMonitoringScreen';
-import DisputeManagementScreen from '../screens/admin/DisputeManagementScreen';
-import CryptoPaymentSettingsScreen from '../screens/admin/CryptoPaymentSettingsScreen';
-import CryptoPaymentConfirmationScreen from '../screens/admin/CryptoPaymentConfirmationScreen';
-import AuctionManagementScreen from '../screens/admin/AuctionManagementScreen';
-import NFTManagementScreen from '../screens/admin/NFTManagementScreen';
-import GamificationAdminScreen from '../screens/admin/GamificationAdminScreen';
-import CreateChallengeScreen from '../screens/admin/CreateChallengeScreen';
-import ManageAchievementsScreen from '../screens/admin/ManageAchievementsScreen';
+// Admin screens (stubbed except core dashboard which likely exists)
+const AdminDashboardScreen = () => <StubScreen name="AdminDashboardScreen" />;
+const UserManagementScreen = () => <StubScreen name="UserManagementScreen" />;
+const TransactionMonitoringScreen = () => <StubScreen name="TransactionMonitoringScreen" />;
+const AnalyticsScreen = () => <StubScreen name="AdminAnalyticsScreen" />;
+const SystemHealthScreen = () => <StubScreen name="SystemHealthScreen" />;
+const DisputeManagementScreen = () => <StubScreen name="DisputeManagementScreen" />;
+const CryptoPaymentSettingsScreen = () => <StubScreen name="CryptoPaymentSettingsScreen" />;
+const CryptoPaymentConfirmationScreen = () => <StubScreen name="CryptoPaymentConfirmationScreen" />;
+const AuctionManagementScreen = () => <StubScreen name="AuctionManagementScreen" />;
+const NFTManagementScreen = () => <StubScreen name="NFTManagementScreen" />;
+const GamificationAdminScreen = () => <StubScreen name="GamificationAdminScreen" />;
+const CreateChallengeScreen = () => <StubScreen name="CreateChallengeScreen" />;
+const ManageAchievementsScreen = () => <StubScreen name="ManageAchievementsScreen" />;
+const KYCApprovalsScreen = () => <StubScreen name="KYCApprovalsScreen" />;
+const CoinPurchaseApprovalsScreen = () => <StubScreen name="CoinPurchaseApprovalsScreen" />;
+const CoinManagementScreen = () => <StubScreen name="CoinManagementScreen" />;
+const FeatureFlagsScreen = () => <StubScreen name="FeatureFlagsScreen" />;
+const AuditLogsScreen = () => <StubScreen name="AuditLogsScreen" />;
 
-// Crypto Gateway screens
-import CryptoGatewaySelectionScreen from '../screens/crypto/CryptoGatewaySelectionScreen';
-import CoinPurchaseAmountScreen from '../screens/crypto/CoinPurchaseAmountScreen';
-import CryptoPaymentScreen from '../screens/crypto/CryptoPaymentScreen';
-import PaymentStatusScreen from '../screens/crypto/PaymentStatusScreen';
-import CryptoTransactionHistoryScreen from '../screens/crypto/CryptoTransactionHistoryScreen';
+// Crypto Gateway screens (stubbed)
+const CryptoGatewaySelectionScreen = () => <StubScreen name="CryptoGatewaySelectionScreen" />;
+const CoinPurchaseAmountScreen = () => <StubScreen name="CoinPurchaseAmountScreen" />;
+const CryptoPaymentScreen = () => <StubScreen name="CryptoPaymentScreen" />;
+const PaymentStatusScreen = () => <StubScreen name="PaymentStatusScreen" />;
+const CryptoTransactionHistoryScreen = () => <StubScreen name="CryptoTransactionHistoryScreen" />;
 
 // Analytics screens
-import DonationHeatmapScreen from '../screens/analytics/DonationHeatmapScreen';
-import GivingTrendsScreen from '../screens/analytics/GivingTrendsScreen';
-import CoinROIScreen from '../screens/analytics/CoinROIScreen';
-import SocialImpactScoreScreen from '../screens/analytics/SocialImpactScoreScreen';
+const DonationHeatmapScreen = () => <StubScreen name="DonationHeatmapScreen" />;
+const GivingTrendsScreen = () => <StubScreen name="GivingTrendsScreen" />;
+const CoinROIScreen = () => <StubScreen name="CoinROIScreen" />;
+const SocialImpactScoreScreen = () => <StubScreen name="SocialImpactScoreScreen" />;
 
 // Social screens
-import CircleChatScreen from '../screens/social/CircleChatScreen';
-import CircleLeaderboardScreen from '../screens/social/CircleLeaderboardScreen';
-import PostDetailScreen from '../screens/social/PostDetailScreen';
-import BoostPostScreen from '../screens/social/BoostPostScreen';
-import LiveEventsScreen from '../screens/social/LiveEventsScreen';
-import EventDetailScreen from '../screens/social/EventDetailScreen';
-import EventParticipantsScreen from '../screens/social/EventParticipantsScreen';
-import EventResultsScreen from '../screens/social/EventResultsScreen';
+const CircleChatScreen = () => <StubScreen name="CircleChatScreen" />;
+const CircleLeaderboardScreen = () => <StubScreen name="CircleLeaderboardScreen" />;
+const PostDetailScreen = () => <StubScreen name="PostDetailScreen" />;
+const BoostPostScreen = () => <StubScreen name="BoostPostScreen" />;
+const LiveEventsScreen = () => <StubScreen name="LiveEventsScreen" />;
+const EventDetailScreen = () => <StubScreen name="EventDetailScreen" />;
+const EventParticipantsScreen = () => <StubScreen name="EventParticipantsScreen" />;
+const EventResultsScreen = () => <StubScreen name="EventResultsScreen" />;
 
 // Advanced Gamification screens
-import ChallengeDetailScreen from '../screens/gamification/ChallengeDetailScreen';
-import ChallengeProgressScreen from '../screens/gamification/ChallengeProgressScreen';
-import ChallengeRewardsScreen from '../screens/gamification/ChallengeRewardsScreen';
-import BattlePassRewardsScreen from '../screens/gamification/BattlePassRewardsScreen';
-import BattlePassProgressScreen from '../screens/gamification/BattlePassProgressScreen';
+const ChallengeDetailScreen = () => <StubScreen name="ChallengeDetailScreen" />;
+const ChallengeProgressScreen = () => <StubScreen name="ChallengeProgressScreen" />;
+const ChallengeRewardsScreen = () => <StubScreen name="ChallengeRewardsScreen" />;
+const BattlePassRewardsScreen = () => <StubScreen name="BattlePassRewardsScreen" />;
+const BattlePassProgressScreen = () => <StubScreen name="BattlePassProgressScreen" />;
 
 // Marketplace 2.0 screens
 import AuctionDetailScreen from '../screens/marketplace/AuctionDetailScreen';
@@ -282,6 +290,8 @@ const AppNavigator: React.FC = () => {
       <Stack.Screen name="AdminDashboard" component={AdminDashboardScreen} />
       <Stack.Screen name="UserManagement" component={UserManagementScreen} />
       <Stack.Screen name="TransactionMonitoring" component={TransactionMonitoringScreen} />
+      <Stack.Screen name="Analytics" component={AnalyticsScreen} />
+      <Stack.Screen name="SystemHealth" component={SystemHealthScreen} />
       <Stack.Screen name="DisputeManagement" component={DisputeManagementScreen} />
       <Stack.Screen name="CryptoPaymentSettings" component={CryptoPaymentSettingsScreen} />
       <Stack.Screen name="CryptoPaymentConfirmation" component={CryptoPaymentConfirmationScreen} />
@@ -290,6 +300,11 @@ const AppNavigator: React.FC = () => {
       <Stack.Screen name="GamificationAdmin" component={GamificationAdminScreen} />
       <Stack.Screen name="CreateChallenge" component={CreateChallengeScreen} />
       <Stack.Screen name="ManageAchievements" component={ManageAchievementsScreen} />
+      <Stack.Screen name="KYCApprovals" component={KYCApprovalsScreen} />
+      <Stack.Screen name="CoinPurchaseApprovals" component={CoinPurchaseApprovalsScreen} />
+      <Stack.Screen name="CoinManagement" component={CoinManagementScreen} />
+      <Stack.Screen name="FeatureFlags" component={FeatureFlagsScreen} />
+      <Stack.Screen name="AuditLogs" component={AuditLogsScreen} />
 
       {/* Crypto Gateway screens */}
       <Stack.Screen name="CryptoGatewaySelection" component={CryptoGatewaySelectionScreen} />

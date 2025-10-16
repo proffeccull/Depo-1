@@ -5,6 +5,7 @@ import { AppError } from '../middleware/errorHandler';
 import logger from '../utils/logger';
 import { sendKYCApprovalEmail } from '../services/email.service';
 import { sendKYCApprovalSMS } from '../services/sms.service';
+import bcrypt from 'bcrypt';
 
 /**
  * Get all users with filters and pagination
@@ -429,8 +430,7 @@ export const approveKYC = async (req: AuthRequest, res: Response, next: NextFunc
     // Send SMS notification
     await sendKYCApprovalSMS(
       kycRecord.user.phoneNumber,
-      kycRecord.user.firstName,
-      kycRecord.verificationType
+      kycRecord.user.firstName
     );
 
     res.status(200).json({
@@ -582,7 +582,7 @@ export const getUserGrowthReport = async (req: AuthRequest, res: Response, next:
     ]);
 
     // Calculate retention rate
-    const retainedUsers = retentionData.filter(u => 
+    const retainedUsers = retentionData.filter(u =>
       u.lastLoginAt && u.lastLoginAt > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
     ).length;
     const retentionRate = newUsers > 0 ? (retainedUsers / newUsers) * 100 : 0;
@@ -596,6 +596,385 @@ export const getUserGrowthReport = async (req: AuthRequest, res: Response, next:
         retentionRate: retentionRate.toFixed(2),
         dailyAverage: (newUsers / days).toFixed(1),
       },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Create a new user (admin only)
+ */
+export const createUser = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const {
+      phoneNumber,
+      email,
+      firstName,
+      lastName,
+      role = 'beginner',
+      tier = 1,
+      locationCity,
+      locationState,
+      isActive = true
+    } = req.body;
+    const adminId = req.user!.id;
+
+    // Check if phone number already exists
+    const existingUser = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { phoneNumber },
+          ...(email ? [{ email }] : [])
+        ]
+      }
+    });
+
+    if (existingUser) {
+      throw new AppError('User with this phone number or email already exists', 409, 'USER_EXISTS');
+    }
+
+    // Generate a temporary password for admin-created users
+    const tempPassword = Math.random().toString(36).slice(-12);
+    const passwordHash = await bcrypt.hash(tempPassword, 12);
+
+    const newUser = await prisma.user.create({
+      data: {
+        phoneNumber,
+        email,
+        firstName,
+        lastName,
+        passwordHash,
+        role,
+        tier,
+        locationCity,
+        locationState,
+        isActive,
+        kycStatus: 'not_required', // Admin created users skip KYC
+      },
+      select: {
+        id: true,
+        phoneNumber: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        role: true,
+        tier: true,
+        isActive: true,
+        createdAt: true,
+      }
+    });
+
+    // Log admin action
+    await prisma.adminAction.create({
+      data: {
+        adminId,
+        action: 'create_user',
+        targetId: newUser.id,
+        details: JSON.stringify({
+          phoneNumber,
+          email,
+          firstName,
+          lastName,
+          role,
+          tier
+        })
+      }
+    });
+
+    logger.info(`Admin ${adminId} created new user ${newUser.id}`);
+
+    res.status(201).json({
+      success: true,
+      message: 'User created successfully',
+      data: {
+        ...newUser,
+        tempPassword, // Include temp password in response for admin
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Update user details
+ */
+export const updateUser = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const { userId } = req.params;
+    const {
+      firstName,
+      lastName,
+      email,
+      locationCity,
+      locationState,
+      isActive,
+      trustScore,
+      tier
+    } = req.body;
+    const adminId = req.user!.id;
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        email: true,
+        locationCity: true,
+        locationState: true,
+        isActive: true,
+        trustScore: true,
+        tier: true,
+      }
+    });
+
+    if (!user) {
+      throw new AppError('User not found', 404, 'USER_NOT_FOUND');
+    }
+
+    const updateData: any = {};
+    if (firstName !== undefined) updateData.firstName = firstName;
+    if (lastName !== undefined) updateData.lastName = lastName;
+    if (email !== undefined) updateData.email = email;
+    if (locationCity !== undefined) updateData.locationCity = locationCity;
+    if (locationState !== undefined) updateData.locationState = locationState;
+    if (isActive !== undefined) updateData.isActive = isActive;
+    if (trustScore !== undefined) updateData.trustScore = trustScore;
+    if (tier !== undefined) updateData.tier = tier;
+
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: updateData,
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        email: true,
+        locationCity: true,
+        locationState: true,
+        isActive: true,
+        trustScore: true,
+        tier: true,
+        updatedAt: true,
+      }
+    });
+
+    // Log admin action
+    await prisma.adminAction.create({
+      data: {
+        adminId,
+        action: 'update_user',
+        targetId: userId,
+        details: JSON.stringify({
+          oldData: user,
+          newData: updatedUser,
+          changes: Object.keys(updateData)
+        })
+      }
+    });
+
+    logger.info(`Admin ${adminId} updated user ${userId}`);
+
+    res.status(200).json({
+      success: true,
+      message: 'User updated successfully',
+      data: updatedUser,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Delete user (soft delete - mark as inactive)
+ */
+export const deleteUser = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const { userId } = req.params;
+    const { reason } = req.body;
+    const adminId = req.user!.id;
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        isActive: true,
+      }
+    });
+
+    if (!user) {
+      throw new AppError('User not found', 404, 'USER_NOT_FOUND');
+    }
+
+    if (!user.isActive) {
+      throw new AppError('User is already deactivated', 400, 'USER_ALREADY_DEACTIVATED');
+    }
+
+    // Soft delete - mark as inactive
+    await prisma.user.update({
+      where: { id: userId },
+      data: {
+        isActive: false,
+        isBanned: true,
+        banReason: reason || `Deactivated by admin ${adminId}`,
+      }
+    });
+
+    // Log admin action
+    await prisma.adminAction.create({
+      data: {
+        adminId,
+        action: 'delete_user',
+        targetId: userId,
+        details: JSON.stringify({
+          reason,
+          softDelete: true
+        })
+      }
+    });
+
+    logger.warn(`Admin ${adminId} deactivated user ${userId}. Reason: ${reason}`);
+
+    res.status(200).json({
+      success: true,
+      message: 'User deactivated successfully',
+      data: {
+        userId,
+        action: 'deactivated',
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Get user permissions and roles
+ */
+export const getUserPermissions = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const { userId } = req.params;
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        role: true,
+        tier: true,
+        kycStatus: true,
+        trustScore: true,
+        isActive: true,
+        isBanned: true,
+      }
+    });
+
+    if (!user) {
+      throw new AppError('User not found', 404, 'USER_NOT_FOUND');
+    }
+
+    // Define role-based permissions
+    const rolePermissions = {
+      beginner: ['donate', 'receive', 'view_profile'],
+      agent: ['donate', 'receive', 'view_profile', 'sell_coins', 'manage_inventory'],
+      power_partner: ['donate', 'receive', 'view_profile', 'sell_coins', 'manage_inventory', 'view_analytics'],
+      csc_council: ['donate', 'receive', 'view_profile', 'sell_coins', 'manage_inventory', 'view_analytics', 'admin_access'],
+    };
+
+    // Define tier-based permissions
+    const tierPermissions = {
+      1: ['basic_donations'],
+      2: ['basic_donations', 'verified_beneficiary'],
+      3: ['basic_donations', 'verified_beneficiary', 'premium_features'],
+    };
+
+    const permissions = {
+      role: user.role,
+      tier: user.tier,
+      kycStatus: user.kycStatus,
+      trustScore: user.trustScore,
+      isActive: user.isActive,
+      isBanned: user.isBanned,
+      rolePermissions: rolePermissions[user.role as keyof typeof rolePermissions] || [],
+      tierPermissions: tierPermissions[user.tier as keyof typeof tierPermissions] || [],
+      customPermissions: [], // No custom permissions field in schema
+    };
+
+    res.status(200).json({
+      success: true,
+      data: permissions,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Override donation transaction (admin manual correction)
+ */
+export const overrideDonation = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const { transactionId } = req.params;
+    const { amount, status, reason } = req.body;
+    const adminId = req.user!.id;
+
+    const transaction = await prisma.transaction.findUnique({
+      where: { id: transactionId },
+      include: { fromUser: true, toUser: true }
+    });
+
+    if (!transaction) {
+      throw new AppError('Transaction not found', 404, 'TRANSACTION_NOT_FOUND');
+    }
+
+    const validStatuses = ['pending', 'in_transit', 'completed', 'failed', 'cancelled'];
+    if (status && !validStatuses.includes(status)) {
+      throw new AppError(`Invalid status. Must be one of: ${validStatuses.join(', ')}`, 400, 'INVALID_STATUS');
+    }
+
+    const updateData: any = {};
+    if (amount !== undefined) updateData.amount = amount;
+    if (status !== undefined) updateData.status = status;
+    if (reason) updateData.notes = reason;
+
+    const updatedTransaction = await prisma.transaction.update({
+      where: { id: transactionId },
+      data: updateData,
+      include: { fromUser: true, toUser: true }
+    });
+
+    // Log admin action
+    await prisma.adminAction.create({
+      data: {
+        adminId,
+        action: 'override_donation',
+        targetId: transactionId,
+        details: JSON.stringify({
+          oldAmount: transaction.amount,
+          newAmount: updatedTransaction.amount,
+          oldStatus: transaction.status,
+          newStatus: updatedTransaction.status,
+          reason
+        })
+      }
+    });
+
+    logger.warn(`Admin ${adminId} overrode donation ${transactionId}: amount ${transaction.amount} -> ${updatedTransaction.amount}, status ${transaction.status} -> ${updatedTransaction.status}`);
+
+    res.status(200).json({
+      success: true,
+      message: 'Donation overridden successfully',
+      data: {
+        transactionId,
+        oldAmount: transaction.amount,
+        newAmount: updatedTransaction.amount,
+        oldStatus: transaction.status,
+        newStatus: updatedTransaction.status,
+        reason
+      }
     });
   } catch (error) {
     next(error);

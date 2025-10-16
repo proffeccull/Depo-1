@@ -1,0 +1,168 @@
+version: '3.8'
+
+services:
+  # Prometheus - Metrics Collection (Production)
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: chaingive-prometheus-prod
+    ports:
+      - "127.0.0.1:9090:9090"  # Bind to localhost only
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+      - ./monitoring/prometheus/web.yml:/etc/prometheus/web.yml:ro
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=30d'
+      - '--web.enable-lifecycle'
+      - '--web.config.file=/etc/prometheus/web.yml'
+    networks:
+      - monitoring
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    user: "65534:65534"  # nobody user
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Grafana - Visualization Dashboard (Production)
+  grafana:
+    image: grafana/grafana:latest
+    container_name: chaingive-grafana-prod
+    ports:
+      - "127.0.0.1:3001:3000"  # Bind to localhost only
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD__FILE=/run/secrets/grafana_admin_password
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_USERS_AUTO_ASSIGN_ORG_ROLE=Viewer
+      - GF_AUTH_ANONYMOUS_ENABLED=false
+      - GF_SECURITY_ALLOW_EMBEDDING=false
+      - GF_SECURITY_X_FRAME_OPTIONS=deny
+      - GF_SECURITY_CONTENT_SECURITY_POLICY=true
+      - GF_SECURITY_STRICT_TRANSPORT_SECURITY=true
+      - GF_SECURITY_X_CONTENT_TYPE_OPTIONS=nosniff
+      - GF_INSTALL_PLUGINS=grafana-piechart-panel,grafana-worldmap-panel
+      - GF_SERVER_ROOT_URL=https://monitoring.chaingive.com
+      - GF_SERVER_PROTOCOL=https
+      - GF_SERVER_CERT_FILE=/etc/ssl/certs/grafana.crt
+      - GF_SERVER_CERT_KEY=/etc/ssl/private/grafana.key
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - ./ssl:/etc/ssl:ro
+      - /run/secrets:/run/secrets:ro
+    networks:
+      - monitoring
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    user: "472:472"  # grafana user
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # AlertManager - Alert Management (Production)
+  alertmanager:
+    image: prom/alertmanager:latest
+    container_name: chaingive-alertmanager-prod
+    ports:
+      - "127.0.0.1:9093:9093"  # Bind to localhost only
+    volumes:
+      - ./monitoring/alertmanager.yml:/etc/alertmanager/config.yml:ro
+      - alertmanager_data:/alertmanager
+    command:
+      - '--config.file=/etc/alertmanager/config.yml'
+      - '--storage.path=/alertmanager'
+      - '--web.config.file=/etc/alertmanager/web.yml'
+    networks:
+      - monitoring
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    user: "65534:65534"  # nobody user
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:9093/-/healthy"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Nginx Reverse Proxy with SSL
+  nginx:
+    image: nginx:alpine
+    container_name: chaingive-monitoring-nginx
+    ports:
+      - "443:443"
+      - "80:80"
+    volumes:
+      - ./ssl:/etc/ssl:ro
+      - ./monitoring/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./monitoring/nginx/sites-enabled:/etc/nginx/sites-enabled:ro
+    networks:
+      - monitoring
+    depends_on:
+      - grafana
+      - prometheus
+      - alertmanager
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+
+  # Backup Service
+  backup:
+    image: alpine:latest
+    container_name: chaingive-monitoring-backup
+    volumes:
+      - prometheus_data:/prometheus:ro
+      - grafana_data:/grafana:ro
+      - alertmanager_data:/alertmanager:ro
+      - ./backups:/backups
+    command: >
+      sh -c "
+        while true; do
+          echo 'Creating backup...';
+          tar czf /backups/prometheus-$(date +%Y%m%d-%H%M%S).tar.gz -C /prometheus .;
+          tar czf /backups/grafana-$(date +%Y%m%d-%H%M%S).tar.gz -C /grafana .;
+          tar czf /backups/alertmanager-$(date +%Y%m%d-%H%M%S).tar.gz -C /alertmanager .;
+          find /backups -name '*.tar.gz' -mtime +7 -delete;
+          sleep 86400;
+        done
+      "
+    networks:
+      - monitoring
+    restart: unless-stopped
+
+volumes:
+  prometheus_data:
+    driver: local
+    driver_opts:
+      o: bind
+      type: none
+      device: /opt/monitoring/prometheus
+  grafana_data:
+    driver: local
+    driver_opts:
+      o: bind
+      type: none
+      device: /opt/monitoring/grafana
+  alertmanager_data:
+    driver: local
+    driver_opts:
+      o: bind
+      type: none
+      device: /opt/monitoring/alertmanager
+
+networks:
+  monitoring:
+    driver: bridge
+    internal: true  # Isolate from external networks

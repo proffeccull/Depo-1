@@ -23,14 +23,36 @@ interface RequestConfig {
 class ApiClient {
   private baseURL: string;
   private timeout: number;
+  private accessToken: string | null = null;
+  private refreshToken: string | null = null;
 
   constructor(baseURL: string, timeout: number = API_TIMEOUT) {
     this.baseURL = baseURL;
     this.timeout = timeout;
   }
 
+  async setToken(token: string): Promise<void> {
+    this.accessToken = token;
+    await AsyncStorage.setItem('authToken', token);
+  }
+
+  async setRefreshToken(token: string): Promise<void> {
+    this.refreshToken = token;
+    await AsyncStorage.setItem('refreshToken', token);
+  }
+
+  async clearTokens(): Promise<void> {
+    this.accessToken = null;
+    this.refreshToken = null;
+    await AsyncStorage.removeItem('authToken');
+    await AsyncStorage.removeItem('refreshToken');
+  }
+
   private async getAuthToken(): Promise<string | null> {
     try {
+      if (this.accessToken) {
+        return this.accessToken;
+      }
       return await AsyncStorage.getItem('authToken');
     } catch (error) {
       console.error('Failed to get auth token:', error);

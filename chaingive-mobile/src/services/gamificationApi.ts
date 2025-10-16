@@ -1,4 +1,4 @@
-import axios, { AxiosResponse } from 'axios';
+import axiosImport, { AxiosResponse } from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Types
@@ -24,7 +24,8 @@ const API_BASE_URL = process.env.EXPO_PUBLIC_API_URL || 'https://api.chaingive.n
 const API_TIMEOUT = 30000;
 
 // Create axios instance
-const apiClient = axios.create({
+const axios = (axiosImport as any)?.default ?? (axiosImport as any);
+const apiClient = (axios as any).create({
   baseURL: API_BASE_URL,
   timeout: API_TIMEOUT,
   headers: {

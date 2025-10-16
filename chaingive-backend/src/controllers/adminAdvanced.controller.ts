@@ -460,3 +460,125 @@ export const updateUserRole = async (req: AuthRequest, res: Response, next: Next
     next(error);
   }
 };
+
+/**
+ * Reset leaderboard (clear all scores and rankings)
+ */
+export const resetLeaderboard = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const { reason } = req.body;
+    const adminId = req.user!.id;
+
+    // Get current leaderboard stats before reset
+    const leaderboardStats = await prisma.leaderboard.findMany({
+      select: {
+        userId: true,
+        totalScore: true,
+        rank: true,
+      }
+    });
+
+    // Reset all leaderboard entries
+    await prisma.leaderboard.updateMany({
+      data: {
+        totalScore: 0,
+        rank: null,
+      }
+    });
+
+    // Log admin action
+    await prisma.adminAction.create({
+      data: {
+        adminId,
+        action: 'reset_leaderboard',
+        details: JSON.stringify({
+          reason,
+          affectedUsers: leaderboardStats.length,
+          previousStats: leaderboardStats
+        })
+      }
+    });
+
+    logger.warn(`Admin ${adminId} reset leaderboard for ${leaderboardStats.length} users. Reason: ${reason}`);
+
+    res.status(200).json({
+      success: true,
+      message: 'Leaderboard reset successfully',
+      data: {
+        affectedUsers: leaderboardStats.length,
+        reason
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * Adjust user leaderboard score
+ */
+export const adjustLeaderboardScore = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const { userId } = req.params;
+    const { scoreAdjustment, reason } = req.body;
+    const adminId = req.user!.id;
+
+    if (typeof scoreAdjustment !== 'number') {
+      throw new AppError('Score adjustment must be a number', 400, 'INVALID_SCORE');
+    }
+
+    // Get current leaderboard entry
+    const currentEntry = await prisma.leaderboard.findUnique({
+      where: { userId },
+      select: {
+        totalScore: true,
+        rank: true,
+      }
+    });
+
+    if (!currentEntry) {
+      throw new AppError('User not found in leaderboard', 404, 'USER_NOT_IN_LEADERBOARD');
+    }
+
+    // Update score
+    const newScore = Math.max(0, Number(currentEntry.totalScore) + scoreAdjustment); // Prevent negative scores
+
+    await prisma.leaderboard.update({
+      where: { userId },
+      data: {
+        totalScore: newScore,
+      }
+    });
+
+    // Log admin action
+    await prisma.adminAction.create({
+      data: {
+        adminId,
+        action: 'adjust_leaderboard_score',
+        targetId: userId,
+        details: JSON.stringify({
+          oldScore: currentEntry.totalScore,
+          scoreAdjustment,
+          newScore,
+          reason
+        })
+      }
+    });
+
+    logger.info(`Admin ${adminId} adjusted leaderboard score for user ${userId}: ${currentEntry.totalScore} -> ${newScore}`);
+
+    res.status(200).json({
+      success: true,
+      message: 'Leaderboard score adjusted successfully',
+      data: {
+        userId,
+        oldScore: currentEntry.totalScore,
+        scoreAdjustment,
+        newScore,
+        reason
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};

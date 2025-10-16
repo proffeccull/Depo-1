@@ -425,6 +425,12 @@ export const useWebSocket = () => {
 // Initialize WebSocket when app starts
 export const initializeWebSocket = async (): Promise<void> => {
   try {
+    // Only initialize WebSocket if we have a valid environment
+    if (typeof WebSocket === 'undefined') {
+      console.warn('⚠️ WebSocket not available in this environment');
+      return;
+    }
+
     await websocketService.connect();
 
     // Get current user and subscribe to their events
@@ -433,7 +439,8 @@ export const initializeWebSocket = async (): Promise<void> => {
       websocketService.subscribeToUserEvents(user.id);
     }
   } catch (error) {
-    console.error('❌ Failed to initialize WebSocket:', error);
+    console.warn('⚠️ WebSocket initialization failed (non-critical):', error);
+    // Don't throw - WebSocket is not critical for app functionality
   }
 };
 

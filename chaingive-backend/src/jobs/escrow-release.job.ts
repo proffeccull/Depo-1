@@ -5,6 +5,7 @@ import { sendTemplateNotification } from '../services/notification.service';
 import { updateReferralOnFirstCycle, updateReferralOnCompletion } from '../controllers/referral.controller';
 import { sendEscrowReleaseSMS } from '../services/sms.service';
 import { sendEscrowReleaseEmail } from '../services/email.service';
+import realtimeService from '../services/realtime.service';
 
 /**
  * Process escrow releases (48-hour holds)
@@ -101,37 +102,60 @@ async function releaseEscrow(escrow: any) {
 
   logger.info(`Escrow ${escrow.id} released successfully`);
 
+  // Send real-time notifications
+  await realtimeService.notifyDonationReleased(transaction.toUserId, {
+    id: transaction.id,
+    amount: escrow.amount,
+    newBalance: escrow.amount, // This would be calculated properly
+  });
+
   // Send push notification to recipient
-  await sendTemplateNotification(
-    transaction.toUserId,
-    'ESCROW_RELEASED',
-    Number(escrow.amount)
-  );
+  try {
+    await sendTemplateNotification(
+      transaction.toUserId,
+      'ESCROW_RELEASED',
+      Number(escrow.amount)
+    );
+  } catch (error) {
+    logger.warn('Failed to send push notification for escrow release:', error);
+  }
 
   // Send SMS to recipient
   if (transaction.toUser) {
-    await sendEscrowReleaseSMS(
-      transaction.toUser.phoneNumber,
-      transaction.toUser.firstName,
-      Number(escrow.amount)
-    );
-
-    // Send email if available
-    if (transaction.toUser.email) {
-      await sendEscrowReleaseEmail(
-        transaction.toUser.email,
+    try {
+      await sendEscrowReleaseSMS(
+        transaction.toUser.phoneNumber,
         transaction.toUser.firstName,
         Number(escrow.amount)
       );
+    } catch (error) {
+      logger.warn('Failed to send SMS for escrow release:', error);
+    }
+
+    // Send email if available
+    if (transaction.toUser.email) {
+      try {
+        await sendEscrowReleaseEmail(
+          transaction.toUser.email,
+          transaction.toUser.firstName,
+          Number(escrow.amount)
+        );
+      } catch (error) {
+        logger.warn('Failed to send email for escrow release:', error);
+      }
     }
   }
 
   // Notify donor about coins earned
-  await sendTemplateNotification(
-    transaction.fromUserId,
-    'COINS_EARNED',
-    50
-  );
+  try {
+    await sendTemplateNotification(
+      transaction.fromUserId,
+      'COINS_EARNED',
+      50
+    );
+  } catch (error) {
+    logger.warn('Failed to send push notification for coins earned:', error);
+  }
 
   // Check and update referral milestones
   if (transaction.toUserId) {

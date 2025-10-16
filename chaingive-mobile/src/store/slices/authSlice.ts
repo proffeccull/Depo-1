@@ -16,6 +16,22 @@ const mockUser: User = {
   trustScore: 85,
   isAgent: false,
   isVerified: false,
+  role: 'regular',
+  permissions: {
+    canCreateCharityCategories: false,
+    canManageNFTs: false,
+    canModerateReviews: false,
+    canManageUsers: false,
+    canViewAnalytics: false,
+    canManageSystem: false,
+    canVerifyUsers: false,
+    canProcessDeposits: false,
+    canManageCoinPurchases: false,
+    canAssignRoles: false,
+    canManageAdmins: false,
+    canAccessSystemSettings: false,
+    canViewAuditLogs: false,
+  },
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
 };
@@ -50,7 +66,7 @@ export const loginUser = createAsyncThunk(
       return { user: data.user as User, token };
     } catch (_err) {
       // Graceful fallback to mock
-      await new Promise((r) => setTimeout(r, 800));
+      await new Promise<void>((resolve) => setTimeout(() => resolve(), 800));
       const token = 'mock-jwt-token-' + Date.now();
       await AsyncStorage.setItem('auth_token', token);
       return {
@@ -82,7 +98,7 @@ export const register = createAsyncThunk(
       analytics.track('register_success', { userId: data?.user?.id });
       return { user: data.user as User, token };
     } catch (_err) {
-      await new Promise((r) => setTimeout(r, 2000));
+      await new Promise<void>((resolve) => setTimeout(() => resolve(), 2000));
       const newUser: User = {
         ...mockUser,
         id: 'new-user-' + Date.now(),
@@ -90,6 +106,22 @@ export const register = createAsyncThunk(
         lastName: userData.lastName,
         email: userData.email,
         phoneNumber: userData.phoneNumber,
+        role: 'regular',
+        permissions: {
+          canCreateCharityCategories: false,
+          canManageNFTs: false,
+          canModerateReviews: false,
+          canManageUsers: false,
+          canViewAnalytics: false,
+          canManageSystem: false,
+          canVerifyUsers: false,
+          canProcessDeposits: false,
+          canManageCoinPurchases: false,
+          canAssignRoles: false,
+          canManageAdmins: false,
+          canAccessSystemSettings: false,
+          canViewAuditLogs: false,
+        },
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
@@ -108,7 +140,7 @@ export const verifyOTP = createAsyncThunk(
       analytics.track('otp_verified', { phoneNumber });
       return res.data as { verified: boolean };
     } catch (_err) {
-      await new Promise((r) => setTimeout(r, 1000));
+      await new Promise<void>((resolve) => setTimeout(() => resolve(), 1000));
       if (otp.length !== 6) {
         throw new Error('Invalid OTP code');
       }
@@ -128,7 +160,7 @@ export const fetchUserBalance = createAsyncThunk(
         charityCoins: Number(data.charityCoins ?? Math.floor(Math.random() * 500)),
       } as Pick<User, 'balance' | 'charityCoins'>;
     } catch (_err) {
-      await new Promise((r) => setTimeout(r, 500));
+      await new Promise<void>((resolve) => setTimeout(() => resolve(), 500));
       return {
         balance: Math.floor(Math.random() * 100000),
         charityCoins: Math.floor(Math.random() * 500),

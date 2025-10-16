@@ -93,4 +93,54 @@ router.delete('/coins/wallets/:walletId', adminCoinController.deactivateCryptoWa
  */
 router.get('/coins/stats', adminCoinController.getCoinStats);
 
+/**
+ * @route   POST /v1/admin/coins/agents/:agentId/mint
+ * @desc    Mint coins to agent (admin override)
+ * @access  Private (Admin only)
+ */
+router.post(
+  '/coins/agents/:agentId/mint',
+  validate(
+    Joi.object({
+      amount: Joi.number().integer().min(1).max(1000000).required(),
+      reason: Joi.string().min(10).max(500).required(),
+    })
+  ),
+  adminCoinController.mintCoinsToAgent
+);
+
+/**
+ * @route   POST /v1/admin/coins/agents/:agentId/burn
+ * @desc    Burn coins from agent (admin override)
+ * @access  Private (Admin only)
+ */
+router.post(
+  '/coins/agents/:agentId/burn',
+  validate(
+    Joi.object({
+      amount: Joi.number().integer().min(1).required(),
+      reason: Joi.string().min(10).max(500).required(),
+    })
+  ),
+  adminCoinController.burnCoinsFromAgent
+);
+
+/**
+ * @route   POST /v1/admin/coins/agents/transfer
+ * @desc    Transfer coins between agents (admin override)
+ * @access  Private (Admin only)
+ */
+router.post(
+  '/coins/agents/transfer',
+  validate(
+    Joi.object({
+      fromAgentId: Joi.string().uuid().required(),
+      toAgentId: Joi.string().uuid().required(),
+      amount: Joi.number().integer().min(1).required(),
+      reason: Joi.string().min(10).max(500).required(),
+    })
+  ),
+  adminCoinController.transferCoinsBetweenAgents
+);
+
 export default router;

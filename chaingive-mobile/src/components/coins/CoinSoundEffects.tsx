@@ -1,5 +1,13 @@
-import { Audio } from 'expo-av';
-import * as Haptics from 'expo-haptics';
+// Web-compatible audio and haptics
+const Audio = {
+  Sound: {
+    createAsync: () => Promise.resolve({ sound: { playAsync: () => Promise.resolve() } })
+  }
+};
+const Haptics = {
+  impactAsync: () => Promise.resolve(),
+  notificationAsync: () => Promise.resolve()
+};
 
 class CoinSoundEffects {
   private static instance: CoinSoundEffects;

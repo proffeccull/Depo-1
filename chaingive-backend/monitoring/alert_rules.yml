@@ -1,0 +1,143 @@
+groups:
+  - name: chaingive-alerts
+    rules:
+      # System Health Alerts
+      - alert: HighCPUUsage
+        expr: chaingive_system_cpu_usage_percent > 85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU usage detected"
+          description: "CPU usage is {{ $value }}% on {{ $labels.instance }}"
+
+      - alert: HighMemoryUsage
+        expr: chaingive_system_memory_usage_bytes{type="heap_used"} / chaingive_system_memory_usage_bytes{type="heap_total"} > 0.9
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage detected"
+          description: "Memory usage is above 90% on {{ $labels.instance }}"
+
+      - alert: LowDiskSpace
+        expr: chaingive_system_disk_usage_percent > 85
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Low disk space"
+          description: "Disk usage is {{ $value }}% on {{ $labels.instance }}"
+
+      # Database Alerts
+      - alert: DatabaseConnectionPoolExhausted
+        expr: chaingive_database_connection_pool_size{type="active"} / chaingive_database_connection_pool_size{type="total"} > 0.9
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Database connection pool nearly exhausted"
+          description: "Database connection pool usage is {{ $value }}%"
+
+      - alert: HighDatabaseConnections
+        expr: chaingive_database_connections_total{state="active"} > 50
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High number of active database connections"
+          description: "Active database connections: {{ $value }}"
+
+      # Application Alerts
+      - alert: HighErrorRate
+        expr: rate(chaingive_application_errors_total[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High application error rate"
+          description: "Error rate is {{ $value }} errors per second"
+
+      - alert: SlowResponseTime
+        expr: histogram_quantile(0.95, rate(chaingive_http_request_duration_seconds_bucket[5m])) > 5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Slow response times detected"
+          description: "95th percentile response time is {{ $value }}s"
+
+      - alert: WebSocketConnectionsLow
+        expr: chaingive_websocket_connections_active < 10
+        for: 10m
+        labels:
+          severity: info
+        annotations:
+          summary: "Low WebSocket connections"
+          description: "Only {{ $value }} active WebSocket connections"
+
+      # External Service Alerts
+      - alert: ExternalServiceDown
+        expr: chaingive_external_service_health_status == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "External service is down"
+          description: "{{ $labels.service }} service is not responding"
+
+      - alert: RedisDown
+        expr: chaingive_external_service_health_status{service="redis"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Redis service is down"
+          description: "Redis connection failed"
+
+      # Business Logic Alerts
+      - alert: LowActiveUsers
+        expr: chaingive_active_users_total < 5
+        for: 30m
+        labels:
+          severity: info
+        annotations:
+          summary: "Low active user count"
+          description: "Only {{ $value }} active users in the last 24 hours"
+
+      - alert: HighPendingJobs
+        expr: chaingive_jobs_pending_total > 100
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High number of pending jobs"
+          description: "{{ $value }} jobs are pending"
+
+      - alert: FailedEscrowTransactions
+        expr: increase(chaingive_escrow_transactions_total{status="failed"}[1h]) > 5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Multiple failed escrow transactions"
+          description: "{{ $value }} escrow transactions failed in the last hour"
+
+      # System Availability
+      - alert: ApplicationDown
+        expr: up{job="chaingive-backend"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "ChainGive backend is down"
+          description: "ChainGive backend service is not responding"
+
+      - alert: DatabaseDown
+        expr: up{job="postgres"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Database is down"
+          description: "PostgreSQL database is not responding"
