@@ -6,67 +6,47 @@ import {
   ScrollView,
   TouchableOpacity,
   Dimensions,
+  ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
+import { useSelector } from 'react-redux';
 
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 import { spacing } from '../../theme/spacing';
+import { MerchantApi } from '../../api/merchant';
+import { RootState } from '../../store/store';
+import { MerchantAnalytics } from '../../types/merchant';
 
 const { width } = Dimensions.get('window');
 
-interface AnalyticsData {
-  totalRevenue: number;
-  totalOrders: number;
-  averageOrderValue: number;
-  topProducts: Array<{
-    name: string;
-    sales: number;
-    revenue: number;
-  }>;
-  salesByPeriod: Array<{
-    period: string;
-    sales: number;
-  }>;
-}
-
 const SalesAnalyticsDashboardScreen: React.FC = () => {
   const navigation = useNavigation();
-  const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
+  const [analytics, setAnalytics] = useState<MerchantAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
-  const [timeRange, setTimeRange] = useState<'7d' | '30d' | '90d'>('30d');
+  const [timeRange, setTimeRange] = useState<'7d' | '30d' | '90d' | '1y'>('30d');
+  const { user } = useSelector((state: RootState) => state.auth);
 
   useEffect(() => {
     loadAnalytics();
-  }, [timeRange]);
+  }, [timeRange, user]);
 
   const loadAnalytics = async () => {
+    if (!user?.merchantId) {
+      Alert.alert('Error', 'No merchant account associated with this user.');
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
     try {
-      // Mock data - replace with actual API call
-      const mockAnalytics: AnalyticsData = {
-        totalRevenue: 15420.50,
-        totalOrders: 234,
-        averageOrderValue: 65.90,
-        topProducts: [
-          { name: 'Charity T-Shirt', sales: 45, revenue: 1169.55 },
-          { name: 'Donation Mug', sales: 32, revenue: 415.68 },
-          { name: 'Fundraising Calendar', sales: 28, revenue: 447.72 },
-        ],
-        salesByPeriod: [
-          { period: 'Mon', sales: 1200 },
-          { period: 'Tue', sales: 1500 },
-          { period: 'Wed', sales: 1800 },
-          { period: 'Thu', sales: 1400 },
-          { period: 'Fri', sales: 2100 },
-          { period: 'Sat', sales: 2800 },
-          { period: 'Sun', sales: 1900 },
-        ],
-      };
-      setAnalytics(mockAnalytics);
-    } catch (error) {
-      console.error('Failed to load analytics:', error);
+      const response = await MerchantApi.getMerchantAnalytics(user.merchantId, timeRange);
+      setAnalytics(response);
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Failed to load analytics.');
     } finally {
       setLoading(false);
     }
@@ -124,6 +104,7 @@ const SalesAnalyticsDashboardScreen: React.FC = () => {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
           <Text style={styles.loadingText}>Loading analytics...</Text>
         </View>
       </SafeAreaView>
@@ -148,6 +129,7 @@ const SalesAnalyticsDashboardScreen: React.FC = () => {
         {renderTimeRangeButton('7d', '7 Days')}
         {renderTimeRangeButton('30d', '30 Days')}
         {renderTimeRangeButton('90d', '90 Days')}
+        {renderTimeRangeButton('1y', '1 Year')}
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
@@ -156,84 +138,70 @@ const SalesAnalyticsDashboardScreen: React.FC = () => {
           <MetricCard
             title="Total Revenue"
             value={`₦${analytics.totalRevenue.toLocaleString()}`}
-            subtitle="Last 30 days"
+            subtitle={`Last ${timeRange}`}
             icon="attach-money"
-            trend={{ value: 12.5, isPositive: true }}
           />
           <MetricCard
-            title="Total Orders"
-            value={analytics.totalOrders.toString()}
-            subtitle="Completed orders"
+            title="Total Transactions"
+            value={analytics.totalTransactions.toString()}
+            subtitle="Completed transactions"
             icon="shopping-cart"
-            trend={{ value: 8.2, isPositive: true }}
           />
           <MetricCard
-            title="Average Order"
-            value={`₦${analytics.averageOrderValue.toFixed(2)}`}
+            title="Average Transaction"
+            value={`₦${analytics.averageTransactionValue.toFixed(2)}`}
             subtitle="Per transaction"
             icon="trending-up"
-            trend={{ value: 3.1, isPositive: true }}
           />
           <MetricCard
-            title="Conversion Rate"
-            value="24.8%"
-            subtitle="Visitors to buyers"
+            title="Retention Rate"
+            value={`${analytics.customerRetention.retentionRate}%`}
+            subtitle="Returning customers"
             icon="people"
-            trend={{ value: 5.7, isPositive: false }}
           />
         </View>
 
         {/* Sales Chart Placeholder */}
         <View style={styles.chartSection}>
-          <Text style={styles.sectionTitle}>Sales Trend</Text>
+          <Text style={styles.sectionTitle}>Revenue Trend</Text>
           <View style={styles.chartPlaceholder}>
             <Icon name="show-chart" size={48} color={colors.gray[300]} />
-            <Text style={styles.chartPlaceholderText}>Sales chart will be displayed here</Text>
+            <Text style={styles.chartPlaceholderText}>Revenue chart will be displayed here</Text>
           </View>
         </View>
 
-        {/* Top Products */}
+        {/* Top Payment Methods */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Top Products</Text>
-          {analytics.topProducts.map((product, index) => (
-            <View key={product.name} style={styles.productRow}>
+          <Text style={styles.sectionTitle}>Top Payment Methods</Text>
+          {analytics.topPaymentMethods.map((method, index) => (
+            <View key={method.method} style={styles.productRow}>
               <View style={styles.productRank}>
                 <Text style={styles.rankText}>{index + 1}</Text>
               </View>
               <View style={styles.productInfo}>
-                <Text style={styles.productName}>{product.name}</Text>
+                <Text style={styles.productName}>{method.method}</Text>
                 <Text style={styles.productStats}>
-                  {product.sales} sales • ₦{product.revenue.toFixed(2)}
+                  {method.count} transactions • {method.percentage}%
                 </Text>
               </View>
-              <Icon name="chevron-right" size={20} color={colors.gray[400]} />
             </View>
           ))}
         </View>
 
-        {/* Recent Activity */}
+        {/* Geographic Insights */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Recent Activity</Text>
-          <View style={styles.activityItem}>
-            <View style={styles.activityIcon}>
-              <Icon name="shopping-bag" size={16} color={colors.success} />
+          <Text style={styles.sectionTitle}>Top Locations</Text>
+          {analytics.geographicInsights.topLocations.map((location, index) => (
+            <View key={location.location} style={styles.activityItem}>
+              <View style={styles.activityIcon}>
+                <Icon name="location-on" size={16} color={colors.primary} />
+              </View>
+              <View style={styles.activityContent}>
+                <Text style={styles.activityTitle}>{location.location}</Text>
+                <Text style={styles.activitySubtitle}>{location.transactions} transactions • ₦{location.revenue.toLocaleString()}</Text>
+              </View>
             </View>
-            <View style={styles.activityContent}>
-              <Text style={styles.activityTitle}>New order received</Text>
-              <Text style={styles.activitySubtitle}>Order #12345 • ₦250.00</Text>
-            </View>
-            <Text style={styles.activityTime}>2m ago</Text>
-          </View>
-          <View style={styles.activityItem}>
-            <View style={styles.activityIcon}>
-              <Icon name="payment" size={16} color={colors.primary} />
-            </View>
-            <View style={styles.activityContent}>
-              <Text style={styles.activityTitle}>Payment processed</Text>
-              <Text style={styles.activitySubtitle}>Transaction completed successfully</Text>
-            </View>
-            <Text style={styles.activityTime}>15m ago</Text>
-          </View>
+          ))}
         </View>
       </ScrollView>
     </SafeAreaView>

@@ -55,7 +55,7 @@ export const confirmReceipt = createAsyncThunk(
 
 export const fetchCycles = createAsyncThunk(
   'donations/fetchCycles',
-  async (params?: { status?: string; page?: number; limit?: number }) => {
+  async (params?: { status?: string; page?: number; limit?: number; search?: string }) => {
     const res = await donationsAPI.getCycles(params);
     return res.data;
   }

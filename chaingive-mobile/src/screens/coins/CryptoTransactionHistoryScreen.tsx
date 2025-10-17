@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
+  TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useDispatch, useSelector } from 'react-redux';
@@ -15,98 +16,27 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 import * as Haptics from 'expo-haptics';
 
 import { AppDispatch, RootState } from '../../store/store';
+import { fetchPurchaseHistory } from '../../store/slices/coinPurchaseSlice';
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 import { spacing } from '../../theme/spacing';
 
-interface CryptoTransaction {
-  id: string;
-  type: 'purchase' | 'refund' | 'failed';
-  amount: number;
-  currency: string;
-  coinsReceived: number;
-  status: 'completed' | 'failed' | 'pending' | 'refunded';
-  gateway: string;
-  transactionHash?: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
 const CryptoTransactionHistoryScreen: React.FC = () => {
   const navigation = useNavigation();
   const dispatch = useDispatch<AppDispatch>();
+  const { purchaseHistory, loading } = useSelector((state: RootState) => state.coinPurchase);
 
-  const [transactions, setTransactions] = useState<CryptoTransaction[]>([]);
-  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const [filter, setFilter] = useState<'all' | 'completed' | 'pending' | 'failed'>('all');
 
   useEffect(() => {
-    loadTransactions();
-  }, []);
-
-  const loadTransactions = async () => {
-    try {
-      // Mock data - replace with actual API call
-      const mockTransactions: CryptoTransaction[] = [
-        {
-          id: 'txn_001',
-          type: 'purchase',
-          amount: 0.001,
-          currency: 'BTC',
-          coinsReceived: 1250,
-          status: 'completed',
-          gateway: 'Binance Pay',
-          transactionHash: 'a1b2c3d4e5f6...',
-          createdAt: new Date(Date.now() - 86400000).toISOString(), // 1 day ago
-          updatedAt: new Date(Date.now() - 86400000).toISOString(),
-        },
-        {
-          id: 'txn_002',
-          type: 'purchase',
-          amount: 50,
-          currency: 'USDT',
-          coinsReceived: 2500,
-          status: 'completed',
-          gateway: 'Coinbase Commerce',
-          transactionHash: 'f6e5d4c3b2a1...',
-          createdAt: new Date(Date.now() - 172800000).toISOString(), // 2 days ago
-          updatedAt: new Date(Date.now() - 172800000).toISOString(),
-        },
-        {
-          id: 'txn_003',
-          type: 'purchase',
-          amount: 0.05,
-          currency: 'ETH',
-          coinsReceived: 1800,
-          status: 'pending',
-          gateway: 'NOWPayments',
-          createdAt: new Date(Date.now() - 3600000).toISOString(), // 1 hour ago
-          updatedAt: new Date(Date.now() - 3600000).toISOString(),
-        },
-        {
-          id: 'txn_004',
-          type: 'failed',
-          amount: 25,
-          currency: 'USDT',
-          coinsReceived: 0,
-          status: 'failed',
-          gateway: 'Stripe Crypto',
-          createdAt: new Date(Date.now() - 259200000).toISOString(), // 3 days ago
-          updatedAt: new Date(Date.now() - 259200000).toISOString(),
-        },
-      ];
-      setTransactions(mockTransactions);
-    } catch (error) {
-      console.error('Failed to load transactions:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+    dispatch(fetchPurchaseHistory({ search: searchQuery, status: filter === 'all' ? undefined : filter }));
+  }, [dispatch, searchQuery, filter]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await loadTransactions();
+    await dispatch(fetchPurchaseHistory({ search: searchQuery, status: filter === 'all' ? undefined : filter }));
     setRefreshing(false);
   };
 
@@ -274,6 +204,15 @@ const CryptoTransactionHistoryScreen: React.FC = () => {
         <View style={{ width: 24 }} />
       </View>
 
+      <View style={styles.filterContainer}>
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Search by amount, currency, or gateway"
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+        />
+      </View>
+
       {/* Filter Buttons */}
       <View style={styles.filterContainer}>
         {renderFilterButton('all', 'All')}
@@ -284,7 +223,7 @@ const CryptoTransactionHistoryScreen: React.FC = () => {
 
       {/* Transactions List */}
       <FlatList
-        data={filteredTransactions}
+        data={purchaseHistory}
         renderItem={renderTransaction}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.transactionsList}
@@ -296,7 +235,7 @@ const CryptoTransactionHistoryScreen: React.FC = () => {
             <Icon name="receipt" size={64} color={colors.gray[300]} />
             <Text style={styles.emptyTitle}>No Transactions</Text>
             <Text style={styles.emptyMessage}>
-              {filter === 'all'
+              {filter === 'all' && !searchQuery
                 ? 'You haven\'t made any crypto transactions yet.'
                 : `No ${filter} transactions found.`
               }
@@ -307,24 +246,24 @@ const CryptoTransactionHistoryScreen: React.FC = () => {
       />
 
       {/* Summary */}
-      {transactions.length > 0 && (
+      {purchaseHistory.length > 0 && (
         <View style={styles.summaryContainer}>
           <View style={styles.summaryItem}>
             <Text style={styles.summaryLabel}>Total Transactions</Text>
-            <Text style={styles.summaryValue}>{transactions.length}</Text>
+            <Text style={styles.summaryValue}>{purchaseHistory.length}</Text>
           </View>
           <View style={styles.summaryItem}>
             <Text style={styles.summaryLabel}>Successful</Text>
             <Text style={styles.summaryValue}>
-              {transactions.filter(t => t.status === 'completed').length}
+              {purchaseHistory.filter(t => t.status === 'completed').length}
             </Text>
           </View>
           <View style={styles.summaryItem}>
             <Text style={styles.summaryLabel}>Total Coins</Text>
             <Text style={styles.summaryValue}>
-              {transactions
+              {purchaseHistory
                 .filter(t => t.status === 'completed')
-                .reduce((sum, t) => sum + t.coinsReceived, 0)
+                .reduce((sum, t) => sum + t.quantity, 0)
                 .toLocaleString()}
             </Text>
           </View>

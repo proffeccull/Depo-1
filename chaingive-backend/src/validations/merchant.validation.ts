@@ -1,106 +1,140 @@
-import Joi from 'joi';
+import { body, param, query } from 'express-validator';
 
-export const registerMerchant = {
-  body: Joi.object({
-    businessName: Joi.string().required().min(1).max(100),
-    businessType: Joi.string().required().valid('retail', 'service', 'food', 'other'),
-    description: Joi.string().optional().max(500),
-    location: Joi.object({
-      city: Joi.string().required(),
-      state: Joi.string().required(),
-      country: Joi.string().required(),
-      coordinates: Joi.object({
-        lat: Joi.number().min(-90).max(90),
-        lng: Joi.number().min(-180).max(180)
-      }).optional()
-    }).optional(),
-    contactInfo: Joi.object({
-      phone: Joi.string().required(),
-      email: Joi.string().email().optional(),
-      address: Joi.string().optional()
-    }).required()
-  })
-};
+export const createMerchantValidation = [
+  body('businessName')
+    .isString()
+    .isLength({ min: 2, max: 100 })
+    .withMessage('Business name must be 2-100 characters'),
+  body('businessType')
+    .isIn(['retail', 'service', 'food', 'other'])
+    .withMessage('Invalid business type'),
+  body('description')
+    .optional()
+    .isString()
+    .isLength({ max: 500 })
+    .withMessage('Description must be max 500 characters'),
+  body('location')
+    .optional()
+    .isObject()
+    .withMessage('Location must be an object'),
+  body('contactInfo')
+    .isObject()
+    .withMessage('Contact info is required'),
+  body('contactInfo.email')
+    .isEmail()
+    .withMessage('Valid email is required'),
+  body('contactInfo.phone')
+    .isString()
+    .isLength({ min: 10, max: 15 })
+    .withMessage('Phone number must be 10-15 characters')
+];
 
-export const updateMerchantProfile = {
-  body: Joi.object({
-    businessName: Joi.string().optional().min(1).max(100),
-    businessType: Joi.string().optional().valid('retail', 'service', 'food', 'other'),
-    description: Joi.string().optional().max(500),
-    location: Joi.object({
-      city: Joi.string().required(),
-      state: Joi.string().required(),
-      country: Joi.string().required(),
-      coordinates: Joi.object({
-        lat: Joi.number().min(-90).max(90),
-        lng: Joi.number().min(-180).max(180)
-      }).optional()
-    }).optional(),
-    contactInfo: Joi.object({
-      phone: Joi.string().optional(),
-      email: Joi.string().email().optional(),
-      address: Joi.string().optional()
-    }).optional()
-  }).min(1)
-};
+export const updateMerchantValidation = [
+  param('id')
+    .isUUID()
+    .withMessage('Invalid merchant ID'),
+  body('businessName')
+    .optional()
+    .isString()
+    .isLength({ min: 2, max: 100 })
+    .withMessage('Business name must be 2-100 characters'),
+  body('businessType')
+    .optional()
+    .isIn(['retail', 'service', 'food', 'other'])
+    .withMessage('Invalid business type'),
+  body('description')
+    .optional()
+    .isString()
+    .isLength({ max: 500 })
+    .withMessage('Description must be max 500 characters'),
+  body('location')
+    .optional()
+    .isObject()
+    .withMessage('Location must be an object'),
+  body('contactInfo')
+    .optional()
+    .isObject()
+    .withMessage('Contact info must be an object'),
+  body('contactInfo.email')
+    .optional()
+    .isEmail()
+    .withMessage('Valid email is required'),
+  body('contactInfo.phone')
+    .optional()
+    .isString()
+    .isLength({ min: 10, max: 15 })
+    .withMessage('Phone number must be 10-15 characters')
+];
 
-export const getMerchantProfile = {
-  // No validation needed - uses authenticated user
-};
+export const merchantIdValidation = [
+  param('id')
+    .isUUID()
+    .withMessage('Invalid merchant ID')
+];
 
-export const generateQRCode = {
-  // No validation needed - uses authenticated user
-};
+export const searchMerchantsValidation = [
+  query('query')
+    .optional()
+    .isString()
+    .isLength({ min: 1, max: 100 })
+    .withMessage('Query must be 1-100 characters'),
+  query('category')
+    .optional()
+    .isIn(['retail', 'service', 'food', 'other'])
+    .withMessage('Invalid category'),
+  query('limit')
+    .optional()
+    .isInt({ min: 1, max: 100 })
+    .withMessage('Limit must be 1-100'),
+  query('offset')
+    .optional()
+    .isInt({ min: 0 })
+    .withMessage('Offset must be non-negative')
+];
 
-export const processQRPayment = {
-  body: Joi.object({
-    merchantId: Joi.string().uuid().required(),
-    amount: Joi.number().positive().required(),
-    paymentMethod: Joi.string().valid('wallet', 'card', 'bank_transfer').required()
-  })
-};
+export const createPaymentRequestValidation = [
+  body('amount')
+    .isFloat({ min: 0.01 })
+    .withMessage('Amount must be greater than 0'),
+  body('currency')
+    .isIn(['NGN', 'USD', 'EUR'])
+    .withMessage('Invalid currency'),
+  body('description')
+    .optional()
+    .isString()
+    .isLength({ max: 255 })
+    .withMessage('Description must be max 255 characters')
+];
 
-export const getMerchantDirectory = {
-  query: Joi.object({
-    businessType: Joi.string().valid('retail', 'service', 'food', 'other').optional(),
-    location: Joi.string().optional(),
-    page: Joi.number().integer().min(1).default(1),
-    limit: Joi.number().integer().min(1).max(50).default(20)
-  })
-};
+export const processPaymentValidation = [
+  param('paymentRequestId')
+    .isUUID()
+    .withMessage('Invalid payment request ID'),
+  body('userId')
+    .isUUID()
+    .withMessage('Invalid user ID'),
+  body('amount')
+    .isFloat({ min: 0.01 })
+    .withMessage('Amount must be greater than 0')
+];
 
-export const getMerchantById = {
-  params: Joi.object({
-    merchantId: Joi.string().uuid().required()
-  })
-};
+export const merchantAnalyticsValidation = [
+  param('merchantId')
+    .isUUID()
+    .withMessage('Invalid merchant ID'),
+  query('startDate')
+    .isISO8601()
+    .withMessage('Invalid start date'),
+  query('endDate')
+    .isISO8601()
+    .withMessage('Invalid end date')
+];
 
-export const updateMerchantRating = {
-  params: Joi.object({
-    merchantId: Joi.string().uuid().required()
-  }),
-  body: Joi.object({
-    rating: Joi.number().integer().min(1).max(5).required(),
-    review: Joi.string().optional().max(500)
-  })
-};
-
-export const getMerchantReviews = {
-  params: Joi.object({
-    merchantId: Joi.string().uuid().required()
-  }),
-  query: Joi.object({
-    page: Joi.number().integer().min(1).default(1),
-    limit: Joi.number().integer().min(1).max(50).default(10)
-  })
-};
-
-export const searchMerchants = {
-  query: Joi.object({
-    q: Joi.string().required().min(1).max(100),
-    businessType: Joi.string().valid('retail', 'service', 'food', 'other').optional(),
-    location: Joi.string().optional(),
-    page: Joi.number().integer().min(1).default(1),
-    limit: Joi.number().integer().min(1).max(50).default(20)
-  })
-};
+export const updateMerchantStatusValidation = [
+  param('merchantId')
+    .isUUID()
+    .withMessage('Invalid merchant ID'),
+  body('status')
+    .isIn(['active', 'inactive', 'suspended', 'pending'])
+    .withMessage('Invalid status')
+];

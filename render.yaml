@@ -1,0 +1,46 @@
+services:
+  - type: web
+    name: chaingive-backend
+    env: node
+    plan: free
+    buildCommand: cd chaingive-backend && npm install && npm run build
+    startCommand: cd chaingive-backend && npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: DATABASE_URL
+        sync: false
+      - key: DIRECT_URL
+        sync: false
+      - key: JWT_SECRET
+        sync: false
+      - key: JWT_REFRESH_SECRET
+        sync: false
+      - key: SENTRY_DSN
+        value: https://4539f86e16c9bf82d08aada40f086eee@o4510196471955456.ingest.de.sentry.io/4510196573667408
+      - key: FLUTTERWAVE_SECRET_KEY
+        sync: false
+      - key: PAYSTACK_SECRET_KEY
+        sync: false
+      - key: TERMII_API_KEY
+        sync: false
+      - key: SMTP_HOST
+        sync: false
+      - key: SMTP_USER
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+
+  - type: web
+    name: chaingive-web
+    env: node
+    plan: free
+    buildCommand: cd chaingive-web && npm install && npm run build
+    startCommand: cd chaingive-web && npm start
+    envVars:
+      - key: NEXT_PUBLIC_SUPABASE_URL
+        sync: false
+      - key: NEXT_PUBLIC_SUPABASE_ANON_KEY
+        sync: false

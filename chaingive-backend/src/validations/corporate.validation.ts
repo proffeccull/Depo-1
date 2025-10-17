@@ -1,92 +1,192 @@
-import Joi from 'joi';
+import { body, param, query } from 'express-validator';
 
-export const registerCorporate = {
-  body: Joi.object({
-    companyName: Joi.string().required().min(1).max(100),
-    companySize: Joi.string().required().valid('startup', 'small', 'medium', 'large', 'enterprise'),
-    industry: Joi.string().required().min(1).max(50),
-    description: Joi.string().optional().max(1000),
-    contactPerson: Joi.string().required().min(1).max(100),
-    contactInfo: Joi.object({
-      phone: Joi.string().required(),
-      email: Joi.string().email().required(),
-      address: Joi.string().optional()
-    }).required(),
-    csrBudget: Joi.number().positive().optional()
-  })
-};
+export const createCorporateValidation = [
+  body('companyName')
+    .isString()
+    .isLength({ min: 2, max: 100 })
+    .withMessage('Company name must be 2-100 characters'),
+  body('companySize')
+    .isIn(['startup', 'small', 'medium', 'large', 'enterprise'])
+    .withMessage('Invalid company size'),
+  body('industry')
+    .isString()
+    .isLength({ min: 2, max: 50 })
+    .withMessage('Industry must be 2-50 characters'),
+  body('contactPerson')
+    .isString()
+    .isLength({ min: 2, max: 100 })
+    .withMessage('Contact person must be 2-100 characters'),
+  body('contactInfo')
+    .isObject()
+    .withMessage('Contact info is required'),
+  body('contactInfo.email')
+    .isEmail()
+    .withMessage('Valid email is required'),
+  body('contactInfo.phone')
+    .isString()
+    .isLength({ min: 10, max: 15 })
+    .withMessage('Phone number must be 10-15 characters'),
+  body('csrBudget')
+    .optional()
+    .isFloat({ min: 0 })
+    .withMessage('CSR budget must be non-negative')
+];
 
-export const updateCorporateProfile = {
-  body: Joi.object({
-    companyName: Joi.string().optional().min(1).max(100),
-    companySize: Joi.string().optional().valid('startup', 'small', 'medium', 'large', 'enterprise'),
-    industry: Joi.string().optional().min(1).max(50),
-    description: Joi.string().optional().max(1000),
-    contactPerson: Joi.string().optional().min(1).max(100),
-    contactInfo: Joi.object({
-      phone: Joi.string().optional(),
-      email: Joi.string().email().optional(),
-      address: Joi.string().optional()
-    }).optional(),
-    csrBudget: Joi.number().positive().optional()
-  }).min(1)
-};
+export const updateCorporateValidation = [
+  param('id')
+    .isUUID()
+    .withMessage('Invalid corporate ID'),
+  body('companyName')
+    .optional()
+    .isString()
+    .isLength({ min: 2, max: 100 })
+    .withMessage('Company name must be 2-100 characters'),
+  body('companySize')
+    .optional()
+    .isIn(['startup', 'small', 'medium', 'large', 'enterprise'])
+    .withMessage('Invalid company size'),
+  body('industry')
+    .optional()
+    .isString()
+    .isLength({ min: 2, max: 50 })
+    .withMessage('Industry must be 2-50 characters'),
+  body('contactPerson')
+    .optional()
+    .isString()
+    .isLength({ min: 2, max: 100 })
+    .withMessage('Contact person must be 2-100 characters'),
+  body('contactInfo')
+    .optional()
+    .isObject()
+    .withMessage('Contact info must be an object'),
+  body('contactInfo.email')
+    .optional()
+    .isEmail()
+    .withMessage('Valid email is required'),
+  body('contactInfo.phone')
+    .optional()
+    .isString()
+    .isLength({ min: 10, max: 15 })
+    .withMessage('Phone number must be 10-15 characters'),
+  body('csrBudget')
+    .optional()
+    .isFloat({ min: 0 })
+    .withMessage('CSR budget must be non-negative')
+];
 
-export const getCorporateProfile = {
-  // No validation needed - uses authenticated user
-};
+export const corporateIdValidation = [
+  param('id')
+    .isUUID()
+    .withMessage('Invalid corporate ID')
+];
 
-export const createBulkCampaign = {
-  body: Joi.object({
-    campaignName: Joi.string().required().min(1).max(100),
-    description: Joi.string().optional().max(500),
-    targetAmount: Joi.number().positive().required(),
-    targetRecipients: Joi.number().integer().positive().required(),
-    donationAmount: Joi.number().positive().required(),
-    startDate: Joi.date().iso().required(),
-    endDate: Joi.date().iso().when('startDate', {
-      is: Joi.exist(),
-      then: Joi.date().greater(Joi.ref('startDate')).required()
-    })
-  })
-};
+export const createBulkDonationValidation = [
+  param('id')
+    .isUUID()
+    .withMessage('Invalid corporate ID'),
+  body('donations')
+    .isArray({ min: 1, max: 50 })
+    .withMessage('Donations array must contain 1-50 items'),
+  body('donations.*.amount')
+    .isFloat({ min: 100 })
+    .withMessage('Amount must be at least 100'),
+  body('donations.*.currency')
+    .isIn(['NGN', 'USD', 'EUR'])
+    .withMessage('Invalid currency'),
+  body('donations.*.recipientCount')
+    .optional()
+    .isInt({ min: 1, max: 10 })
+    .withMessage('Recipient count must be 1-10'),
+  body('donations.*.description')
+    .optional()
+    .isString()
+    .isLength({ max: 500 })
+    .withMessage('Description must be max 500 characters')
+];
 
-export const getCorporateCampaigns = {
-  query: Joi.object({
-    status: Joi.string().valid('draft', 'active', 'completed', 'cancelled').optional(),
-    page: Joi.number().integer().min(1).default(1),
-    limit: Joi.number().integer().min(1).max(50).default(10)
-  })
-};
+export const processBulkDonationValidation = [
+  param('bulkDonationId')
+    .isUUID()
+    .withMessage('Invalid bulk donation ID')
+];
 
-export const processBulkDonations = {
-  body: Joi.object({
-    campaignId: Joi.string().uuid().required(),
-    recipientIds: Joi.array().items(Joi.string().uuid()).min(1).max(1000).required(),
-    donationAmount: Joi.number().positive().required()
-  })
-};
+export const corporateDonationsValidation = [
+  param('corporateId')
+    .isUUID()
+    .withMessage('Invalid corporate ID'),
+  query('startDate')
+    .optional()
+    .isISO8601()
+    .withMessage('Invalid start date'),
+  query('endDate')
+    .optional()
+    .isISO8601()
+    .withMessage('Invalid end date')
+];
 
-export const getCSRReport = {
-  query: Joi.object({
-    timeframe: Joi.string().valid('1month', '3months', '6months', '1year').default('1year')
-  })
-};
+export const corporateAnalyticsValidation = [
+  param('corporateId')
+    .isUUID()
+    .withMessage('Invalid corporate ID'),
+  query('startDate')
+    .isISO8601()
+    .withMessage('Invalid start date'),
+  query('endDate')
+    .isISO8601()
+    .withMessage('Invalid end date')
+];
 
-export const updateVerificationStatus = {
-  params: Joi.object({
-    corporateId: Joi.string().uuid().required()
-  }),
-  body: Joi.object({
-    isVerified: Joi.boolean().required(),
-    verificationNotes: Joi.string().optional().max(500)
-  })
-};
+export const addTeamMemberValidation = [
+  param('corporateId')
+    .isUUID()
+    .withMessage('Invalid corporate ID'),
+  body('userId')
+    .isUUID()
+    .withMessage('Invalid user ID'),
+  body('role')
+    .isString()
+    .isLength({ min: 2, max: 50 })
+    .withMessage('Role must be 2-50 characters')
+];
 
-export const getCorporateAPIKeys = {
-  // No validation needed - uses authenticated user
-};
+export const removeTeamMemberValidation = [
+  param('corporateId')
+    .isUUID()
+    .withMessage('Invalid corporate ID'),
+  param('userId')
+    .isUUID()
+    .withMessage('Invalid user ID')
+];
 
-export const regenerateAPIKeys = {
-  // No validation needed - uses authenticated user
-};
+export const getTeamMembersValidation = [
+  param('corporateId')
+    .isUUID()
+    .withMessage('Invalid corporate ID'),
+  query('limit')
+    .optional()
+    .isInt({ min: 1, max: 100 })
+    .withMessage('Limit must be 1-100'),
+  query('offset')
+    .optional()
+    .isInt({ min: 0 })
+    .withMessage('Offset must be non-negative')
+];
+
+export const updateCorporateStatusValidation = [
+  param('corporateId')
+    .isUUID()
+    .withMessage('Invalid corporate ID'),
+  body('status')
+    .isIn(['active', 'inactive', 'suspended', 'pending'])
+    .withMessage('Invalid status')
+];
+
+export const corporateCSRTrackingValidation = [
+  param('corporateId')
+    .isUUID()
+    .withMessage('Invalid corporate ID'),
+  query('period')
+    .optional()
+    .isIn(['30d', '90d', '1y', 'all'])
+    .withMessage('Invalid period')
+];

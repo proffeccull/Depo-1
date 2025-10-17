@@ -1,7 +1,7 @@
 import { apiClient } from './client';
 
 export const donationsAPI = {
-  getCycles: (params?: { status?: string; page?: number; limit?: number }) =>
+  getCycles: (params?: { status?: string; page?: number; limit?: number; search?: string }) =>
     apiClient.get('/cycles', { params }),
   getCycle: (cycleId: string) => apiClient.get(`/cycles/${cycleId}`),
   give: (payload: {

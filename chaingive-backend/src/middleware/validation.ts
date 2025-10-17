@@ -12,3 +12,4 @@ export const validateRequest = (schema: ZodSchema) => {
     }
   };
 };
+export const validate = validateRequest;

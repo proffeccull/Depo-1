@@ -39,6 +39,7 @@ import referralRoutes from './routes/referral.routes';
 import disputeRoutes from './routes/dispute.routes';
 import coinPurchaseRoutes from './routes/coinPurchase.routes';
 import subscriptionRoutes from './routes/subscription.routes';
+import proposalRoutes from './routes/proposal.routes';
 
 // Premium Feature Routes
 import analyticsRoutes from './routes/analytics.routes';
@@ -49,7 +50,13 @@ import merchantRoutes from './routes/merchant.routes';
 import corporateRoutes from './routes/corporate.routes';
 import gamificationRoutes from './routes/gamification.routes';
 import gamificationAdminRoutes from './routes/gamificationAdmin.routes';
+import fundraisingRoutes from './routes/fundraising.routes';
+import cryptoPaymentRoutes from './routes/cryptoPayment.routes';
+import syncRoutes from './routes/sync.routes';
+import recurringDonationRoutes from './routes/recurring-donation.routes';
+import analyticsDashboardRoutes from './routes/analytics-dashboard.routes';
 import webhooksRoutes from './routes/webhooks.routes';
+import http3Service from './services/http3.service';
 
 // Load environment variables
 dotenv.config();
@@ -87,11 +94,17 @@ app.use(httpMetricsMiddleware);
 
 // Health check
 app.get(['/','/health'], (req, res) => {
+  const http3Status = http3Service.getStatus();
   res.json({
     status: 'healthy',
     timestamp: new Date().toISOString(),
     uptime: process.uptime(),
     environment: process.env.NODE_ENV,
+    protocols: {
+      http1: true,
+      http2: http3Status.protocol === 'HTTP/2',
+      http3: http3Status.enabled,
+    },
   });
 });
 app.head(['/','/health'], (_req, res) => res.sendStatus(200));
@@ -134,6 +147,13 @@ app.use(`/${API_VERSION}/ai`, aiRoutes);
 app.use(`/${API_VERSION}/crypto`, cryptoGatewayRoutes);
 app.use(`/${API_VERSION}/merchants`, merchantRoutes);
 app.use(`/${API_VERSION}/corporate`, corporateRoutes);
+app.use(`/${API_VERSION}/gamification`, gamificationRoutes);
+app.use(`/${API_VERSION}/gamification/admin`, gamificationAdminRoutes);
+app.use(`/${API_VERSION}/fundraising`, fundraisingRoutes);
+app.use(`/${API_VERSION}/recurring-donations`, recurringDonationRoutes);
+app.use(`/${API_VERSION}/analytics/dashboard`, analyticsDashboardRoutes);
+app.use(`/${API_VERSION}`, cryptoPaymentRoutes);
+app.use(`/${API_VERSION}`, syncRoutes);
 
 // Webhook Routes (no auth required)
 app.use('/webhooks', webhooksRoutes);
@@ -174,6 +194,9 @@ const server = app.listen(PORT, () => {
   websocketService.initialize(server);
   logger.info('🔌 WebSocket server initialized');
 
+  // Initialize HTTP/3 server
+  http3Service.initialize(app);
+
   // Start background jobs
   if (process.env.NODE_ENV !== 'test') {
     startScheduledJobs();
@@ -186,6 +209,7 @@ process.on('SIGTERM', () => {
   logger.info('SIGTERM received, shutting down gracefully');
   server.close(() => {
     websocketService.shutdown();
+    http3Service.shutdown();
     process.exit(0);
   });
 });
@@ -194,6 +218,7 @@ process.on('SIGINT', () => {
   logger.info('SIGINT received, shutting down gracefully');
   server.close(() => {
     websocketService.shutdown();
+    http3Service.shutdown();
     process.exit(0);
   });
 });

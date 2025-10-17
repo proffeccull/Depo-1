@@ -71,8 +71,8 @@ export const confirmPayment = createAsyncThunk(
 
 export const fetchPurchaseHistory = createAsyncThunk(
   'coinPurchase/fetchHistory',
-  async () => {
-    const res = await coinPurchaseAPI.getPurchaseHistory();
+  async (params?: { search?: string; status?: string }) => {
+    const res = await coinPurchaseAPI.getPurchaseHistory(params);
     return res.data;
   }
 );

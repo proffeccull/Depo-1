@@ -1,0 +1,25 @@
+// Add to main schema.prisma
+
+model RecurringDonation {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation("UserRecurringDonations", fields: [userId], references: [id], onDelete: Cascade)
+  amount          Float
+  categoryId      String
+  category        DonationCategory @relation(fields: [categoryId], references: [id])
+  frequency       String   // daily, weekly, monthly, yearly
+  status          String   @default("active") // active, paused, cancelled
+  startDate       DateTime
+  nextProcessDate DateTime
+  lastProcessedAt DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@index([nextProcessDate])
+  @@map("recurring_donations")
+}
+
+// Add fcmToken to User model
+// fcmToken String?

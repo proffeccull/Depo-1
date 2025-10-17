@@ -1,204 +1,131 @@
 import React, { useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  TouchableOpacity,
-  TextInput,
-  Alert,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { View, Text, StyleSheet, ScrollView, Alert } from 'react-native';
+import { Button, Input } from '../../components/common';
 import { useNavigation } from '@react-navigation/native';
-import Icon from 'react-native-vector-icons/MaterialIcons';
-import * as Haptics from 'expo-haptics';
+import { useFormValidation, validators } from '../../utils/validation';
+import { MerchantApi } from '../../api/merchant';
 
-import { colors } from '../../theme/colors';
-import { typography } from '../../theme/typography';
-import { spacing } from '../../theme/spacing';
-
-interface FormData {
-  businessName: string;
-  businessType: string;
-  address: string;
-  phone: string;
-  email: string;
-  taxId: string;
-  description: string;
-}
-
-const MerchantOnboardingScreen: React.FC = () => {
+export const MerchantOnboardingScreen = () => {
   const navigation = useNavigation();
-  const [formData, setFormData] = useState<FormData>({
+  const [loading, setLoading] = useState(false);
+  const {
+    values,
+    errors,
+    validate,
+    validateAll,
+    handleChange,
+  } = useFormValidation({
     businessName: '',
-    businessType: '',
-    address: '',
-    phone: '',
     email: '',
-    taxId: '',
+    phone: '',
+    category: '',
     description: '',
   });
-  const [loading, setLoading] = useState(false);
-
-  const handleInputChange = (field: keyof FormData, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-  };
 
   const handleSubmit = async () => {
-    // Basic validation
-    if (!formData.businessName || !formData.businessType || !formData.email) {
-      Alert.alert('Error', 'Please fill in all required fields');
+    const isValid = validateAll({
+      businessName: { value: values.businessName, validator: validators.required },
+      email: { value: values.email, validator: validators.email },
+      phone: { value: values.phone, validator: validators.phone },
+      category: { value: values.category, validator: validators.required },
+      description: { value: values.description, validator: validators.required },
+    });
+
+    if (!isValid) {
+      Alert.alert('Error', 'Please fill in all required fields correctly.');
       return;
     }
 
     setLoading(true);
     try {
-      // TODO: Implement API call to submit merchant onboarding
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-      Alert.alert('Success', 'Merchant account created successfully!', [
-        { text: 'OK', onPress: () => navigation.goBack() }
-      ]);
-    } catch (error) {
-      Alert.alert('Error', 'Failed to create merchant account');
+      await MerchantApi.createMerchant({
+        name: values.businessName,
+        email: values.email,
+        phone: values.phone,
+        category: values.category,
+        description: values.description,
+      });
+
+      Alert.alert('Success', 'Your merchant application has been submitted successfully.');
+      navigation.navigate('MerchantDashboard');
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Failed to submit merchant application.');
     } finally {
       setLoading(false);
     }
   };
 
-  const renderInput = (
-    label: string,
-    field: keyof FormData,
-    placeholder: string,
-    required = false,
-    multiline = false
-  ) => (
-    <View style={styles.inputContainer}>
-      <Text style={styles.inputLabel}>
-        {label}{required && <Text style={styles.required}>*</Text>}
-      </Text>
-      <TextInput
-        style={[styles.input, multiline && styles.multilineInput]}
-        value={formData[field]}
-        onChangeText={(value) => handleInputChange(field, value)}
-        placeholder={placeholder}
-        placeholderTextColor={colors.gray[400]}
-        multiline={multiline}
-        numberOfLines={multiline ? 3 : 1}
-      />
-    </View>
-  );
-
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Icon name="arrow-back" size={24} color={colors.text.primary} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Merchant Onboarding</Text>
-        <View style={{ width: 24 }} />
-      </View>
+    <ScrollView style={styles.container}>
+      <Text style={styles.title}>Merchant Onboarding</Text>
+      <Text style={styles.subtitle}>Join ChainGive as a merchant</Text>
 
-      {/* Content */}
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        <Text style={styles.subtitle}>
-          Set up your merchant account to start selling on ChainGive
-        </Text>
+      <Input
+        label="Business Name"
+        value={values.businessName}
+        onChangeText={(text) => handleChange('businessName', text)}
+        onBlur={() => validate('businessName', values.businessName, validators.required)}
+        error={errors.businessName}
+        placeholder="Enter business name"
+        accessibilityLabel="Business name input"
+      />
 
-        {renderInput('Business Name', 'businessName', 'Enter your business name', true)}
-        {renderInput('Business Type', 'businessType', 'e.g., Retail, Restaurant, Services', true)}
-        {renderInput('Business Address', 'address', 'Enter full business address', true)}
-        {renderInput('Phone Number', 'phone', 'Enter business phone number', true)}
-        {renderInput('Email Address', 'email', 'Enter business email', true)}
-        {renderInput('Tax ID', 'taxId', 'Enter tax identification number')}
-        {renderInput('Business Description', 'description', 'Describe your business (optional)', false, true)}
+      <Input
+        label="Email"
+        value={values.email}
+        onChangeText={(text) => handleChange('email', text)}
+        onBlur={() => validate('email', values.email, validators.email)}
+        error={errors.email}
+        placeholder="business@example.com"
+        keyboardType="email-address"
+        accessibilityLabel="Email input"
+      />
 
-        <TouchableOpacity
-          style={[styles.submitButton, loading && styles.submitButtonDisabled]}
-          onPress={handleSubmit}
-          disabled={loading}
-        >
-          <Text style={styles.submitButtonText}>
-            {loading ? 'Creating Account...' : 'Create Merchant Account'}
-          </Text>
-        </TouchableOpacity>
-      </ScrollView>
-    </SafeAreaView>
+      <Input
+        label="Phone"
+        value={values.phone}
+        onChangeText={(text) => handleChange('phone', text)}
+        onBlur={() => validate('phone', values.phone, validators.phone)}
+        error={errors.phone}
+        placeholder="+234 800 000 0000"
+        keyboardType="phone-pad"
+        accessibilityLabel="Phone number input"
+      />
+
+      <Input
+        label="Business Category"
+        value={values.category}
+        onChangeText={(text) => handleChange('category', text)}
+        onBlur={() => validate('category', values.category, validators.required)}
+        error={errors.category}
+        placeholder="e.g., Retail, Services"
+        accessibilityLabel="Business category input"
+      />
+
+      <Input
+        label="Description"
+        value={values.description}
+        onChangeText={(text) => handleChange('description', text)}
+        onBlur={() => validate('description', values.description, validators.required)}
+        error={errors.description}
+        placeholder="Tell us about your business"
+        multiline
+        numberOfLines={4}
+        accessibilityLabel="Business description input"
+      />
+
+      <Button
+        title="Submit Application"
+        onPress={handleSubmit}
+        loading={loading}
+        accessibilityLabel="Submit merchant application"
+      />
+    </ScrollView>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background.secondary,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    backgroundColor: colors.white,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border.light,
-  },
-  headerTitle: {
-    ...typography.h3,
-    color: colors.text.primary,
-  },
-  content: {
-    flex: 1,
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.md,
-  },
-  subtitle: {
-    ...typography.bodyRegular,
-    color: colors.text.secondary,
-    textAlign: 'center',
-    marginBottom: spacing.lg,
-  },
-  inputContainer: {
-    marginBottom: spacing.md,
-  },
-  inputLabel: {
-    ...typography.body,
-    color: colors.text.primary,
-    fontWeight: '500',
-    marginBottom: spacing.xs,
-  },
-  required: {
-    color: colors.error,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: colors.border.light,
-    borderRadius: 8,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    backgroundColor: colors.white,
-    ...typography.bodyRegular,
-    color: colors.text.primary,
-  },
-  multilineInput: {
-    height: 80,
-    textAlignVertical: 'top',
-  },
-  submitButton: {
-    backgroundColor: colors.primary,
-    borderRadius: 8,
-    paddingVertical: spacing.md,
-    alignItems: 'center',
-    marginTop: spacing.lg,
-    marginBottom: spacing.xl,
-  },
-  submitButtonDisabled: {
-    backgroundColor: colors.gray[300],
-  },
-  submitButtonText: {
-    ...typography.button,
-    color: colors.white,
-    fontWeight: 'bold',
-  },
+  container: { flex: 1, padding: 24, backgroundColor: '#fff' },
+  title: { fontSize: 24, fontWeight: 'bold', marginBottom: 8 },
+  subtitle: { fontSize: 16, color: '#666', marginBottom: 24 },
 });
-
-export default MerchantOnboardingScreen;

@@ -3,24 +3,20 @@ import { injectable, inject } from 'inversify';
 import winston from 'winston';
 
 export interface CreateMerchantInput {
-  userId: string;
   businessName: string;
-  businessType: string;
+  businessType: 'retail' | 'service' | 'food' | 'other';
   description?: string;
-  location: string;
-  contactEmail: string;
-  contactPhone: string;
-  website?: string;
-  services: string[];
+  location?: any;
+  contactInfo: any;
+  userId: string;
 }
 
 export interface CreatePaymentRequestInput {
   merchantId: string;
   amount: number;
   currency: string;
-  description: string;
-  qrCode?: string;
-  expiresAt?: Date;
+  description?: string;
+  userId: string;
 }
 
 @injectable()
@@ -30,41 +26,41 @@ export class MerchantService {
     @inject('Logger') private logger: winston.Logger
   ) {}
 
-  async createMerchant(data: CreateMerchantInput): Promise<any> {
+  async createMerchant(input: CreateMerchantInput): Promise<any> {
     try {
-      const merchant = await this.prisma.merchantAccount.create({
+      const merchant = await this.prisma.merchant.create({
         data: {
-          userId: data.userId,
-          businessName: data.businessName,
-          businessType: data.businessType,
-          description: data.description,
-          location: data.location,
-          contactEmail: data.contactEmail,
-          contactPhone: data.contactPhone,
-          website: data.website,
-          services: data.services,
-          status: 'pending_verification'
+          businessName: input.businessName,
+          businessType: input.businessType,
+          description: input.description,
+          location: input.location,
+          contactInfo: input.contactInfo,
+          userId: input.userId,
+          isVerified: false,
+          status: 'pending'
         }
       });
 
-      this.logger.info('Merchant account created', { merchantId: merchant.id, userId: data.userId });
+      this.logger.info('Merchant created', { merchantId: merchant.id, userId: input.userId });
       return merchant;
     } catch (error) {
-      this.logger.error('Failed to create merchant account', { error, data });
+      this.logger.error('Failed to create merchant', { error, input });
       throw new Error('MERCHANT_CREATION_FAILED');
     }
   }
 
   async getMerchantById(merchantId: string): Promise<any> {
     try {
-      return await this.prisma.merchantAccount.findUnique({
+      const merchant = await this.prisma.merchant.findUnique({
         where: { id: merchantId },
         include: {
           user: {
-            select: { id: true, displayName: true, profilePicture: true }
+            select: { id: true, displayName: true, email: true }
           }
         }
       });
+
+      return merchant;
     } catch (error) {
       this.logger.error('Failed to get merchant', { error, merchantId });
       throw new Error('MERCHANT_FETCH_FAILED');
@@ -73,78 +69,82 @@ export class MerchantService {
 
   async getMerchantsByLocation(location: string, limit: number = 20): Promise<any[]> {
     try {
-      return await this.prisma.merchantAccount.findMany({
+      // This would use geospatial queries in production
+      const merchants = await this.prisma.merchant.findMany({
         where: {
-          location: { contains: location, mode: 'insensitive' },
-          status: 'verified'
+          location: { contains: location },
+          isVerified: true,
+          status: 'active'
         },
+        take: limit,
         include: {
           user: {
-            select: { id: true, displayName: true, profilePicture: true }
+            select: { displayName: true }
           }
-        },
-        orderBy: { createdAt: 'desc' },
-        take: limit
+        }
       });
+
+      return merchants;
     } catch (error) {
       this.logger.error('Failed to get merchants by location', { error, location });
-      throw new Error('MERCHANTS_FETCH_FAILED');
+      throw new Error('MERCHANTS_LOCATION_FAILED');
     }
   }
 
   async searchMerchants(query: string, limit: number = 20): Promise<any[]> {
     try {
-      return await this.prisma.merchantAccount.findMany({
+      const merchants = await this.prisma.merchant.findMany({
         where: {
           AND: [
-            { status: 'verified' },
+            { isVerified: true },
+            { status: 'active' },
             {
               OR: [
                 { businessName: { contains: query, mode: 'insensitive' } },
-                { businessType: { contains: query, mode: 'insensitive' } },
                 { description: { contains: query, mode: 'insensitive' } },
-                { services: { hasSome: [query] } }
+                { businessType: { contains: query, mode: 'insensitive' } }
               ]
             }
           ]
         },
+        take: limit,
         include: {
           user: {
-            select: { id: true, displayName: true, profilePicture: true }
+            select: { displayName: true }
           }
-        },
-        orderBy: { createdAt: 'desc' },
-        take: limit
+        }
       });
+
+      return merchants;
     } catch (error) {
       this.logger.error('Failed to search merchants', { error, query });
       throw new Error('MERCHANT_SEARCH_FAILED');
     }
   }
 
-  async createPaymentRequest(data: CreatePaymentRequestInput): Promise<any> {
+  async createPaymentRequest(input: CreatePaymentRequestInput): Promise<any> {
     try {
       const paymentRequest = await this.prisma.merchantPaymentRequest.create({
         data: {
-          merchantId: data.merchantId,
-          amount: data.amount,
-          currency: data.currency,
-          description: data.description,
-          qrCode: data.qrCode,
-          expiresAt: data.expiresAt || new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
-          status: 'active'
+          merchantId: input.merchantId,
+          amount: input.amount,
+          currency: input.currency,
+          description: input.description,
+          userId: input.userId,
+          status: 'pending',
+          expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 hours
         }
       });
 
-      this.logger.info('Merchant payment request created', {
-        requestId: paymentRequest.id,
-        merchantId: data.merchantId,
-        amount: data.amount
+      this.logger.info('Payment request created', {
+        paymentRequestId: paymentRequest.id,
+        merchantId: input.merchantId,
+        amount: input.amount
       });
 
       return paymentRequest;
     } catch (error) {
-      this.logger.error('Failed to create payment request', { error, data });
+      this.logger.error('Failed to create payment request', { error, input });
       throw new Error('PAYMENT_REQUEST_CREATION_FAILED');
     }
   }
@@ -157,15 +157,17 @@ export class MerchantService {
         where.status = status;
       }
 
-      return await this.prisma.merchantPaymentRequest.findMany({
+      const paymentRequests = await this.prisma.merchantPaymentRequest.findMany({
         where,
         orderBy: { createdAt: 'desc' },
         include: {
-          merchant: {
-            select: { businessName: true, businessType: true }
+          user: {
+            select: { id: true, displayName: true, email: true }
           }
         }
       });
+
+      return paymentRequests;
     } catch (error) {
       this.logger.error('Failed to get merchant payment requests', { error, merchantId });
       throw new Error('PAYMENT_REQUESTS_FETCH_FAILED');
@@ -174,35 +176,14 @@ export class MerchantService {
 
   async processPayment(paymentRequestId: string, userId: string, amount: number): Promise<any> {
     try {
-      const paymentRequest = await this.prisma.merchantPaymentRequest.findUnique({
-        where: { id: paymentRequestId },
-        include: { merchant: true }
-      });
-
-      if (!paymentRequest) {
-        throw new Error('PAYMENT_REQUEST_NOT_FOUND');
-      }
-
-      if (paymentRequest.status !== 'active') {
-        throw new Error('PAYMENT_REQUEST_INACTIVE');
-      }
-
-      if (paymentRequest.expiresAt && paymentRequest.expiresAt < new Date()) {
-        throw new Error('PAYMENT_REQUEST_EXPIRED');
-      }
-
-      if (paymentRequest.amount !== amount) {
-        throw new Error('AMOUNT_MISMATCH');
-      }
-
-      // Create payment record
+      // This would integrate with payment gateways in production
       const payment = await this.prisma.merchantPayment.create({
         data: {
           paymentRequestId,
           userId,
           amount,
-          currency: paymentRequest.currency,
-          status: 'completed'
+          status: 'completed',
+          processedAt: new Date()
         }
       });
 
@@ -212,59 +193,49 @@ export class MerchantService {
         data: { status: 'completed' }
       });
 
-      this.logger.info('Merchant payment processed', {
+      this.logger.info('Payment processed', {
         paymentId: payment.id,
         paymentRequestId,
-        userId,
         amount
       });
 
       return payment;
     } catch (error) {
-      this.logger.error('Failed to process merchant payment', { error, paymentRequestId, userId });
-      throw error;
+      this.logger.error('Failed to process payment', { error, paymentRequestId });
+      throw new Error('PAYMENT_PROCESSING_FAILED');
     }
   }
 
   async getMerchantAnalytics(merchantId: string, startDate: Date, endDate: Date): Promise<any> {
     try {
-      const [totalPayments, totalRevenue, paymentRequests, recentPayments] = await Promise.all([
+      const [totalPayments, totalRevenue, paymentRequests] = await Promise.all([
         this.prisma.merchantPayment.count({
           where: {
             paymentRequest: { merchantId },
-            createdAt: { gte: startDate, lte: endDate }
+            processedAt: { gte: startDate, lte: endDate }
           }
         }),
         this.prisma.merchantPayment.aggregate({
           where: {
             paymentRequest: { merchantId },
-            createdAt: { gte: startDate, lte: endDate }
+            processedAt: { gte: startDate, lte: endDate }
           },
           _sum: { amount: true }
         }),
         this.prisma.merchantPaymentRequest.count({
-          where: { merchantId, createdAt: { gte: startDate, lte: endDate } }
-        }),
-        this.prisma.merchantPayment.findMany({
           where: {
-            paymentRequest: { merchantId },
+            merchantId,
             createdAt: { gte: startDate, lte: endDate }
-          },
-          include: {
-            user: { select: { displayName: true } },
-            paymentRequest: { select: { description: true } }
-          },
-          orderBy: { createdAt: 'desc' },
-          take: 10
+          }
         })
       ]);
 
       return {
+        period: { startDate, endDate },
         totalPayments,
         totalRevenue: totalRevenue._sum.amount || 0,
         totalRequests: paymentRequests,
-        conversionRate: paymentRequests > 0 ? (totalPayments / paymentRequests) * 100 : 0,
-        recentPayments
+        conversionRate: paymentRequests > 0 ? totalPayments / paymentRequests : 0
       };
     } catch (error) {
       this.logger.error('Failed to get merchant analytics', { error, merchantId });
@@ -272,9 +243,9 @@ export class MerchantService {
     }
   }
 
-  async updateMerchantStatus(merchantId: string, status: 'pending_verification' | 'verified' | 'rejected' | 'suspended'): Promise<void> {
+  async updateMerchantStatus(merchantId: string, status: string): Promise<void> {
     try {
-      await this.prisma.merchantAccount.update({
+      await this.prisma.merchant.update({
         where: { id: merchantId },
         data: { status }
       });

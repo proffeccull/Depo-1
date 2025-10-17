@@ -27,8 +27,8 @@ export const coinPurchaseAPI = {
   },
 
   // Get user's purchase history
-  getPurchaseHistory: () => {
-    return apiClient.get('/coins/purchase/my-purchases');
+  getPurchaseHistory: (params?: { search?: string; status?: string }) => {
+    return apiClient.get('/coins/purchase/my-purchases', { params });
   },
 
   // Get pending purchases (waiting for agent confirmation)

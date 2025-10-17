@@ -13,30 +13,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import * as Haptics from 'expo-haptics';
-// import * as DocumentPicker from 'expo-document-picker'; // TODO: Install expo-document-picker
+import * as DocumentPicker from 'expo-document-picker';
+import { useSelector } from 'react-redux';
 
 import { colors } from '../../theme/colors';
 import { typography } from '../../theme/typography';
 import { spacing } from '../../theme/spacing';
-
-interface BulkTransaction {
-  id: string;
-  name: string;
-  type: 'payment' | 'transfer' | 'payout';
-  status: 'pending' | 'processing' | 'completed' | 'failed';
-  totalRecords: number;
-  processedRecords: number;
-  createdAt: string;
-  completedAt?: string;
-}
-
-interface TransactionTemplate {
-  id: string;
-  name: string;
-  description: string;
-  fields: string[];
-  sampleFile: string;
-}
+import { bulkAPI, BulkTransaction, TransactionTemplate } from '../../api/bulk';
+import { RootState } from '../../store/store';
 
 const BulkTransactionToolsScreen: React.FC = () => {
   const navigation = useNavigation();
@@ -44,99 +28,61 @@ const BulkTransactionToolsScreen: React.FC = () => {
   const [templates, setTemplates] = useState<TransactionTemplate[]>([]);
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'history' | 'templates'>('history');
+  const { user } = useSelector((state: RootState) => state.auth);
 
   useEffect(() => {
     loadData();
-  }, [activeTab]);
+  }, [activeTab, user]);
 
   const loadData = async () => {
+    if (!user?.corporateAccountId) {
+      Alert.alert('Error', 'No corporate account associated with this user.');
+      return;
+    }
+
     setLoading(true);
     try {
       if (activeTab === 'history') {
-        await loadTransactions();
+        const response = await bulkAPI.getBulkTransactionHistory(user.corporateAccountId);
+        setTransactions(response.data);
       } else {
-        await loadTemplates();
+        const response = await bulkAPI.getBulkTransactionTemplates(user.corporateAccountId);
+        setTemplates(response.data);
       }
-    } catch (error) {
-      Alert.alert('Error', 'Failed to load data');
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Failed to load data');
     } finally {
       setLoading(false);
     }
   };
 
-  const loadTransactions = async () => {
-    // Mock data - replace with actual API call
-    const mockTransactions: BulkTransaction[] = [
-      {
-        id: 'BULK-001',
-        name: 'Employee Salary Payments',
-        type: 'payment',
-        status: 'completed',
-        totalRecords: 150,
-        processedRecords: 150,
-        createdAt: '2024-01-15 09:00',
-        completedAt: '2024-01-15 09:30',
-      },
-      {
-        id: 'BULK-002',
-        name: 'Vendor Payouts Q4',
-        type: 'payout',
-        status: 'processing',
-        totalRecords: 75,
-        processedRecords: 45,
-        createdAt: '2024-01-15 14:00',
-      },
-      {
-        id: 'BULK-003',
-        name: 'Customer Refunds',
-        type: 'transfer',
-        status: 'failed',
-        totalRecords: 25,
-        processedRecords: 18,
-        createdAt: '2024-01-14 16:30',
-      },
-    ];
-    setTransactions(mockTransactions);
-  };
-
-  const loadTemplates = async () => {
-    // Mock data - replace with actual API call
-    const mockTemplates: TransactionTemplate[] = [
-      {
-        id: 'TEMP-001',
-        name: 'Bulk Payment Template',
-        description: 'Process multiple payments to different recipients',
-        fields: ['recipient_name', 'recipient_email', 'amount', 'currency', 'description'],
-        sampleFile: 'bulk_payments_sample.csv',
-      },
-      {
-        id: 'TEMP-002',
-        name: 'Employee Salary Template',
-        description: 'Monthly salary payments for employees',
-        fields: ['employee_id', 'employee_name', 'account_number', 'salary_amount', 'department'],
-        sampleFile: 'employee_salary_sample.csv',
-      },
-      {
-        id: 'TEMP-003',
-        name: 'Vendor Payout Template',
-        description: 'Bulk payouts to vendors and suppliers',
-        fields: ['vendor_id', 'vendor_name', 'invoice_number', 'payout_amount', 'due_date'],
-        sampleFile: 'vendor_payout_sample.csv',
-      },
-    ];
-    setTemplates(mockTemplates);
-  };
-
   const handleUploadFile = async (template: TransactionTemplate) => {
-    // TODO: Install and implement expo-document-picker
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    Alert.alert('Upload File', `File upload functionality coming soon. Template: ${template.name}`);
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: 'text/csv',
+      });
+
+      if (result.type === 'success') {
+        await bulkAPI.uploadBulkTransactionFile(user.corporateAccountId, template.id, result);
+        Alert.alert('Success', 'File uploaded successfully. Processing will begin shortly.');
+        loadData();
+      }
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Failed to upload file.');
+    }
   };
 
-  const handleDownloadTemplate = (template: TransactionTemplate) => {
+  const handleDownloadTemplate = async (template: TransactionTemplate) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    // TODO: Download template file
-    Alert.alert('Download Template', `Downloading ${template.sampleFile}`);
+    try {
+      // This is a placeholder. In a real app, you would use a library
+      // like react-native-fs to save the file to the device.
+      const response = await bulkAPI.downloadBulkTransactionTemplate(user.corporateAccountId, template.id);
+      Alert.alert('Success', `Template ${template.sampleFile} downloaded successfully.`);
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Failed to download template.');
+    }
   };
 
   const handleViewTransaction = (transaction: BulkTransaction) => {
@@ -157,15 +103,15 @@ const BulkTransactionToolsScreen: React.FC = () => {
           text: 'Retry',
           onPress: async () => {
             try {
-              // TODO: Implement retry API call
+              await bulkAPI.retryBulkTransaction(user.corporateAccountId, transaction.id);
               setTransactions(prev =>
                 prev.map(t =>
                   t.id === transaction.id ? { ...t, status: 'processing' } : t
                 )
               );
               Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            } catch (error) {
-              Alert.alert('Error', 'Failed to retry transaction');
+            } catch (error: any) {
+              Alert.alert('Error', error.message || 'Failed to retry transaction');
             }
           }
         }

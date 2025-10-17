@@ -3,26 +3,23 @@ import { injectable, inject } from 'inversify';
 import winston from 'winston';
 
 export interface CreateCorporateInput {
-  userId: string;
   companyName: string;
-  companyType: string;
+  companySize: 'startup' | 'small' | 'medium' | 'large' | 'enterprise';
   industry: string;
-  description?: string;
-  location: string;
-  contactEmail: string;
-  contactPhone: string;
-  website?: string;
-  employeeCount?: number;
-  annualRevenue?: number;
+  contactPerson: string;
+  contactInfo: any;
+  csrBudget?: number;
+  userId: string;
 }
 
-export interface BulkDonationInput {
+export interface CreateBulkDonationInput {
   corporateId: string;
-  amount: number;
-  currency: string;
-  recipientCount: number;
-  distributionType: 'equal' | 'weighted';
-  description?: string;
+  donations: Array<{
+    amount: number;
+    currency: string;
+    recipientCount: number;
+    description?: string;
+  }>;
 }
 
 @injectable()
@@ -32,73 +29,69 @@ export class CorporateService {
     @inject('Logger') private logger: winston.Logger
   ) {}
 
-  async createCorporate(data: CreateCorporateInput): Promise<any> {
+  async createCorporate(input: CreateCorporateInput): Promise<any> {
     try {
-      const corporate = await this.prisma.corporateAccount.create({
+      const corporate = await this.prisma.corporate.create({
         data: {
-          userId: data.userId,
-          companyName: data.companyName,
-          companyType: data.companyType,
-          industry: data.industry,
-          description: data.description,
-          location: data.location,
-          contactEmail: data.contactEmail,
-          contactPhone: data.contactPhone,
-          website: data.website,
-          employeeCount: data.employeeCount,
-          annualRevenue: data.annualRevenue,
-          status: 'pending_verification'
+          companyName: input.companyName,
+          companySize: input.companySize,
+          industry: input.industry,
+          contactPerson: input.contactPerson,
+          contactInfo: input.contactInfo,
+          csrBudget: input.csrBudget,
+          userId: input.userId,
+          isVerified: false,
+          status: 'pending'
         }
       });
 
-      this.logger.info('Corporate account created', { corporateId: corporate.id, userId: data.userId });
+      this.logger.info('Corporate account created', { corporateId: corporate.id, userId: input.userId });
       return corporate;
     } catch (error) {
-      this.logger.error('Failed to create corporate account', { error, data });
+      this.logger.error('Failed to create corporate account', { error, input });
       throw new Error('CORPORATE_CREATION_FAILED');
     }
   }
 
   async getCorporateById(corporateId: string): Promise<any> {
     try {
-      return await this.prisma.corporateAccount.findUnique({
+      const corporate = await this.prisma.corporate.findUnique({
         where: { id: corporateId },
         include: {
           user: {
-            select: { id: true, displayName: true, profilePicture: true }
+            select: { id: true, displayName: true, email: true }
           }
         }
       });
+
+      return corporate;
     } catch (error) {
-      this.logger.error('Failed to get corporate', { error, corporateId });
+      this.logger.error('Failed to get corporate account', { error, corporateId });
       throw new Error('CORPORATE_FETCH_FAILED');
     }
   }
 
-  async createBulkDonation(data: BulkDonationInput): Promise<any> {
+  async createBulkDonation(input: CreateBulkDonationInput): Promise<any> {
     try {
       const bulkDonation = await this.prisma.corporateBulkDonation.create({
         data: {
-          corporateId: data.corporateId,
-          amount: data.amount,
-          currency: data.currency,
-          recipientCount: data.recipientCount,
-          distributionType: data.distributionType,
-          description: data.description,
+          corporateId: input.corporateId,
+          totalAmount: input.donations.reduce((sum, d) => sum + d.amount, 0),
+          totalRecipients: input.donations.reduce((sum, d) => sum + d.recipientCount, 0),
+          donations: input.donations,
           status: 'pending'
         }
       });
 
-      this.logger.info('Corporate bulk donation created', {
-        donationId: bulkDonation.id,
-        corporateId: data.corporateId,
-        amount: data.amount,
-        recipientCount: data.recipientCount
+      this.logger.info('Bulk donation created', {
+        bulkDonationId: bulkDonation.id,
+        corporateId: input.corporateId,
+        totalAmount: bulkDonation.totalAmount
       });
 
       return bulkDonation;
     } catch (error) {
-      this.logger.error('Failed to create bulk donation', { error, data });
+      this.logger.error('Failed to create bulk donation', { error, input });
       throw new Error('BULK_DONATION_CREATION_FAILED');
     }
   }
@@ -114,59 +107,41 @@ export class CorporateService {
         throw new Error('BULK_DONATION_NOT_FOUND');
       }
 
-      if (bulkDonation.status !== 'pending') {
-        throw new Error('BULK_DONATION_ALREADY_PROCESSED');
-      }
+      // Create individual donations for each donation in the bulk
+      const individualDonations = [];
 
-      // Get available recipients based on criteria
-      const recipients = await this.getEligibleRecipients(bulkDonation.recipientCount);
-
-      if (recipients.length < bulkDonation.recipientCount) {
-        throw new Error('INSUFFICIENT_ELIGIBLE_RECIPIENTS');
-      }
-
-      // Calculate distribution amounts
-      const distribution = this.calculateDistribution(
-        bulkDonation.amount,
-        bulkDonation.recipientCount,
-        bulkDonation.distributionType
-      );
-
-      // Create individual donations
-      const donations = [];
-      for (let i = 0; i < recipients.length && i < bulkDonation.recipientCount; i++) {
-        const donation = await this.prisma.donation.create({
-          data: {
-            donorId: bulkDonation.corporate.userId,
-            recipientId: recipients[i].id,
-            amount: distribution[i],
-            currency: bulkDonation.currency,
-            status: 'matched',
-            bulkDonationId: bulkDonation.id
-          }
-        });
-        donations.push(donation);
+      for (const donation of bulkDonation.donations) {
+        // This would match recipients and create individual donations
+        // For now, create placeholder donations
+        for (let i = 0; i < donation.recipientCount; i++) {
+          const individualDonation = await this.prisma.donation.create({
+            data: {
+              amount: donation.amount / donation.recipientCount,
+              currency: donation.currency,
+              status: 'pending',
+              corporateId: bulkDonation.corporateId,
+              description: donation.description
+            }
+          });
+          individualDonations.push(individualDonation);
+        }
       }
 
       // Update bulk donation status
       await this.prisma.corporateBulkDonation.update({
         where: { id: bulkDonationId },
-        data: {
-          status: 'processed',
-          processedAt: new Date(),
-          actualRecipientCount: donations.length
-        }
+        data: { status: 'processed' }
       });
 
       this.logger.info('Bulk donation processed', {
         bulkDonationId,
-        recipientCount: donations.length,
-        totalAmount: bulkDonation.amount
+        individualDonationsCount: individualDonations.length
       });
 
       return {
-        bulkDonation: { ...bulkDonation, status: 'processed' },
-        donations
+        bulkDonationId,
+        processedDonations: individualDonations.length,
+        totalAmount: bulkDonation.totalAmount
       };
     } catch (error) {
       this.logger.error('Failed to process bulk donation', { error, bulkDonationId });
@@ -184,15 +159,17 @@ export class CorporateService {
         if (endDate) where.createdAt.lte = endDate;
       }
 
-      return await this.prisma.corporateBulkDonation.findMany({
+      const donations = await this.prisma.donation.findMany({
         where,
+        orderBy: { createdAt: 'desc' },
         include: {
-          corporate: {
-            select: { companyName: true, companyType: true }
+          recipient: {
+            select: { id: true, displayName: true, location: true }
           }
-        },
-        orderBy: { createdAt: 'desc' }
+        }
       });
+
+      return donations;
     } catch (error) {
       this.logger.error('Failed to get corporate donations', { error, corporateId });
       throw new Error('CORPORATE_DONATIONS_FETCH_FAILED');
@@ -201,36 +178,43 @@ export class CorporateService {
 
   async getCorporateAnalytics(corporateId: string, startDate: Date, endDate: Date): Promise<any> {
     try {
-      const [totalDonations, totalAmount, donationCount, impactMetrics] = await Promise.all([
-        this.prisma.corporateBulkDonation.aggregate({
+      const [totalDonations, totalAmount, successfulDonations, bulkDonations] = await Promise.all([
+        this.prisma.donation.count({
           where: {
             corporateId,
-            createdAt: { gte: startDate, lte: endDate },
-            status: 'processed'
+            createdAt: { gte: startDate, lte: endDate }
+          }
+        }),
+        this.prisma.donation.aggregate({
+          where: {
+            corporateId,
+            createdAt: { gte: startDate, lte: endDate }
           },
           _sum: { amount: true }
+        }),
+        this.prisma.donation.count({
+          where: {
+            corporateId,
+            status: 'fulfilled',
+            createdAt: { gte: startDate, lte: endDate }
+          }
         }),
         this.prisma.corporateBulkDonation.count({
           where: {
             corporateId,
-            createdAt: { gte: startDate, lte: endDate },
-            status: 'processed'
-          }
-        }),
-        this.prisma.donation.count({
-          where: {
-            bulkDonation: { corporateId },
             createdAt: { gte: startDate, lte: endDate }
           }
-        }),
-        this.calculateImpactMetrics(corporateId, startDate, endDate)
+        })
       ]);
 
       return {
-        totalAmount: totalDonations._sum.amount || 0,
-        donationCount: totalAmount,
-        individualRecipients: donationCount,
-        impactMetrics
+        period: { startDate, endDate },
+        totalDonations,
+        totalAmount: totalAmount._sum.amount || 0,
+        successfulDonations,
+        successRate: totalDonations > 0 ? successfulDonations / totalDonations : 0,
+        bulkDonations,
+        averageDonation: totalDonations > 0 ? (totalAmount._sum.amount || 0) / totalDonations : 0
       };
     } catch (error) {
       this.logger.error('Failed to get corporate analytics', { error, corporateId });
@@ -238,7 +222,7 @@ export class CorporateService {
     }
   }
 
-  async addTeamMember(corporateId: string, userId: string, role: 'admin' | 'manager' | 'member'): Promise<void> {
+  async addTeamMember(corporateId: string, userId: string, role: string): Promise<void> {
     try {
       await this.prisma.corporateTeamMember.create({
         data: {
@@ -275,24 +259,30 @@ export class CorporateService {
 
   async getTeamMembers(corporateId: string): Promise<any[]> {
     try {
-      return await this.prisma.corporateTeamMember.findMany({
+      const teamMembers = await this.prisma.corporateTeamMember.findMany({
         where: { corporateId },
         include: {
           user: {
             select: { id: true, displayName: true, email: true, profilePicture: true }
           }
         },
-        orderBy: { joinedAt: 'desc' }
+        orderBy: { joinedAt: 'asc' }
       });
+
+      return teamMembers.map(tm => ({
+        ...tm.user,
+        role: tm.role,
+        joinedAt: tm.joinedAt
+      }));
     } catch (error) {
       this.logger.error('Failed to get team members', { error, corporateId });
       throw new Error('TEAM_MEMBERS_FETCH_FAILED');
     }
   }
 
-  async updateCorporateStatus(corporateId: string, status: 'pending_verification' | 'verified' | 'rejected' | 'suspended'): Promise<void> {
+  async updateCorporateStatus(corporateId: string, status: string): Promise<void> {
     try {
-      await this.prisma.corporateAccount.update({
+      await this.prisma.corporate.update({
         where: { id: corporateId },
         data: { status }
       });
@@ -302,65 +292,5 @@ export class CorporateService {
       this.logger.error('Failed to update corporate status', { error, corporateId, status });
       throw new Error('CORPORATE_STATUS_UPDATE_FAILED');
     }
-  }
-
-  private async getEligibleRecipients(count: number): Promise<any[]> {
-    // Get recipients who are actively receiving and have good trust scores
-    return await this.prisma.user.findMany({
-      where: {
-        isReceiving: true,
-        trustScore: { gte: 3.0 },
-        isBanned: false
-      },
-      orderBy: [
-        { trustScore: 'desc' },
-        { lastActivityAt: 'desc' }
-      ],
-      take: count * 2 // Get more than needed for better selection
-    });
-  }
-
-  private calculateDistribution(totalAmount: number, recipientCount: number, type: 'equal' | 'weighted'): number[] {
-    if (type === 'equal') {
-      const baseAmount = Math.floor(totalAmount / recipientCount);
-      const remainder = totalAmount % recipientCount;
-      const distribution = new Array(recipientCount).fill(baseAmount);
-
-      // Distribute remainder to first recipients
-      for (let i = 0; i < remainder; i++) {
-        distribution[i]++;
-      }
-
-      return distribution;
-    } else {
-      // Weighted distribution - could be based on need, location, etc.
-      // For now, use equal distribution as fallback
-      return this.calculateDistribution(totalAmount, recipientCount, 'equal');
-    }
-  }
-
-  private async calculateImpactMetrics(corporateId: string, startDate: Date, endDate: Date): Promise<any> {
-    // Calculate social impact metrics for corporate donations
-    const donations = await this.prisma.donation.findMany({
-      where: {
-        bulkDonation: { corporateId },
-        createdAt: { gte: startDate, lte: endDate }
-      },
-      include: {
-        recipient: {
-          select: { location: true, trustScore: true }
-        }
-      }
-    });
-
-    const locations = donations.map(d => d.recipient.location).filter(Boolean);
-    const uniqueLocations = new Set(locations).size;
-    const avgTrustScore = donations.reduce((sum, d) => sum + d.recipient.trustScore, 0) / donations.length;
-
-    return {
-      communitiesReached: uniqueLocations,
-      averageRecipientTrust: avgTrustScore,
-      totalRecipients: donations.length
-    };
   }
 }

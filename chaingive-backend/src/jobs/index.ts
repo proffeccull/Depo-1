@@ -231,7 +231,11 @@ export function startScheduledJobs() {
   // Start subscription renewal jobs
   startSubscriptionRenewalJob();
 
-  logger.info('✅ Scheduled jobs started (including gamification and subscriptions)');
+  // Recurring donations - every hour
+  const { startRecurringDonationsJob } = require('./recurring-donations.job');
+  startRecurringDonationsJob();
+
+  logger.info('✅ Scheduled jobs started (including gamification, subscriptions, and recurring donations)');
 }
 
 export { 

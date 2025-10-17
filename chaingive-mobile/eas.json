@@ -12,14 +12,15 @@
     },
     "preview": {
       "distribution": "internal",
-
+      "node": "20.x",
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://beneficial-smile-production.up.railway.app/api/v1"
+        "EXPO_PUBLIC_API_URL": "https://depo-1-koa7.onrender.com/api/v1"
       }
     },
     "production": {
+      "node": "20.x",
       "env": {
-        "EXPO_PUBLIC_API_URL": "https://beneficial-smile-production.up.railway.app/api/v1"
+        "EXPO_PUBLIC_API_URL": "https://depo-1-koa7.onrender.com/api/v1"
       }
     }
   },

@@ -1,319 +1,791 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-generator client {
-  provider = "prisma-client-js"
-}
-
 datasource db {
   provider  = "postgresql"
   url       = env("DATABASE_URL")
   directUrl = env("DIRECT_URL")
 }
-// ============================================
-// COMMUNITY VOTING SYSTEM
-// ============================================
 
-model VotingProposal {
-  id            String   @id @default(uuid())
-  title         String
-  description   String
-  category      String   // feature_request, charity_category, platform_improvement, governance
-  status        String   @default("active") // active, passed, rejected, expired
+generator client {
+  provider = "prisma-client-js"
+}
 
-  // Voting configuration
-  votingType    String   @default("simple") // simple, ranked, quadratic
-  minVotes      Int      @default(10)
-  maxVotes      Int?     // For quadratic voting
-  durationHours Int      @default(168) // 7 days default
+model User {
+  id                       String                   @id @default(cuid())
+  email                    String?                  @unique
+  password                 String?
+  passwordHash             String?
+  phoneNumber              String?                  @unique
+  firstName                String?
+  lastName                 String?
+  role                     String                   @default("Donor")
+  tier                     Int                      @default(1)
+  trustScore               Float                    @default(5.0)
+  totalCyclesCompleted     Int                      @default(0)
+  totalDonated             Float                    @default(0)
+  totalReceived            Float                    @default(0)
+  charityCoinsBalance      Float                    @default(0)
+  kycStatus                String                   @default("pending")
+  isActive                 Boolean                  @default(true)
+  isBanned                 Boolean                  @default(false)
+  banReason                String?
+  locationCity             String?
+  locationState            String?
+  lastLoginAt              DateTime?
+  createdAt                DateTime                 @default(now())
+  updatedAt                DateTime                 @updatedAt
+  profile                  Profile?
+  donations                Donation[]
+  subscriptions            UserSubscription[]
+  payments                 Payment[]
+  notifications            Notification[]
+  settings                 Setting[]
+  auditLogs                AuditLog[]
+  proposals                Proposal[]
+  votes                    Vote[]
+  userChallenges           UserChallenge[]
+  rewards                  UserReward[]
+  coinPurchases            CoinPurchase[]
+  socialConnections        SocialConnection[]
+  marketplaceItems         MarketplaceItem[]
+  marketplaceTransactions  MarketplaceTransaction[]
+  comments                 Comment[]
+  likes                    Like[]
+  reports                  Report[]
+  wallet                   UserWallet?
+  authoredGodmodeLogs      GodmodeLog[]             @relation("AuthoredGodmodeLogs")
+  targettedGodmodeLogs     GodmodeLog[]             @relation("TargettedGodmodeLogs")
+  aiRecommendations        AIRecommendation[]
+  merchant                 Merchant?
+  merchantPayments         MerchantPayment[]        @relation("MerchantPaymentToUser")
+  merchantPaymentRequests  MerchantPaymentRequest[] @relation("MerchantPaymentRequestToUser")
+  corporate                Corporate?
+  corporateTeamMemberships CorporateTeamMember[]
+  createdSocialCircles     SocialCircle[]
+  socialCircleMemberships  SocialCircleMember[]
+  socialPosts              SocialPost[]
+  socialComments           SocialComment[]
+  socialLikes              SocialLike[]
+  socialCommentLikes       SocialCommentLike[]
+  cycles                   Cycle[]
+  sentTransactions         Transaction[]            @relation("SentTransactions")
+  receivedTransactions     Transaction[]            @relation("ReceivedTransactions")
+  kycRecords               KYCRecord[]
+  agent                    Agent?
+  leaderboard              Leaderboard?
+  referralsGiven           Referral[]               @relation("ReferrerUser")
+  referralsReceived        Referral[]               @relation("ReferredUser")
+  adminActions             AdminAction[]
+  CoinSaleToUser           CoinSaleToUser[]
+}
 
-  // Timestamps
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-  votingEndsAt  DateTime
+model Profile {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id])
+  firstName String?
+  lastName  String?
+  avatarUrl String?
+  bio       String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
 
-  // Rewards
-  rewardCoins   Int      @default(0)
-  rewardType    String?  // coins, badge, multiplier
+model Donation {
+  id                String             @id @default(cuid())
+  userId            String
+  user              User               @relation(fields: [userId], references: [id])
+  amount            Float
+  categoryId        String
+  category          DonationCategory   @relation(fields: [categoryId], references: [id])
+  cycleId           String
+  cycle             DonationCycle      @relation(fields: [cycleId], references: [id])
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  donationMatchings DonationMatching[]
+}
 
-  // Relations
-  createdBy     String
-  creator       User     @relation("UserProposals", fields: [createdBy], references: [id])
-  votes         Vote[]
+model DonationCategory {
+  id        String     @id @default(cuid())
+  name      String     @unique
+  donations Donation[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+}
 
-  // Admin controls
-  isActive      Boolean  @default(true)
-  adminOverride Boolean  @default(false)
+model DonationCycle {
+  id        String     @id @default(cuid())
+  name      String
+  startDate DateTime
+  endDate   DateTime
+  donations Donation[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+}
 
-  @@index([status])
-  @@index([votingEndsAt])
-  @@index([category])
-  @@map("voting_proposals")
+model Subscription {
+  id                String             @id @default(cuid())
+  name              String
+  price             Float
+  features          String[]
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  userSubscriptions UserSubscription[]
+}
+
+model Payment {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  amount    Float
+  status    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  message   String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Setting {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id])
+  settings  Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  action    String
+  details   Json?
+  createdAt DateTime @default(now())
+}
+
+model AdminAction {
+  id        String   @id @default(cuid())
+  adminId   String
+  admin     User     @relation(fields: [adminId], references: [id])
+  action    String
+  targetId  String
+  details   String
+  createdAt DateTime @default(now())
+}
+
+model FeatureFlag {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  isEnabled   Boolean  @default(false)
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Proposal {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  title       String
+  description String
+  status      String   @default("pending")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  votes       Vote[]
 }
 
 model Vote {
-  id          String @id @default(uuid())
-  userId      String
-  proposalId  String
+  id         String   @id @default(cuid())
+  proposalId String
+  proposal   Proposal @relation(fields: [proposalId], references: [id])
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  support    Boolean
+  createdAt  DateTime @default(now())
 
-  // Vote data
-  voteType    String // yes, no, abstain (for simple voting)
-  voteWeight  Int    @default(1) // For quadratic voting
-  votePower   Float  @default(1.0) // Trust score multiplier
-
-  // Metadata
-  votedAt     DateTime @default(now())
-  ipAddress   String?
-  userAgent   String?
-
-  // Relations
-  user        User            @relation("UserVotes", fields: [userId], references: [id])
-  proposal    VotingProposal  @relation(fields: [proposalId], references: [id])
-
-  @@unique([userId, proposalId])
-  @@index([userId])
-  @@index([proposalId])
-  @@map("votes")
+  @@unique([proposalId, userId])
 }
 
-model VotingConfig {
-  id                String @id @default(uuid())
-
-  // Global voting settings
-  votingEnabled     Boolean @default(true)
-  minTrustScore     Float  @default(0.0)
-  quadraticEnabled  Boolean @default(false)
-  anonymousVoting   Boolean @default(false)
-
-  // Reward settings
-  baseVoteReward    Int    @default(5)
-  proposalReward    Int    @default(50)
-  winningReward     Int    @default(100)
-
-  // Cooldowns
-  voteCooldownHours Int    @default(1)
-  proposalCooldownHours Int @default(24)
-
-  updatedAt         DateTime @updatedAt
-  updatedBy         String?
-
-  @@map("voting_config")
-}
-
-// ============================================
-// DONATION IMPACT TRACKING
-// ============================================
-
-model DonationImpact {
-  id            String   @id @default(uuid())
-  userId        String
-  transactionId String   @unique
-
-  // Impact metrics
-  peopleHelped      Int    @default(1)
-  amountContributed Decimal @default(0)
-  impactScore       Float  @default(0.0)
-
-  // Categorization
-  category          String // education, healthcare, food, housing, emergency
-  subcategory       String?
-  location          String?
-  faithPreference   String?
-
-  // Story and media
-  storyTitle        String?
-  storyContent      String?
-  storyImageUrl     String?
-  storyVideoUrl     String?
-
-  // Verification
-  isVerified        Boolean @default(false)
-  verifiedBy        String?
-  verifiedAt        DateTime?
-
-  // Engagement
-  views             Int     @default(0)
-  shares            Int     @default(0)
-  likes             Int     @default(0)
-
-  // Timestamps
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-
-  // Relations
-  user              User        @relation("UserImpacts", fields: [userId], references: [id])
-  transaction       Transaction @relation("TransactionImpacts", fields: [transactionId], references: [id])
-
-  @@index([userId])
-  @@index([category])
-  @@index([isVerified])
-  @@map("donation_impacts")
-}
-
-model ImpactCategory {
-  id          String @id @default(uuid())
-  name        String @unique
-  description String
-  icon        String
-  color       String @default("#4CAF50")
-
-  // Configuration
-  isActive    Boolean @default(true)
-  priority    Int     @default(0)
-
-  // Stats
-  totalImpacts Int @default(0)
-  totalAmount  Decimal @default(0)
-
+model VotingConfiguration {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  value       String
+  description String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-
-  @@index([isActive])
-  @@map("impact_categories")
 }
 
-// ============================================
-// REWARD MULTIPLIERS
-// ============================================
-
-model RewardMultiplier {
-  id          String   @id @default(uuid())
-
-  // Multiplier details
+model Reward {
+  id          String       @id @default(cuid())
   name        String
   description String
-  multiplier  Float    @default(1.0)
-  type        String   // global, user_specific, event_based, time_based
+  points      Int
+  userRewards UserReward[]
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+}
 
-  // Activation conditions
-  isActive    Boolean  @default(true)
-  startDate   DateTime?
-  endDate     DateTime?
+model Challenge {
+  id             String          @id @default(cuid())
+  name           String
+  description    String
+  points         Int
+  userChallenges UserChallenge[]
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+}
 
-  // Target users (null for global)
-  targetUsers String[] // User IDs array
+model UserChallenge {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id])
+  challengeId String
+  challenge   Challenge @relation(fields: [challengeId], references: [id])
+  completed   Boolean   @default(false)
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
 
-  // Source tracking
-  source      String   // system, admin, event, achievement
+  @@unique([userId, challengeId])
+}
 
-  // Metadata
+model Leaderboard {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id])
+  points    Int
+  rank      Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Agent {
+  id             String           @id @default(cuid())
+  userId         String           @unique
+  user           User             @relation(fields: [userId], references: [id])
+  location       String
+  phoneNumber    String
+  isActive       Boolean          @default(true)
+  coinPurchases  CoinPurchase[]
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  CoinSaleToUser CoinSaleToUser[]
+}
+
+model CoinPurchase {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  agentId   String
+  agent     Agent    @relation(fields: [agentId], references: [id])
+  amount    Float
+  status    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Escrow {
+  id        String   @id @default(cuid())
+  fromId    String
+  toId      String
+  amount    Float
+  status    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model SocialConnection {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id])
+  platform     String
+  connectionId String
+  createdAt    DateTime @default(now())
+
+  @@unique([userId, platform])
+}
+
+model MarketplaceItem {
+  id           String                   @id @default(cuid())
+  name         String
+  description  String
+  price        Float
+  sellerId     String
+  seller       User                     @relation(fields: [sellerId], references: [id])
+  transactions MarketplaceTransaction[]
+  createdAt    DateTime                 @default(now())
+  updatedAt    DateTime                 @updatedAt
+}
+
+model MarketplaceTransaction {
+  id        String          @id @default(cuid())
+  itemId    String
+  item      MarketplaceItem @relation(fields: [itemId], references: [id])
+  buyerId   String
+  buyer     User            @relation(fields: [buyerId], references: [id])
+  amount    Float
+  status    String
+  createdAt DateTime        @default(now())
+}
+
+model DonationMatching {
+  id         String   @id @default(cuid())
+  donationId String
+  donation   Donation @relation(fields: [donationId], references: [id])
+  matcherId  String
+  amount     Float
+  createdAt  DateTime @default(now())
+}
+
+model DailyChallenge {
+  id          String   @id @default(cuid())
+  name        String
+  description String
+  points      Int
+  date        DateTime @db.Date
+  createdAt   DateTime @default(now())
+}
+
+model Celebration {
+  id          String   @id @default(cuid())
+  name        String
+  description String
+  type        String
+  createdAt   DateTime @default(now())
+}
+
+model UserReward {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id])
+  rewardId  String
+  reward    Reward    @relation(fields: [rewardId], references: [id])
+  claimed   Boolean   @default(false)
+  claimedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  @@unique([userId, rewardId])
+}
+
+model GamificationMultiplier {
+  id          String   @id @default(cuid())
+  name        String
+  multiplier  Float
+  description String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-  createdBy   String?
-
-  @@index([isActive])
-  @@index([type])
-  @@index([startDate, endDate])
-  @@map("reward_multipliers")
 }
 
-// ============================================
-// ENHANCED CREW SYSTEM
-// ============================================
-
-model CrewChallenge {
-  id            String   @id @default(uuid())
-  crewId        String
-  challengeId   String
-
-  // Challenge progress
-  totalTarget   Int
-  currentTotal  Int      @default(0)
-  isCompleted   Boolean  @default(false)
-  completedAt   DateTime?
-
-  // Reward distribution
-  rewardType    String   @default("equal") // equal, proportional, leader_bonus
-  totalReward   Int
-  isDistributed Boolean  @default(false)
-
-  // Member contributions
-  memberContributions Json // { userId: contributionAmount }
-
-  // Timestamps
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  // Relations
-  crew          Crew     @relation("CrewChallenges", fields: [crewId], references: [id])
-  challenge     WeeklyChallenge @relation("ChallengeCrews", fields: [challengeId], references: [id])
-
-  @@unique([crewId, challengeId])
-  @@index([crewId])
-  @@index([isCompleted])
-  @@map("crew_challenges")
+model GodmodeLog {
+  id           String   @id @default(cuid())
+  adminUserId  String
+  adminUser    User     @relation("AuthoredGodmodeLogs", fields: [adminUserId], references: [id])
+  targetUserId String
+  targetUser   User     @relation("TargettedGodmodeLogs", fields: [targetUserId], references: [id])
+  action       String
+  details      Json
+  createdAt    DateTime @default(now())
 }
 
-// Core Models
-model User {
-  id                String   @id @default(cuid())
-  firstName         String
-  lastName          String
-  email             String?  @unique
-  phoneNumber       String   @unique
-  role              String   @default("regular")
-  tier              String   @default("Tier 1")
-  trustScore        Float    @default(0.0)
-  isAgent           Boolean  @default(false)
-  isVerified        Boolean  @default(false)
-  balance           Decimal  @default(0)
-  charityCoins      Int      @default(0)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+model UserSubscription {
+  id             String       @id @default(cuid())
+  userId         String
+  user           User         @relation(fields: [userId], references: [id])
+  subscriptionId String
+  subscription   Subscription @relation(fields: [subscriptionId], references: [id])
+  startDate      DateTime
+  endDate        DateTime
+  status         String
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
 
-  // Relations
-  proposals         VotingProposal[] @relation("UserProposals")
-  votes             Vote[]           @relation("UserVotes")
-  impacts           DonationImpact[] @relation("UserImpacts")
-  transactions      Transaction[]    @relation("UserTransactions")
+  @@unique([userId, subscriptionId])
+}
 
-  @@map("users")
+model Comment {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Like {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  targetId   String
+  targetType String // e.g., "comment", "proposal"
+  createdAt  DateTime @default(now())
+
+  @@unique([userId, targetId, targetType])
+}
+
+model Report {
+  id         String   @id @default(cuid())
+  reporterId String
+  reporter   User     @relation(fields: [reporterId], references: [id])
+  targetId   String
+  targetType String
+  reason     String
+  createdAt  DateTime @default(now())
+}
+
+model UserWallet {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id])
+  balance   Float    @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Cycle {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  status    String   @default("active")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Transaction {
-  id                String   @id @default(cuid())
-  userId            String
-  amount            Decimal
-  type              String
-  status            String   @default("pending")
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-
-  // Relations
-  user              User             @relation("UserTransactions", fields: [userId], references: [id])
-  impact            DonationImpact?  @relation("TransactionImpacts")
-
-  @@map("transactions")
+  id        String   @id @default(cuid())
+  fromId    String
+  fromUser  User     @relation("SentTransactions", fields: [fromId], references: [id])
+  toId      String
+  toUser    User     @relation("ReceivedTransactions", fields: [toId], references: [id])
+  amount    Float
+  status    String   @default("pending")
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
-model Crew {
-  id                String   @id @default(cuid())
-  name              String
-  description       String?
-  memberCount       Int      @default(0)
-  totalDonations    Decimal  @default(0)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-
-  // Relations
-  crewChallenges    CrewChallenge[] @relation("CrewChallenges")
-
-  @@map("crews")
+model KYCRecord {
+  id               String    @id @default(cuid())
+  userId           String
+  user             User      @relation(fields: [userId], references: [id])
+  verificationType String
+  status           String    @default("pending")
+  rejectionReason  String?
+  verifiedByUserId String?
+  verifiedAt       DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 }
 
-model WeeklyChallenge {
-  id                String   @id @default(cuid())
-  title             String
-  description       String
-  targetAmount      Decimal
-  startDate         DateTime
-  endDate           DateTime
-  isActive          Boolean  @default(true)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+model Referral {
+  id             String   @id @default(cuid())
+  referrerId     String
+  referrer       User     @relation("ReferrerUser", fields: [referrerId], references: [id])
+  referredUserId String
+  referredUser   User     @relation("ReferredUser", fields: [referredUserId], references: [id])
+  createdAt      DateTime @default(now())
+}
+
+model CoinSaleToUser {
+  id           String  @id @default(uuid())
+  agentId      String  @map("agent_id")
+  userId       String  @map("user_id")
+  quantity     Int
+  pricePerCoin Decimal @map("price_per_coin") @db.Decimal(10, 2)
+  totalPrice   Decimal @map("total_price") @db.Decimal(12, 2)
+  status       String  @default("pending") @map("status") // pending, escrowed, completed, cancelled, expired
+
+  // Escrow Fields
+  coinsLocked Boolean   @default(false) @map("coins_locked")
+  lockedAt    DateTime? @map("locked_at")
+  expiresAt   DateTime? @map("expires_at") // 30 minutes to pay
+
+  // Payment Confirmation
+  paymentMethod String?   @map("payment_method") // bank_transfer, mobile_money, cash
+  paymentProof  String?   @map("payment_proof")
+  paidAt        DateTime? @map("paid_at")
+  confirmedAt   DateTime? @map("confirmed_at")
+
+  // Revenue tracking (optional, kept for compatibility)
+  agentCommission Decimal? @map("agent_commission") @db.Decimal(12, 2)
+  platformRevenue Decimal? @map("platform_revenue") @db.Decimal(12, 2)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relations
-  crewChallenges    CrewChallenge[] @relation("ChallengeCrews")
+  agent Agent @relation(fields: [agentId], references: [id])
+  user  User  @relation(fields: [userId], references: [id])
 
-  @@map("weekly_challenges")
+  @@index([agentId])
+  @@index([userId])
+  @@index([status])
+  @@index([coinsLocked])
+  @@index([expiresAt])
+  @@index([createdAt])
+  @@map("coin_sales_to_users")
+}
+
+model Redemption {
+  id         String   @id @default(cuid())
+  coinsSpent Float
+  status     String   @default("pending")
+  createdAt  DateTime @default(now())
+}
+
+// AI Recommendation System
+model AIRecommendation {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id])
+  type        String // 'donation_timing', 'amount_suggestion', 'recipient_match', 'coin_purchase'
+  title       String
+  description String
+  confidence  Float
+  data        Json // Additional recommendation data
+  expiresAt   DateTime
+  viewedAt    DateTime?
+  actionedAt  DateTime?
+  feedback    String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([userId, type])
+  @@index([expiresAt])
+}
+
+// Analytics Event Tracking
+model AnalyticsEvent {
+  id         String   @id @default(cuid())
+  eventType  String
+  eventData  Json?
+  userId     String?
+  sessionId  String?
+  deviceInfo Json?
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  @@index([eventType])
+  @@index([userId])
+  @@index([createdAt])
+  @@index([sessionId])
+}
+
+// Merchant System
+model Merchant {
+  id           String   @id @default(cuid())
+  userId       String   @unique
+  user         User     @relation(fields: [userId], references: [id])
+  businessName String
+  businessType String // 'retail', 'service', 'food', 'other'
+  description  String?
+  location     Json? // GeoJSON or address object
+  contactInfo  Json // Email, phone, etc.
+  isVerified   Boolean  @default(false)
+  status       String   @default("pending") // 'active', 'inactive', 'suspended', 'pending'
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  paymentRequests MerchantPaymentRequest[]
+
+  @@index([businessType])
+  @@index([isVerified])
+  @@index([status])
+}
+
+model MerchantPaymentRequest {
+  id          String   @id @default(cuid())
+  merchantId  String
+  merchant    Merchant @relation(fields: [merchantId], references: [id])
+  userId      String
+  user        User     @relation("MerchantPaymentRequestToUser", fields: [userId], references: [id])
+  amount      Float
+  currency    String   @default("NGN")
+  description String?
+  status      String   @default("pending") // 'pending', 'completed', 'cancelled', 'expired'
+  expiresAt   DateTime
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  payments MerchantPayment[]
+
+  @@index([merchantId])
+  @@index([userId])
+  @@index([status])
+  @@index([expiresAt])
+}
+
+model MerchantPayment {
+  id               String                 @id @default(cuid())
+  paymentRequestId String
+  paymentRequest   MerchantPaymentRequest @relation(fields: [paymentRequestId], references: [id])
+  userId           String
+  user             User                   @relation("MerchantPaymentToUser", fields: [userId], references: [id])
+  amount           Float
+  status           String                 @default("completed") // 'pending', 'completed', 'failed', 'refunded'
+  processedAt      DateTime?
+  createdAt        DateTime               @default(now())
+  updatedAt        DateTime               @updatedAt
+
+  @@index([paymentRequestId])
+  @@index([userId])
+  @@index([status])
+}
+
+// Corporate System
+model Corporate {
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  user          User     @relation(fields: [userId], references: [id])
+  companyName   String
+  companySize   String // 'startup', 'small', 'medium', 'large', 'enterprise'
+  industry      String
+  contactPerson String
+  contactInfo   Json // Email, phone, etc.
+  csrBudget     Float?
+  isVerified    Boolean  @default(false)
+  status        String   @default("pending") // 'active', 'inactive', 'suspended', 'pending'
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  bulkDonations CorporateBulkDonation[]
+  teamMembers   CorporateTeamMember[]
+
+  @@index([companySize])
+  @@index([industry])
+  @@index([isVerified])
+  @@index([status])
+}
+
+model CorporateBulkDonation {
+  id              String    @id @default(cuid())
+  corporateId     String
+  corporate       Corporate @relation(fields: [corporateId], references: [id])
+  totalAmount     Float
+  totalRecipients Int
+  donations       Json // Array of donation objects
+  status          String    @default("pending") // 'pending', 'processing', 'completed', 'failed'
+  processedAt     DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([corporateId])
+  @@index([status])
+}
+
+model CorporateTeamMember {
+  id          String    @id @default(cuid())
+  corporateId String
+  corporate   Corporate @relation(fields: [corporateId], references: [id])
+  userId      String
+  user        User      @relation(fields: [userId], references: [id])
+  role        String    @default("member") // 'admin', 'manager', 'member'
+  joinedAt    DateTime  @default(now())
+
+  @@unique([corporateId, userId])
+  @@index([corporateId])
+  @@index([userId])
+}
+
+// Social Features
+model SocialCircle {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  creatorId   String
+  creator     User     @relation(fields: [creatorId], references: [id])
+  isPrivate   Boolean  @default(false)
+  memberCount Int      @default(1)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  members SocialCircleMember[]
+  posts   SocialPost[]
+
+  @@index([creatorId])
+  @@index([isPrivate])
+}
+
+model SocialCircleMember {
+  id       String       @id @default(cuid())
+  circleId String
+  circle   SocialCircle @relation(fields: [circleId], references: [id])
+  userId   String
+  user     User         @relation(fields: [userId], references: [id])
+  role     String       @default("member") // 'admin', 'moderator', 'member'
+  joinedAt DateTime     @default(now())
+
+  @@unique([circleId, userId])
+  @@index([circleId])
+  @@index([userId])
+}
+
+model SocialPost {
+  id          String        @id @default(cuid())
+  circleId    String?
+  circle      SocialCircle? @relation(fields: [circleId], references: [id])
+  authorId    String
+  author      User          @relation(fields: [authorId], references: [id])
+  content     String
+  mediaUrls   String[]      @default([])
+  postType    String        @default("text") // 'text', 'image', 'video', 'donation_story'
+  likesCount  Int           @default(0)
+  sharesCount Int           @default(0)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  comments SocialComment[]
+  likes    SocialLike[]
+
+  @@index([circleId])
+  @@index([authorId])
+  @@index([createdAt])
+}
+
+model SocialComment {
+  id         String     @id @default(cuid())
+  postId     String
+  post       SocialPost @relation(fields: [postId], references: [id])
+  authorId   String
+  author     User       @relation(fields: [authorId], references: [id])
+  content    String
+  likesCount Int        @default(0)
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+
+  likes SocialCommentLike[]
+
+  @@index([postId])
+  @@index([authorId])
+}
+
+model SocialLike {
+  id        String     @id @default(cuid())
+  postId    String
+  post      SocialPost @relation(fields: [postId], references: [id])
+  userId    String
+  user      User       @relation(fields: [userId], references: [id])
+  createdAt DateTime   @default(now())
+
+  @@unique([postId, userId])
+  @@index([postId])
+  @@index([userId])
+}
+
+model SocialCommentLike {
+  id        String        @id @default(cuid())
+  commentId String
+  comment   SocialComment @relation(fields: [commentId], references: [id])
+  userId    String
+  user      User          @relation(fields: [userId], references: [id])
+  createdAt DateTime      @default(now())
+
+  @@unique([commentId, userId])
+  @@index([commentId])
+  @@index([userId])
 }

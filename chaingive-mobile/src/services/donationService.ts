@@ -1,10 +1,12 @@
 import { apiClient, handleApiError } from './api';
+import { donationsAPI } from '../api/donations';
 
 export interface GiveDonationData {
-  recipientId?: string; // Optional - if not provided, matching algorithm will find recipient
   amount: number;
+  recipientPreference: 'algorithm' | 'manual';
+  recipientId?: string;
   location?: string;
-  faithPreference?: string;
+  faith?: string;
 }
 
 export interface Donation {
@@ -60,7 +62,7 @@ class DonationService {
     message: string;
   }> {
     try {
-      const response = await apiClient.post('/donations/give', data);
+      const response = await donationsAPI.give(data);
       return response.data;
     } catch (error) {
       throw new Error(handleApiError(error));
@@ -70,16 +72,14 @@ class DonationService {
   /**
    * Confirm receipt of donation
    */
-  async confirmReceipt(donationId: string): Promise<{
+  async confirmReceipt(donationId: string, confirm: boolean): Promise<{
     success: boolean;
     donation: Donation;
     charityCoinsEarned: number;
     message: string;
   }> {
     try {
-      const response = await apiClient.post('/donations/confirm-receipt', {
-        donationId,
-      });
+      const response = await donationsAPI.confirmReceipt({ transactionId: donationId, confirm });
       return response.data;
     } catch (error) {
       throw new Error(handleApiError(error));

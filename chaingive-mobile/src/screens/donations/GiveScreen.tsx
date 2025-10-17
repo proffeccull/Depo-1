@@ -89,8 +89,9 @@ const GiveScreen: React.FC = () => {
     try {
       const response = await donationService.giveDonation({
         amount: donationAmount,
+        recipientPreference: 'algorithm',
         location: location || undefined,
-        faithPreference: faith || undefined,
+        faith: faith || undefined,
       });
 
       setMatch(response.match);
@@ -107,6 +108,8 @@ const GiveScreen: React.FC = () => {
 
     setLoading(true);
     try {
+      await donationService.confirmReceipt(match.id, true);
+
       // Store for animations
       setCompletedAmount(match.amount);
       setRecipientName(match.recipient.firstName);

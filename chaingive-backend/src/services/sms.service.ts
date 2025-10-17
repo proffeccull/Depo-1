@@ -254,3 +254,27 @@ export async function sendKYCApprovalSMS(to: string, userName: string): Promise<
   const message = `Hi ${userName}, your KYC verification has been approved! You can now access all ChainGive features.`;
   return smsService.sendSMS({ to, message });
 }
+
+// Export OTP SMS function
+export async function sendOTPSMS(phoneNumber: string, otp: string): Promise<boolean> {
+  const message = `Your ChainGive verification code is: ${otp}. This code expires in 10 minutes.`;
+  const result = await smsService.sendSMS({ to: phoneNumber, message });
+  return result.success;
+}
+
+// Export escrow release SMS function
+export async function sendEscrowReleaseSMS(to: string, amount: number, recipientName: string): Promise<SMSResponse> {
+  const message = `Your escrow of ₦${amount.toLocaleString()} has been released to ${recipientName}. Thank you for using ChainGive!`;
+  return smsService.sendSMS({ to, message });
+}
+
+// Export donation confirmation SMS functions
+export async function sendDonationConfirmationSMS(to: string, amount: number, donorName: string): Promise<SMSResponse> {
+  const message = `You have received ₦${amount.toLocaleString()} from ${donorName} through ChainGive. Funds will be available after escrow release.`;
+  return smsService.sendSMS({ to, message });
+}
+
+export async function sendReceiptConfirmationSMS(to: string, amount: number, recipientName: string): Promise<SMSResponse> {
+  const message = `Your donation of ₦${amount.toLocaleString()} to ${recipientName} has been confirmed. Thank you for your generosity!`;
+  return smsService.sendSMS({ to, message });
+}

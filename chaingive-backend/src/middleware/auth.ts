@@ -108,3 +108,16 @@ export const requireRole = (...roles: string[]) => {
 };
 
 export const authMiddleware = authenticate;
+export const requireRoleLevel = (minLevel: number) => {
+  return (req: AuthRequest, res: Response, next: NextFunction) => {
+    if (!req.user) {
+      return next(new AppError('Unauthorized', 401));
+    }
+
+    if (req.user.tier < minLevel) {
+      return next(new AppError('Insufficient role level', 403));
+    }
+
+    next();
+  };
+};

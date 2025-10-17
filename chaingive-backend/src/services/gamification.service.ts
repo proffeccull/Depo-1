@@ -584,6 +584,48 @@ export async function checkAndUnlockAchievements(userId: string, category: strin
   return unlocked;
 }
 
+export async function getAllAchievements(userId: string) {
+  const [allAchievements, userAchievements] = await Promise.all([
+    prisma.achievement.findMany({
+      where: { isActive: true },
+      orderBy: [{ category: 'asc' }, { tier: 'asc' }],
+    }),
+    prisma.userAchievement.findMany({
+      where: { userId },
+      include: { achievement: true },
+    }),
+  ]);
+
+  const unlockedIds = new Set(userAchievements.map(ua => ua.achievementId));
+
+  const achievements = allAchievements.map(achievement => ({
+    ...achievement,
+    isUnlocked: unlockedIds.has(achievement.id),
+  }));
+
+  return achievements;
+}
+
+export async function getUnlockedAchievements(userId: string) {
+  return await prisma.userAchievement.findMany({
+    where: { userId },
+    include: { achievement: true },
+    orderBy: { unlockedAt: 'desc' },
+  });
+}
+
+export async function getDailyStreak(userId: string) {
+  return await prisma.dailyStreak.findUnique({ where: { userId } });
+}
+
+export async function getUserAchievementCount(userId: string) {
+  return await prisma.userAchievement.count({ where: { userId } });
+}
+
+export async function getGamificationStats(userId: string) {
+  return await prisma.gamificationStats.findUnique({ where: { userId } });
+}
+
 export default {
   getTodaysMissions,
   completeMission,
@@ -594,4 +636,9 @@ export default {
   getUserWeeklyChallengeProgress,
   updateWeeklyChallengeProgress,
   checkAndUnlockAchievements,
+  getAllAchievements,
+  getUnlockedAchievements,
+  getDailyStreak,
+  getUserAchievementCount,
+  getGamificationStats,
 };

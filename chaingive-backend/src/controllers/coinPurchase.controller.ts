@@ -1,4 +1,3 @@
-import { Response, NextFunction } from 'express';
 import { AuthRequest } from '../middleware/auth';
 import prisma from '../utils/prisma';
 import { AppError } from '../middleware/errorHandler';
@@ -8,8 +7,44 @@ import { sendSMS } from '../services/sms.service';
 import gamificationService from '../services/gamification.service';
 
 /**
- * Get available agents for coin purchase
+ * Validate escrow state before operations
  */
+const validateEscrowState = (transaction: any, expectedStates: string[], operation: string) => {
+  if (!expectedStates.includes(transaction.status)) {
+    throw new AppError(
+      `Cannot ${operation}: transaction is in ${transaction.status} status. Expected: ${expectedStates.join(', ')}`,
+      400,
+      'INVALID_ESCROW_STATE'
+    );
+  }
+
+  if (transaction.expiresAt && new Date() > transaction.expiresAt) {
+    throw new AppError('Transaction has expired', 400, 'TRANSACTION_EXPIRED');
+  }
+};
+
+/**
+ * Log escrow state changes for audit compliance
+ */
+const logEscrowChange = async (transactionId: string, oldStatus: string, newStatus: string, userId: string, action: string, details?: any) => {
+  try {
+    await prisma.auditLog.create({
+      data: {
+        userId,
+        action: `ESCROW_${action}`,
+        details: {
+          transactionId,
+          oldStatus,
+          newStatus,
+          ...details,
+        },
+      },
+    });
+  } catch (error) {
+    logger.error('Failed to log escrow change:', error);
+  }
+};
+    const agents = await prisma.agent.findMany({
 export const getAvailableAgents = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const { city } = req.query;
@@ -26,6 +61,47 @@ export const getAvailableAgents = async (req: AuthRequest, res: Response, next: 
     }
 
     const agents = await prisma.agent.findMany({
+      where,
+      include: {
+        user: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            locationCity: true,
+            locationState: true,
+            trustScore: true,
+          },
+        },
+      },
+      orderBy: [
+        { coinBalance: 'desc' },
+        { rating: 'desc' },
+      ],
+      take: 20,
+    });
+
+    res.status(200).json({
+      success: true,
+      data: {
+        agents: agents.map(agent => ({
+          agentId: agent.id,
+          agentCode: agent.agentCode,
+          name: `${agent.user.firstName} ${agent.user.lastName}`,
+          city: agent.user.locationCity,
+          state: agent.user.locationState,
+          coinsAvailable: agent.coinBalance,
+          rating: agent.rating,
+          trustScore: agent.user.trustScore,
+          pricePerCoin: 55, // ₦55 per coin (standard rate)
+        })),
+        total: agents.length,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
       where,
       include: {
         user: {
@@ -110,7 +186,9 @@ export const requestCoinPurchase = async (req: AuthRequest, res: Response, next:
     const pricePerCoin = 55; // ₦55 standard rate
     const totalPrice = quantity * pricePerCoin;
 
-    // Create escrow transaction
+    const oldStatus = 'pending';
+
+    // Create escrow transaction with row-level locking
     const transaction = await prisma.$transaction(async (tx) => {
       // Lock agent's coins
       await tx.agent.update({
@@ -194,6 +272,9 @@ export const confirmPaymentSent = async (req: AuthRequest, res: Response, next: 
     if (transaction.userId !== userId) {
       throw new AppError('Not authorized', 403, 'NOT_AUTHORIZED');
     }
+
+    // Validate escrow state
+    validateEscrowState(transaction, ['escrowed'], 'confirm payment');
 
     if (transaction.status !== 'escrowed') {
       throw new AppError('Transaction is not in escrowed status', 400, 'INVALID_STATUS');
@@ -283,9 +364,28 @@ export const agentConfirmPayment = async (req: AuthRequest, res: Response, next:
       throw new AppError('Not authorized', 403, 'NOT_AUTHORIZED');
     }
 
+    // Validate escrow state
+    validateEscrowState(transaction, ['pending'], 'confirm payment');
+
     if (transaction.status !== 'pending') {
       throw new AppError('Transaction is not pending confirmation', 400, 'INVALID_STATUS');
     }
+
+    // Update trust scores for successful escrow completion
+    await tx.user.update({
+      where: { id: transaction.userId },
+      data: {
+        trustScore: { increment: 0.25 }, // Reward successful escrow completion
+      },
+    });
+
+    // Update agent trust score for reliable service
+    await tx.user.update({
+      where: { id: agent.userId },
+      data: {
+        trustScore: { increment: 0.10 }, // Small reward for agent reliability
+      },
+    });
 
     // Release coins to user
     const result = await prisma.$transaction(async (tx) => {
@@ -393,6 +493,9 @@ export const agentRejectPayment = async (req: AuthRequest, res: Response, next: 
     if (transaction.agentId !== agent.id) {
       throw new AppError('Not authorized', 403, 'NOT_AUTHORIZED');
     }
+
+    // Validate escrow state for rejection
+    validateEscrowState(transaction, ['pending', 'escrowed'], 'reject payment');
 
     if (transaction.status !== 'pending' && transaction.status !== 'escrowed') {
       throw new AppError('Cannot reject this transaction', 400, 'INVALID_STATUS');
@@ -579,7 +682,7 @@ export async function cancelExpiredCoinPurchases() {
           },
         });
 
-        // Update transaction
+        // Update transaction with expiration
         await tx.coinSaleToUser.update({
           where: { id: transaction.id },
           data: {
