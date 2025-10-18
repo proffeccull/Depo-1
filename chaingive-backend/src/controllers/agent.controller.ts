@@ -20,7 +20,7 @@ export const getDashboard = async (req: AuthRequest, res: Response, next: NextFu
     }
 
     // Get pending verifications
-    const pendingVerifications = await prisma.kycRecord.count({
+    const pendingVerifications = await prisma.kYCRecord.count({
       where: {
         status: 'pending',
         verificationType: { in: ['agent', 'bvn', 'nin'] },
@@ -61,7 +61,7 @@ export const verifyUser = async (req: AuthRequest, res: Response, next: NextFunc
     }
 
     // Create KYC record
-    const kycRecord = await prisma.kycRecord.create({
+    const kYCRecord = await prisma.kYCRecord.create({
       data: {
         userId: user.id,
         verificationType,
@@ -99,7 +99,7 @@ export const verifyUser = async (req: AuthRequest, res: Response, next: NextFunc
       success: true,
       message: 'User verified successfully',
       data: {
-        kycRecordId: kycRecord.id,
+        kYCRecordId: kYCRecord.id,
         commission,
       },
     });

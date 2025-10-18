@@ -114,7 +114,7 @@ export const getUserDetails = async (req: AuthRequest, res: Response, next: Next
           take: 10,
           orderBy: { createdAt: 'desc' },
         },
-        kycRecords: true,
+        kYCRecords: true,
         agent: true,
         leaderboard: true,
         referralsGiven: {
@@ -236,7 +236,7 @@ export const getDashboardStats = async (req: AuthRequest, res: Response, next: N
         where: { status: 'holding' },
       }),
       prisma.cycle.count({ where: { status: 'fulfilled' } }),
-      prisma.kycRecord.count({ where: { status: 'pending' } }),
+      prisma.kYCRecord.count({ where: { status: 'pending' } }),
       prisma.agent.count({ where: { isActive: true } }),
       prisma.user.aggregate({
         _sum: { charityCoinsBalance: true },
@@ -354,7 +354,7 @@ export const getPendingKYC = async (req: AuthRequest, res: Response, next: NextF
   try {
     const { limit = 50 } = req.query;
 
-    const pending = await prisma.kycRecord.findMany({
+    const pending = await prisma.kYCRecord.findMany({
       where: { status: 'pending' },
       take: Number(limit),
       include: {
@@ -376,7 +376,7 @@ export const getPendingKYC = async (req: AuthRequest, res: Response, next: NextF
     res.status(200).json({
       success: true,
       data: {
-        kycRecords: pending,
+        kYCRecords: pending,
         total: pending.length,
       },
     });
@@ -393,7 +393,7 @@ export const approveKYC = async (req: AuthRequest, res: Response, next: NextFunc
     const { kycId } = req.params;
     const adminId = req.user!.id;
 
-    const kycRecord = await prisma.kycRecord.update({
+    const kYCRecord = await prisma.kYCRecord.update({
       where: { id: kycId },
       data: {
         status: 'approved',
@@ -406,9 +406,9 @@ export const approveKYC = async (req: AuthRequest, res: Response, next: NextFunc
     });
 
     // Update user tier based on verification type
-    if (kycRecord.verificationType === 'bvn' || kycRecord.verificationType === 'nin') {
+    if (kYCRecord.verificationType === 'bvn' || kYCRecord.verificationType === 'nin') {
       await prisma.user.update({
-        where: { id: kycRecord.userId },
+        where: { id: kYCRecord.userId },
         data: {
           tier: 2,
           kycStatus: 'approved',
@@ -416,27 +416,27 @@ export const approveKYC = async (req: AuthRequest, res: Response, next: NextFunc
       });
     }
 
-    logger.info(`KYC ${kycId} approved by admin ${adminId} for user ${kycRecord.userId}`);
+    logger.info(`KYC ${kycId} approved by admin ${adminId} for user ${kYCRecord.userId}`);
 
     // Send approval email
-    if (kycRecord.user.email) {
+    if (kYCRecord.user.email) {
       await sendKYCApprovalEmail(
-        kycRecord.user.email,
-        kycRecord.user.firstName,
-        kycRecord.verificationType
+        kYCRecord.user.email,
+        kYCRecord.user.firstName,
+        kYCRecord.verificationType
       );
     }
 
     // Send SMS notification
     await sendKYCApprovalSMS(
-      kycRecord.user.phoneNumber,
-      kycRecord.user.firstName
+      kYCRecord.user.phoneNumber,
+      kYCRecord.user.firstName
     );
 
     res.status(200).json({
       success: true,
       message: 'KYC approved successfully',
-      data: kycRecord,
+      data: kYCRecord,
     });
   } catch (error) {
     next(error);
@@ -452,7 +452,7 @@ export const rejectKYC = async (req: AuthRequest, res: Response, next: NextFunct
     const { reason } = req.body;
     const adminId = req.user!.id;
 
-    const kycRecord = await prisma.kycRecord.update({
+    const kYCRecord = await prisma.kYCRecord.update({
       where: { id: kycId },
       data: {
         status: 'rejected',
@@ -470,7 +470,7 @@ export const rejectKYC = async (req: AuthRequest, res: Response, next: NextFunct
     res.status(200).json({
       success: true,
       message: 'KYC rejected',
-      data: kycRecord,
+      data: kYCRecord,
     });
   } catch (error) {
     next(error);

@@ -62,7 +62,7 @@ export const adminLogin = async (req: Request, res: Response, next: NextFunction
     }
 
     // Check if phone is verified
-    const phoneVerified = await prisma.kycRecord.findFirst({
+    const phoneVerified = await prisma.kYCRecord.findFirst({
       where: {
         userId: user.id,
         verificationType: 'phone',

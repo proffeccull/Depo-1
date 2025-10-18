@@ -44,7 +44,10 @@ const logEscrowChange = async (transactionId: string, oldStatus: string, newStat
     logger.error('Failed to log escrow change:', error);
   }
 };
-    const agents = await prisma.agent.findMany({
+
+/**
+ * Get available agents for coin purchase
+ */
 export const getAvailableAgents = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const { city } = req.query;
@@ -61,47 +64,6 @@ export const getAvailableAgents = async (req: AuthRequest, res: Response, next: 
     }
 
     const agents = await prisma.agent.findMany({
-      where,
-      include: {
-        user: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            locationCity: true,
-            locationState: true,
-            trustScore: true,
-          },
-        },
-      },
-      orderBy: [
-        { coinBalance: 'desc' },
-        { rating: 'desc' },
-      ],
-      take: 20,
-    });
-
-    res.status(200).json({
-      success: true,
-      data: {
-        agents: agents.map(agent => ({
-          agentId: agent.id,
-          agentCode: agent.agentCode,
-          name: `${agent.user.firstName} ${agent.user.lastName}`,
-          city: agent.user.locationCity,
-          state: agent.user.locationState,
-          coinsAvailable: agent.coinBalance,
-          rating: agent.rating,
-          trustScore: agent.user.trustScore,
-          pricePerCoin: 55, // ₦55 per coin (standard rate)
-        })),
-        total: agents.length,
-      },
-    });
-  } catch (error) {
-    next(error);
-  }
-};
       where,
       include: {
         user: {
@@ -370,22 +332,6 @@ export const agentConfirmPayment = async (req: AuthRequest, res: Response, next:
     if (transaction.status !== 'pending') {
       throw new AppError('Transaction is not pending confirmation', 400, 'INVALID_STATUS');
     }
-
-    // Update trust scores for successful escrow completion
-    await tx.user.update({
-      where: { id: transaction.userId },
-      data: {
-        trustScore: { increment: 0.25 }, // Reward successful escrow completion
-      },
-    });
-
-    // Update agent trust score for reliable service
-    await tx.user.update({
-      where: { id: agent.userId },
-      data: {
-        trustScore: { increment: 0.10 }, // Small reward for agent reliability
-      },
-    });
 
     // Release coins to user
     const result = await prisma.$transaction(async (tx) => {

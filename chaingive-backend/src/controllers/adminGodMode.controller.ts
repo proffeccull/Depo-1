@@ -363,7 +363,7 @@ export const forceDeleteRecord = async (req: AuthRequest, res: Response, next: N
 
     const validTables = [
       'user', 'transaction', 'escrow', 'cycle', 'match', 'agent',
-      'kycRecord', 'adminAction', 'featureFlag', 'cryptoWallet'
+      'kYCRecord', 'adminAction', 'featureFlag', 'cryptoWallet'
     ];
 
     if (!validTables.includes(tableName)) {

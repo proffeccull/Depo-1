@@ -9,29 +9,39 @@ generator client {
 }
 
 model User {
-  id                       String                   @id @default(cuid())
-  email                    String?                  @unique
-  password                 String?
-  passwordHash             String?
-  phoneNumber              String?                  @unique
-  firstName                String?
-  lastName                 String?
-  role                     String                   @default("Donor")
-  tier                     Int                      @default(1)
-  trustScore               Float                    @default(5.0)
-  totalCyclesCompleted     Int                      @default(0)
-  totalDonated             Float                    @default(0)
-  totalReceived            Float                    @default(0)
-  charityCoinsBalance      Float                    @default(0)
-  kycStatus                String                   @default("pending")
-  isActive                 Boolean                  @default(true)
-  isBanned                 Boolean                  @default(false)
-  banReason                String?
-  locationCity             String?
-  locationState            String?
-  lastLoginAt              DateTime?
-  createdAt                DateTime                 @default(now())
-  updatedAt                DateTime                 @updatedAt
+   id                       String                   @id @default(cuid())
+   email                    String?                  @unique
+   password                 String?
+   passwordHash             String?
+   phoneNumber              String?                  @unique
+   firstName                String?
+   lastName                 String?
+   role                     String                   @default("Donor")
+   tier                     Int                      @default(1)
+   trustScore               Float                    @default(5.0)
+   totalCyclesCompleted     Int                      @default(0)
+   totalDonated             Float                    @default(0)
+   totalReceived            Float                    @default(0)
+   charityCoinsBalance      Float                    @default(0)
+   kycStatus                String                   @default("pending")
+   isActive                 Boolean                  @default(true)
+   isBanned                 Boolean                  @default(false)
+   banReason                String?
+   locationCity             String?
+   locationState            String?
+   lastLoginAt              DateTime?
+   createdAt                DateTime                 @default(now())
+   updatedAt                DateTime                 @updatedAt
+   // MFA fields
+   mfaEnabled               Boolean                  @default(false)
+   mfaSecret                String?
+   mfaBackupCodes           String[]                 @default([])
+   // Push notification token
+   fcmToken                 String?
+   // User role permissions
+   userRole                 String?
+   // Display name for social features
+   displayName              String?
   profile                  Profile?
   donations                Donation[]
   subscriptions            UserSubscription[]
@@ -68,6 +78,7 @@ model User {
   cycles                   Cycle[]
   sentTransactions         Transaction[]            @relation("SentTransactions")
   receivedTransactions     Transaction[]            @relation("ReceivedTransactions")
+  transactions             Transaction[]
   kycRecords               KYCRecord[]
   agent                    Agent?
   leaderboard              Leaderboard?
@@ -75,6 +86,15 @@ model User {
   referralsReceived        Referral[]               @relation("ReferredUser")
   adminActions             AdminAction[]
   CoinSaleToUser           CoinSaleToUser[]
+  coinPurchasesFromAdmin   CoinPurchaseFromAdmin[]
+  matches                  Match[]
+  userAchievements         UserAchievement[]
+  gamificationStats        GamificationStats?
+  dailyStreak              DailyStreak?
+  CoinPurchaseFromAdmin    CoinPurchaseFromAdmin[]
+  donorMatches             Match[]               @relation("DonorMatches")
+  recipientMatches         Match[]               @relation("RecipientMatches")
+  recurringDonations       RecurringDonation[]
 }
 
 model Profile {
@@ -122,13 +142,42 @@ model DonationCycle {
 }
 
 model Subscription {
-  id                String             @id @default(cuid())
-  name              String
-  price             Float
-  features          String[]
-  createdAt         DateTime           @default(now())
-  updatedAt         DateTime           @updatedAt
-  userSubscriptions UserSubscription[]
+   id                String             @id @default(cuid())
+   name              String
+   price             Float
+   features          String[]
+   status            String             @default("active")
+   currentPeriodEnd  DateTime?
+   autoRenew         Boolean            @default(true)
+   userId            String?
+   user              User?              @relation(fields: [userId], references: [id])
+   plan              SubscriptionPlan?  @relation(fields: [planId], references: [id])
+   planId            String?
+   createdAt         DateTime           @default(now())
+   updatedAt         DateTime           @updatedAt
+   userSubscriptions UserSubscription[]
+   subscriptionHistory SubscriptionHistory[]
+}
+
+model SubscriptionPlan {
+   id          String       @id @default(cuid())
+   name        String
+   price       Float
+   features    String[]
+   status      String       @default("active")
+   currentPeriodEnd DateTime?
+   createdAt   DateTime     @default(now())
+   updatedAt   DateTime     @updatedAt
+   subscriptions Subscription[]
+}
+
+model SubscriptionHistory {
+   id             String      @id @default(cuid())
+   subscriptionId String
+   subscription   Subscription @relation(fields: [subscriptionId], references: [id])
+   action         String
+   details        Json?
+   createdAt      DateTime    @default(now())
 }
 
 model Payment {
@@ -255,13 +304,26 @@ model UserChallenge {
 }
 
 model Leaderboard {
-  id        String   @id @default(cuid())
-  userId    String   @unique
-  user      User     @relation(fields: [userId], references: [id])
-  points    Int
-  rank      Int
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+   id             String   @id @default(cuid())
+   userId         String   @unique
+   user           User     @relation(fields: [userId], references: [id])
+   points         Int
+   rank           Int
+   totalScore     Int      @default(0)
+   totalDonations Float    @default(0)
+   createdAt      DateTime @default(now())
+   updatedAt      DateTime @updatedAt
+   boosts         Boost[]
+}
+
+model Boost {
+   id            String     @id @default(cuid())
+   leaderboardId String
+   leaderboard   Leaderboard @relation(fields: [leaderboardId], references: [id])
+   type          String
+   multiplier    Float
+   expiresAt     DateTime?
+   createdAt     DateTime   @default(now())
 }
 
 model Agent {
@@ -278,15 +340,44 @@ model Agent {
 }
 
 model CoinPurchase {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id])
-  agentId   String
-  agent     Agent    @relation(fields: [agentId], references: [id])
-  amount    Float
-  status    String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+   id        String   @id @default(cuid())
+   userId    String
+   user      User     @relation(fields: [userId], references: [id])
+   agentId   String
+   agent     Agent    @relation(fields: [agentId], references: [id])
+   amount    Float
+   status    String
+   createdAt DateTime @default(now())
+   updatedAt DateTime @updatedAt
+}
+
+model CoinPurchaseFromAdmin {
+     id        String   @id @default(cuid())
+     userId    String
+     user      User     @relation("CoinPurchaseUser", fields: [userId], references: [id])
+     adminId   String
+     admin     User     @relation("CoinPurchaseAdmin", fields: [adminId], references: [id])
+     amount    Float
+     status    String
+     createdAt DateTime @default(now())
+     updatedAt DateTime @updatedAt
+
+     @@map("coin_purchases_from_admin")
+}
+
+model UserSubscription {
+  id             String       @id @default(cuid())
+  userId         String
+  user           User         @relation(fields: [userId], references: [id])
+  subscriptionId String
+  subscription   Subscription @relation(fields: [subscriptionId], references: [id])
+  startDate      DateTime
+  endDate        DateTime
+  status         String
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([userId, subscriptionId])
 }
 
 model Escrow {
@@ -392,20 +483,6 @@ model GodmodeLog {
   createdAt    DateTime @default(now())
 }
 
-model UserSubscription {
-  id             String       @id @default(cuid())
-  userId         String
-  user           User         @relation(fields: [userId], references: [id])
-  subscriptionId String
-  subscription   Subscription @relation(fields: [subscriptionId], references: [id])
-  startDate      DateTime
-  endDate        DateTime
-  status         String
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
-
-  @@unique([userId, subscriptionId])
-}
 
 model Comment {
   id        String   @id @default(cuid())
@@ -457,6 +534,8 @@ model Cycle {
 
 model Transaction {
   id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
   fromId    String
   fromUser  User     @relation("SentTransactions", fields: [fromId], references: [id])
   toId      String
@@ -482,12 +561,13 @@ model KYCRecord {
 }
 
 model Referral {
-  id             String   @id @default(cuid())
-  referrerId     String
-  referrer       User     @relation("ReferrerUser", fields: [referrerId], references: [id])
-  referredUserId String
-  referredUser   User     @relation("ReferredUser", fields: [referredUserId], references: [id])
-  createdAt      DateTime @default(now())
+   id             String   @id @default(cuid())
+   referrerId     String
+   referrer       User     @relation("ReferrerUser", fields: [referrerId], references: [id])
+   referredUserId String
+   referredUser   User     @relation("ReferredUser", fields: [referredUserId], references: [id])
+   status         String   @default("pending")
+   createdAt      DateTime @default(now())
 }
 
 model CoinSaleToUser {
@@ -531,10 +611,140 @@ model CoinSaleToUser {
 }
 
 model Redemption {
-  id         String   @id @default(cuid())
-  coinsSpent Float
-  status     String   @default("pending")
-  createdAt  DateTime @default(now())
+   id         String   @id @default(cuid())
+   coinsSpent Float
+   status     String   @default("pending")
+   createdAt  DateTime @default(now())
+}
+
+// Gamification models
+model Achievement {
+   id          String   @id @default(cuid())
+   name        String
+   description String
+   icon        String?
+   points      Int      @default(0)
+   category    String
+   criteria    Json
+   isActive    Boolean  @default(true)
+   createdAt   DateTime @default(now())
+   updatedAt   DateTime @updatedAt
+
+   userAchievements UserAchievement[]
+}
+
+model UserAchievement {
+   id            String      @id @default(cuid())
+   userId        String
+   user          User        @relation(fields: [userId], references: [id])
+   achievementId String
+   achievement   Achievement @relation(fields: [achievementId], references: [id])
+   unlockedAt    DateTime    @default(now())
+   progress      Float       @default(0)
+
+   @@unique([userId, achievementId])
+}
+
+model GamificationStats {
+   id                String   @id @default(cuid())
+   userId            String   @unique
+   user              User     @relation(fields: [userId], references: [id])
+   totalPoints       Int      @default(0)
+   currentStreak     Int      @default(0)
+   longestStreak     Int      @default(0)
+   lastActivityDate  DateTime?
+   level             Int      @default(1)
+   experiencePoints  Int      @default(0)
+   createdAt         DateTime @default(now())
+   updatedAt         DateTime @updatedAt
+}
+
+model DailyStreak {
+   id         String   @id @default(cuid())
+   userId     String   @unique
+   user       User     @relation(fields: [userId], references: [id])
+   current    Int      @default(0)
+   longest    Int      @default(0)
+   lastDate   DateTime?
+   createdAt  DateTime @default(now())
+   updatedAt  DateTime @updatedAt
+}
+
+// Matching system
+model Match {
+    id          String   @id @default(cuid())
+    donorId     String
+    donor       User     @relation("DonorMatches", fields: [donorId], references: [id])
+    recipientId String
+    recipient   User     @relation("RecipientMatches", fields: [recipientId], references: [id])
+    amount      Float
+    status      String   @default("pending")
+    createdAt   DateTime @default(now())
+    updatedAt   DateTime @updatedAt
+
+    @@map("matches")
+}
+
+// Recurring donations
+model RecurringDonation {
+   id            String   @id @default(cuid())
+   userId        String
+   user          User     @relation(fields: [userId], references: [id])
+   amount        Float
+   frequency     String   // 'weekly', 'monthly', 'quarterly'
+   nextDueDate   DateTime
+   isActive      Boolean  @default(true)
+   paymentMethod String
+   createdAt     DateTime @default(now())
+   updatedAt     DateTime @updatedAt
+}
+
+// Subscription plan (duplicate removed)
+
+// Role and permissions
+model Role {
+   id          String   @id @default(cuid())
+   name        String   @unique
+   description String?
+   createdAt   DateTime @default(now())
+   updatedAt   DateTime @updatedAt
+
+   rolePermissions RolePermission[]
+}
+
+model Permission {
+   id          String   @id @default(cuid())
+   name        String   @unique
+   resource    String
+   action      String
+   description String?
+   createdAt   DateTime @default(now())
+   updatedAt   DateTime @updatedAt
+
+   rolePermissions RolePermission[]
+}
+
+model RolePermission {
+   id           String     @id @default(cuid())
+   roleId       String
+   role         Role       @relation(fields: [roleId], references: [id])
+   permissionId String
+   permission   Permission @relation(fields: [permissionId], references: [id])
+
+   @@unique([roleId, permissionId])
+}
+
+// Mission templates
+model MissionTemplate {
+   id          String   @id @default(cuid())
+   name        String
+   description String
+   type        String
+   points      Int
+   criteria    Json
+   isActive    Boolean  @default(true)
+   createdAt   DateTime @default(now())
+   updatedAt   DateTime @updatedAt
 }
 
 // AI Recommendation System

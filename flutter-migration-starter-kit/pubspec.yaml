@@ -1,0 +1,134 @@
+name: chaingive_flutter
+description: ChainGive - The Ethical Peer-to-Peer Altruism Engine (Flutter)
+publish_to: 'none'
+version: 2.4.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+  flutter: ">=3.13.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # State Management (migrated from Redux Toolkit)
+  flutter_riverpod: ^2.4.9
+  riverpod_annotation: ^2.3.3
+  flutter_redux: ^0.10.0  # For gradual migration compatibility
+
+  # Navigation (equivalent to React Navigation)
+  go_router: ^13.0.0
+
+  # Networking (equivalent to Axios)
+  dio: ^5.3.2
+  pretty_dio_logger: ^1.3.1
+  connectivity_plus: ^5.0.2
+
+  # Local Storage (equivalent to AsyncStorage)
+  hive: ^2.2.3
+  hive_flutter: ^1.1.0
+  shared_preferences: ^2.2.2
+
+  # Security (equivalent to secure storage patterns)
+  flutter_secure_storage: ^9.0.0
+  crypto: ^3.0.3
+
+  # AI/ML (equivalent to existing AI integrations)
+  tflite_flutter: ^0.10.1
+  # tflite_flutter_helper: ^0.3.4  # Temporarily disabled - not available
+
+  # UI Components (equivalent to React Native components)
+  cached_network_image: ^3.3.0
+  flutter_svg: ^2.0.9
+  lottie: ^3.0.0
+  confetti: ^0.7.0
+
+  # Utils (equivalent to React Native utilities)
+  # intl: ^0.19.0  # Using version from flutter_localizations
+  uuid: ^4.2.1
+  path_provider: ^2.1.2
+  package_info_plus: ^4.2.0
+  url_launcher: ^6.2.2
+  share_plus: ^7.2.2
+
+  # Firebase (equivalent to React Native Firebase)
+  firebase_core: ^2.24.2
+  firebase_messaging: ^14.7.10
+  firebase_auth: ^4.15.0
+  cloud_firestore: ^4.13.0
+
+  # Internationalization (equivalent to i18next)
+  flutter_localizations:
+    sdk: flutter
+
+  # Form handling (equivalent to React Hook Form)
+  flutter_form_builder: ^10.2.0
+
+  # Animations (equivalent to Lottie)
+  flutter_staggered_animations: ^1.1.1
+
+  # Background tasks (equivalent to background jobs)
+  workmanager: ^0.5.2
+
+  # WebSocket support (equivalent to existing WebSocket integration)
+  web_socket_channel: ^2.4.0
+
+  # QR Code generation (equivalent to existing QR functionality)
+  qr_flutter: ^4.1.0
+
+  # Image picker (equivalent to Expo Image Picker)
+  image_picker: ^1.0.4
+
+  # Audio playback (equivalent to Expo AV)
+  just_audio: ^0.9.35
+
+  # Haptic feedback (equivalent to Expo Haptics)
+  vibration: ^1.8.4
+
+  # Clipboard (equivalent to Expo Clipboard)
+  clipboard: ^0.1.3
+
+  # Text-to-Speech (for accessibility)
+  flutter_tts: ^4.0.2
+  google_sign_in: ^7.2.0
+  local_auth: ^3.0.0
+  freezed_annotation: ^2.4.4
+  json_annotation: ^4.9.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.1
+
+  # Code Generation (equivalent to build tools)
+  riverpod_generator: ^2.3.9
+  build_runner: ^2.4.7
+  hive_generator: ^2.0.1
+  json_serializable: ^6.7.1
+
+  # Testing (equivalent to Jest)
+  mockito: ^5.4.4
+  integration_test:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/images/
+    - assets/icons/
+    - assets/animations/
+    - assets/models/  # TensorFlow Lite models
+    - assets/sounds/  # Audio assets from React Native
+
+  fonts:
+    - family: Inter
+      fonts:
+        - asset: assets/fonts/Inter-Regular.ttf
+        - asset: assets/fonts/Inter-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Inter-Bold.ttf
+          weight: 700
+
+  # Localization (equivalent to i18n)
+  generate: true

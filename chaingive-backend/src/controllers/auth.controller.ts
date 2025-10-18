@@ -167,7 +167,7 @@ export const login = async (req: Request, res: Response, next: NextFunction) => 
     }
 
     // Check if phone is verified
-    const phoneVerified = await prisma.kycRecord.findFirst({
+    const phoneVerified = await prisma.kYCRecord.findFirst({
       where: {
         userId: user.id,
         verificationType: 'phone',
@@ -256,7 +256,7 @@ export const verifyOtp = async (req: Request, res: Response, next: NextFunction)
     }
 
     // Create or update KYC record
-    await prisma.kycRecord.upsert({
+    await prisma.kYCRecord.upsert({
       where: {
         userId_verificationType: {
           userId: user.id,

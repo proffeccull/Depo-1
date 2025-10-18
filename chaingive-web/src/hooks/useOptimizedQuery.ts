@@ -21,7 +21,7 @@ export function useOptimizedQuery<T>(
     queryKey: key,
     queryFn,
     staleTime: 5 * 60 * 1000,
-    gcTime: 10 * 60 * 1000,
+    cacheTime: 10 * 60 * 1000,
     refetchOnWindowFocus: false,
     refetchOnMount: false,
     enabled: isVisible.current,

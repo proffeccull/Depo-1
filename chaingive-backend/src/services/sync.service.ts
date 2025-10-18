@@ -3,7 +3,17 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 interface SyncData {
-  transactions: any[];
+  transactions: Array<{
+    status: string;
+    id: string;
+    amount: number;
+    notes: string | null;
+    createdAt: Date;
+    updatedAt: Date;
+    fromId: string;
+    toId: string;
+    synced?: boolean;
+  }>;
   lastSync: string;
   deviceId: string;
 }
@@ -11,14 +21,18 @@ interface SyncData {
 export class SyncService {
   static async syncUserData(userId: string, data: SyncData) {
     const { transactions, lastSync, deviceId } = data;
-    
+
     // Process offline transactions
-    const processedTransactions = [];
+    const processedTransactions: any[] = [];
     for (const transaction of transactions) {
       if (!transaction.synced) {
         const created = await prisma.transaction.create({
           data: {
-            ...transaction,
+            status: transaction.status,
+            amount: transaction.amount,
+            notes: transaction.notes,
+            fromId: transaction.fromId,
+            toId: transaction.toId,
             userId,
             createdAt: new Date(transaction.createdAt),
           },
@@ -41,7 +55,7 @@ export class SyncService {
 
   static async getUpdates(userId: string, lastSync: string) {
     const since = new Date(lastSync);
-    
+
     const transactions = await prisma.transaction.findMany({
       where: {
         userId,
@@ -55,3 +69,5 @@ export class SyncService {
     return { transactions, notifications };
   }
 }
+
+export {};
