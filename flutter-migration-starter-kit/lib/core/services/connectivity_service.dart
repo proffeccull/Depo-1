@@ -7,10 +7,16 @@ final connectivityProvider = Provider<ConnectivityService>((ref) {
   return ConnectivityService();
 });
 
+// Connectivity status provider
+final connectivityStatusProvider = StreamProvider<bool>((ref) {
+  final connectivityService = ref.watch(connectivityProvider);
+  return connectivityService.connectionStream;
+});
+
 // Connectivity Service for network monitoring
 class ConnectivityService {
   final Connectivity _connectivity = Connectivity();
-  StreamSubscription<ConnectivityResult>? _subscription;
+  StreamSubscription<List<ConnectivityResult>>? _subscription;
 
   final StreamController<bool> _connectionController = StreamController<bool>.broadcast();
   Stream<bool> get connectionStream => _connectionController.stream;
@@ -21,8 +27,8 @@ class ConnectivityService {
 
   void _initialize() {
     // Listen to connectivity changes
-    _subscription = _connectivity.onConnectivityChanged.listen((result) {
-      final isOnline = _isOnline(result);
+    _subscription = _connectivity.onConnectivityChanged.listen((results) {
+      final isOnline = _isOnline(results);
       _connectionController.add(isOnline);
     });
   }
@@ -30,58 +36,57 @@ class ConnectivityService {
   // Check current connectivity status
   Future<bool> isOnline() async {
     try {
-      final result = await _connectivity.checkConnectivity();
-      return _isOnline(result);
+      final results = await _connectivity.checkConnectivity();
+      return _isOnline(results);
     } catch (e) {
       return false;
     }
   }
 
   // Determine if connectivity result means online
-  bool _isOnline(ConnectivityResult result) {
-    return result != ConnectivityResult.none;
+  bool _isOnline(List<ConnectivityResult> results) {
+    // Consider online if any result is not none
+    return results.any((result) => result != ConnectivityResult.none);
   }
 
   // Get detailed connectivity information
   Future<Map<String, dynamic>> getConnectivityInfo() async {
-    final result = await _connectivity.checkConnectivity();
+    final results = await _connectivity.checkConnectivity();
 
     return {
-      'isOnline': _isOnline(result),
-      'connectionType': result.name,
+      'isOnline': _isOnline(results),
+      'connectionType': results.isNotEmpty ? results.first.name : 'unknown',
       'timestamp': DateTime.now().toIso8601String(),
     };
   }
 
   // Check if connection is suitable for large data transfers
   Future<bool> isHighBandwidth() async {
-    final result = await _connectivity.checkConnectivity();
+    final results = await _connectivity.checkConnectivity();
     // Consider WiFi and Ethernet as high bandwidth
-    return result == ConnectivityResult.wifi || result == ConnectivityResult.ethernet;
+    return results.any((result) => result == ConnectivityResult.wifi || result == ConnectivityResult.ethernet);
   }
 
   // Check if connection is suitable for real-time features
   Future<bool> isRealTimeSuitable() async {
-    final result = await _connectivity.checkConnectivity();
+    final results = await _connectivity.checkConnectivity();
     // WiFi and mobile data are suitable for real-time features
-    return result == ConnectivityResult.wifi ||
+    return results.any((result) => result == ConnectivityResult.wifi ||
            result == ConnectivityResult.mobile ||
-           result == ConnectivityResult.ethernet;
+           result == ConnectivityResult.ethernet);
   }
 
   // Get connection quality estimate
   Future<String> getConnectionQuality() async {
-    final result = await _connectivity.checkConnectivity();
+    final results = await _connectivity.checkConnectivity();
 
-    switch (result) {
-      case ConnectivityResult.wifi:
-      case ConnectivityResult.ethernet:
-        return 'high'; // High bandwidth, low latency
-      case ConnectivityResult.mobile:
-        return 'medium'; // Variable bandwidth and latency
-      case ConnectivityResult.none:
-      default:
-        return 'offline'; // No connection
+    // Find the best connection quality
+    if (results.any((result) => result == ConnectivityResult.wifi || result == ConnectivityResult.ethernet)) {
+      return 'high'; // High bandwidth, low latency
+    } else if (results.any((result) => result == ConnectivityResult.mobile)) {
+      return 'medium'; // Variable bandwidth and latency
+    } else {
+      return 'offline'; // No connection
     }
   }
 

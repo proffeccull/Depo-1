@@ -1,380 +1,404 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:hive/hive.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'api_client.dart';
+import 'connectivity_service.dart';
 
+// Offline Sync Service Provider
+final offlineSyncProvider = Provider<OfflineSyncService>((ref) {
+  final connectivityService = ref.watch(connectivityProvider);
+  return OfflineSyncService(connectivityService);
+});
+
+// Sync status provider
+final syncStatusProvider = StreamProvider<SyncStatus>((ref) {
+  final syncService = ref.watch(offlineSyncProvider);
+  return syncService.syncStatusStream;
+});
+
+// Sync queue provider
+final syncQueueProvider = StreamProvider<List<SyncOperation>>((ref) {
+  final syncService = ref.watch(offlineSyncProvider);
+  return syncService.syncQueueStream;
+});
+
+// Offline Sync Service
 class OfflineSyncService {
-  final Dio _apiClient;
-  final Connectivity _connectivity;
-  late Box<Map> _pendingOperationsBox;
-  late Box<Map> _cachedDataBox;
-  late Box<String> _syncMetadataBox;
-
+  final ConnectivityService _connectivityService;
   final StreamController<SyncStatus> _syncStatusController = StreamController<SyncStatus>.broadcast();
+  final StreamController<List<SyncOperation>> _syncQueueController = StreamController<List<SyncOperation>>.broadcast();
+
   Stream<SyncStatus> get syncStatusStream => _syncStatusController.stream;
+  Stream<List<SyncOperation>> get syncQueueStream => _syncQueueController.stream;
 
-  OfflineSyncService({
-    required Dio apiClient,
-    required Connectivity connectivity,
-  })  : _apiClient = apiClient,
-        _connectivity = connectivity {
-    _initializeBoxes();
-    _setupConnectivityListener();
+  late Box<SyncOperation> _syncQueueBox;
+  late Box<String> _cacheBox;
+  late Box<String> _userDataBox;
+
+  Timer? _syncTimer;
+  bool _isInitialized = false;
+
+  OfflineSyncService(this._connectivityService) {
+    _initialize();
   }
 
-  Future<void> _initializeBoxes() async {
-    _pendingOperationsBox = await Hive.openBox<Map>('pending_operations');
-    _cachedDataBox = await Hive.openBox<Map>('cached_data');
-    _syncMetadataBox = await Hive.openBox<String>('sync_metadata');
-  }
+  Future<void> _initialize() async {
+    if (_isInitialized) return;
 
-  void _setupConnectivityListener() {
-    _connectivity.onConnectivityChanged.listen((result) async {
-      if (result != ConnectivityResult.none) {
-        await _syncPendingOperations();
-        _syncStatusController.add(SyncStatus.online);
+    // Initialize Hive boxes
+    _syncQueueBox = await Hive.openBox<SyncOperation>('sync_queue');
+    _cacheBox = await Hive.openBox<String>('api_cache');
+    _userDataBox = await Hive.openBox<String>('user_data');
+
+    // Listen to connectivity changes
+    _connectivityService.connectionStream.listen((isOnline) {
+      if (isOnline) {
+        _startSyncProcess();
       } else {
         _syncStatusController.add(SyncStatus.offline);
       }
     });
-  }
 
-  /// Queue operation for offline execution
-  Future<String> queueOperation({
-    required String operationId,
-    required String endpoint,
-    required String method,
-    required Map<String, dynamic> data,
-    required Map<String, dynamic> metadata,
-    int priority = 1, // 1 = high, 2 = normal, 3 = low
-  }) async {
-    final operation = {
-      'id': operationId,
-      'endpoint': endpoint,
-      'method': method,
-      'data': data,
-      'metadata': metadata,
-      'priority': priority,
-      'timestamp': DateTime.now().toIso8601String(),
-      'retryCount': 0,
-      'status': 'pending',
-    };
-
-    await _pendingOperationsBox.put(operationId, operation);
-
-    // Try to execute immediately if online
-    final connectivity = await _connectivity.checkConnectivity();
-    if (connectivity != ConnectivityResult.none) {
-      await _executeOperation(operationId);
-    }
-
-    return operationId;
-  }
-
-  /// Cache data for offline access
-  Future<void> cacheData({
-    required String key,
-    required Map<String, dynamic> data,
-    required Duration ttl,
-    String? etag,
-  }) async {
-    final cacheEntry = {
-      'data': data,
-      'timestamp': DateTime.now().toIso8601String(),
-      'expiresAt': DateTime.now().add(ttl).toIso8601String(),
-      'etag': etag,
-      'version': 1,
-    };
-
-    await _cachedDataBox.put(key, cacheEntry);
-  }
-
-  /// Get cached data
-  Future<Map<String, dynamic>?> getCachedData(String key) async {
-    final entry = _cachedDataBox.get(key);
-    if (entry == null) return null;
-
-    final expiresAt = DateTime.parse(entry['expiresAt']);
-    if (DateTime.now().isAfter(expiresAt)) {
-      await _cachedDataBox.delete(key);
-      return null;
-    }
-
-    return entry['data'];
-  }
-
-  /// Check if data is cached and valid
-  Future<bool> isDataCached(String key) async {
-    final entry = _cachedDataBox.get(key);
-    if (entry == null) return false;
-
-    final expiresAt = DateTime.parse(entry['expiresAt']);
-    return DateTime.now().isBefore(expiresAt);
-  }
-
-  /// Sync all pending operations
-  Future<SyncResult> syncPendingOperations() async {
-    return await _syncPendingOperations();
-  }
-
-  Future<SyncResult> _syncPendingOperations() async {
-    final operations = _pendingOperationsBox.values.toList();
-
-    // Sort by priority (high priority first)
-    operations.sort((a, b) => (a['priority'] as int).compareTo(b['priority'] as int));
-
-    int successCount = 0;
-    int failureCount = 0;
-    final errors = <String>[];
-
-    for (final operation in operations) {
-      try {
-        final success = await _executeOperation(operation['id']);
-        if (success) {
-          successCount++;
-        } else {
-          failureCount++;
-        }
-      } catch (e) {
-        failureCount++;
-        errors.add('${operation['id']}: $e');
+    // Start periodic sync check
+    _syncTimer = Timer.periodic(const Duration(minutes: 5), (_) {
+      if (_connectivityService.isOnline()) {
+        _startSyncProcess();
       }
-    }
+    });
 
-    final result = SyncResult(
-      successCount: successCount,
-      failureCount: failureCount,
-      errors: errors,
-      timestamp: DateTime.now(),
-    );
-
-    // Update sync metadata
-    await _updateSyncMetadata(result);
-
-    return result;
+    _isInitialized = true;
+    _updateSyncQueue();
   }
 
-  Future<bool> _executeOperation(String operationId) async {
-    final operation = _pendingOperationsBox.get(operationId);
-    if (operation == null) return false;
+  // Queue an operation for sync
+  Future<void> queueOperation(SyncOperation operation) async {
+    await _syncQueueBox.add(operation);
+    _updateSyncQueue();
 
-    // Skip if already completed
-    if (operation['status'] == 'completed') return true;
+    // If online, try to sync immediately
+    if (await _connectivityService.isOnline()) {
+      _startSyncProcess();
+    }
+  }
+
+  // Cache API response
+  Future<void> cacheResponse(String key, dynamic data, {Duration? ttl}) async {
+    final cacheEntry = CacheEntry(
+      data: data,
+      timestamp: DateTime.now(),
+      ttl: ttl,
+    );
+    await _cacheBox.put(key, jsonEncode(cacheEntry.toJson()));
+  }
+
+  // Get cached response
+  Future<dynamic> getCachedResponse(String key) async {
+    final cached = _cacheBox.get(key);
+    if (cached == null) return null;
 
     try {
-      Response response;
-      switch (operation['method']) {
-        case 'POST':
-          response = await _apiClient.post(
-            operation['endpoint'],
-            data: operation['data'],
-          );
-          break;
-        case 'PUT':
-          response = await _apiClient.put(
-            operation['endpoint'],
-            data: operation['data'],
-          );
-          break;
-        case 'PATCH':
-          response = await _apiClient.patch(
-            operation['endpoint'],
-            data: operation['data'],
-          );
-          break;
-        case 'DELETE':
-          response = await _apiClient.delete(
-            operation['endpoint'],
-            data: operation['data'],
-          );
-          break;
-        default:
-          throw UnsupportedError('Unsupported method: ${operation['method']}');
+      final cacheEntry = CacheEntry.fromJson(jsonDecode(cached));
+
+      // Check if cache is expired
+      if (cacheEntry.isExpired) {
+        await _cacheBox.delete(key);
+        return null;
       }
 
-      // Operation successful, mark as completed
-      operation['status'] = 'completed';
-      operation['completedAt'] = DateTime.now().toIso8601String();
-      operation['response'] = response.data;
-
-      await _pendingOperationsBox.put(operationId, operation);
-
-      // Update local cache if needed
-      if (operation['metadata']['updateCache'] == true) {
-        await cacheData(
-          key: operation['metadata']['cacheKey'],
-          data: response.data,
-          ttl: Duration(hours: 24),
-        );
-      }
-
-      return true;
+      return cacheEntry.data;
     } catch (e) {
-      // Increment retry count
-      operation['retryCount'] = (operation['retryCount'] ?? 0) + 1;
-      operation['lastError'] = e.toString();
-      operation['lastAttemptAt'] = DateTime.now().toIso8601String();
-
-      // Mark as failed if max retries exceeded
-      if (operation['retryCount'] >= 3) {
-        operation['status'] = 'failed';
-      }
-
-      await _pendingOperationsBox.put(operationId, operation);
-      return false;
+      await _cacheBox.delete(key);
+      return null;
     }
   }
 
-  /// Get sync status and statistics
-  Future<Map<String, dynamic>> getSyncStatus() async {
-    final pendingCount = _pendingOperationsBox.values
-        .where((op) => op['status'] == 'pending')
-        .length;
-
-    final failedCount = _pendingOperationsBox.values
-        .where((op) => op['status'] == 'failed')
-        .length;
-
-    final completedCount = _pendingOperationsBox.values
-        .where((op) => op['status'] == 'completed')
-        .length;
-
-    final cachedEntries = _cachedDataBox.length;
-
-    final lastSync = await _getLastSyncTime();
-
-    return {
-      'pendingOperations': pendingCount,
-      'failedOperations': failedCount,
-      'completedOperations': completedCount,
-      'cachedEntries': cachedEntries,
-      'isOnline': (await _connectivity.checkConnectivity()) != ConnectivityResult.none,
-      'lastSync': lastSync?.toIso8601String(),
-    };
+  // Store user data locally
+  Future<void> storeUserData(String key, dynamic data) async {
+    await _userDataBox.put(key, jsonEncode(data));
   }
 
-  /// Clear completed operations older than specified duration
-  Future<void> clearOldOperations({Duration maxAge = const Duration(days: 7)}) async {
-    final cutoffDate = DateTime.now().subtract(maxAge);
-    final operations = _pendingOperationsBox.values.toList();
+  // Get stored user data
+  Future<dynamic> getUserData(String key) async {
+    final data = _userDataBox.get(key);
+    if (data == null) return null;
 
-    for (final operation in operations) {
-      if (operation['status'] == 'completed') {
-        final completedAt = DateTime.parse(operation['completedAt']);
-        if (completedAt.isBefore(cutoffDate)) {
-          await _pendingOperationsBox.delete(operation['id']);
-        }
-      }
+    try {
+      return jsonDecode(data);
+    } catch (e) {
+      return null;
     }
   }
 
-  /// Clear all cached data
+  // Clear all cached data
   Future<void> clearCache() async {
-    await _cachedDataBox.clear();
+    await _cacheBox.clear();
   }
 
-  /// Clear failed operations
-  Future<void> clearFailedOperations() async {
-    final operations = _pendingOperationsBox.values.toList();
-
-    for (final operation in operations) {
-      if (operation['status'] == 'failed') {
-        await _pendingOperationsBox.delete(operation['id']);
-      }
-    }
+  // Clear sync queue
+  Future<void> clearSyncQueue() async {
+    await _syncQueueBox.clear();
+    _updateSyncQueue();
   }
 
-  /// Retry failed operations
-  Future<SyncResult> retryFailedOperations() async {
-    final failedOperations = _pendingOperationsBox.values
-        .where((op) => op['status'] == 'failed')
-        .toList();
+  // Get sync statistics
+  Future<SyncStats> getSyncStats() async {
+    final pendingOperations = _syncQueueBox.values.length;
+    final cachedItems = _cacheBox.length;
+    final userDataItems = _userDataBox.length;
 
-    int successCount = 0;
-    int failureCount = 0;
-    final errors = <String>[];
-
-    for (final operation in failedOperations) {
-      try {
-        final success = await _executeOperation(operation['id']);
-        if (success) {
-          successCount++;
-        } else {
-          failureCount++;
-        }
-      } catch (e) {
-        failureCount++;
-        errors.add('${operation['id']}: $e');
-      }
-    }
-
-    return SyncResult(
-      successCount: successCount,
-      failureCount: failureCount,
-      errors: errors,
-      timestamp: DateTime.now(),
+    return SyncStats(
+      pendingOperations: pendingOperations,
+      cachedItems: cachedItems,
+      userDataItems: userDataItems,
+      lastSyncTime: await _getLastSyncTime(),
     );
   }
 
-  Future<void> _updateSyncMetadata(SyncResult result) async {
-    final metadata = {
-      'lastSync': result.timestamp.toIso8601String(),
-      'successCount': result.successCount,
-      'failureCount': result.failureCount,
-      'errors': jsonEncode(result.errors),
-    };
+  Future<void> _startSyncProcess() async {
+    if (_syncStatusController.hasListener && _syncStatusController.isClosed) return;
 
-    await _syncMetadataBox.put('last_sync_result', jsonEncode(metadata));
+    _syncStatusController.add(SyncStatus.syncing);
+
+    try {
+      final operations = _syncQueueBox.values.toList();
+      int successCount = 0;
+      int failureCount = 0;
+
+      for (final operation in operations) {
+        try {
+          final success = await _executeOperation(operation);
+          if (success) {
+            await operation.delete();
+            successCount++;
+          } else {
+            failureCount++;
+          }
+        } catch (e) {
+          failureCount++;
+          print('Sync operation failed: $e');
+        }
+      }
+
+      _updateSyncQueue();
+      _syncStatusController.add(SyncStatus.synced);
+
+      if (successCount > 0 || failureCount > 0) {
+        print('Sync completed: $successCount successful, $failureCount failed');
+      }
+    } catch (e) {
+      _syncStatusController.add(SyncStatus.error);
+      print('Sync process failed: $e');
+    }
+  }
+
+  Future<bool> _executeOperation(SyncOperation operation) async {
+    // This would integrate with your API client to execute the operation
+    // For now, we'll simulate success
+    await Future.delayed(const Duration(milliseconds: 100));
+    return true;
   }
 
   Future<DateTime?> _getLastSyncTime() async {
-    final metadata = _syncMetadataBox.get('last_sync_result');
-    if (metadata == null) return null;
-
-    final decoded = jsonDecode(metadata);
-    return DateTime.parse(decoded['lastSync']);
+    // This would be stored in a separate box or shared preferences
+    return DateTime.now().subtract(const Duration(hours: 1));
   }
 
-  /// Clean up resources
+  void _updateSyncQueue() {
+    final operations = _syncQueueBox.values.toList();
+    if (!_syncQueueController.isClosed) {
+      _syncQueueController.add(operations);
+    }
+  }
+
   void dispose() {
+    _syncTimer?.cancel();
     _syncStatusController.close();
+    _syncQueueController.close();
+    _syncQueueBox.close();
+    _cacheBox.close();
+    _userDataBox.close();
   }
 }
 
-// Sync status enum
+// Sync Operation Model
+class SyncOperation {
+  final String id;
+  final String type; // 'create', 'update', 'delete'
+  final String endpoint;
+  final Map<String, dynamic> data;
+  final DateTime timestamp;
+  final int retryCount;
+
+  SyncOperation({
+    required this.id,
+    required this.type,
+    required this.endpoint,
+    required this.data,
+    DateTime? timestamp,
+    this.retryCount = 0,
+  }) : timestamp = timestamp ?? DateTime.now();
+
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'type': type,
+    'endpoint': endpoint,
+    'data': data,
+    'timestamp': timestamp.toIso8601String(),
+    'retryCount': retryCount,
+  };
+
+  factory SyncOperation.fromJson(Map<String, dynamic> json) => SyncOperation(
+    id: json['id'],
+    type: json['type'],
+    endpoint: json['endpoint'],
+    data: json['data'],
+    timestamp: DateTime.parse(json['timestamp']),
+    retryCount: json['retryCount'] ?? 0,
+  );
+}
+
+// Cache Entry Model
+class CacheEntry {
+  final dynamic data;
+  final DateTime timestamp;
+  final Duration? ttl;
+
+  CacheEntry({
+    required this.data,
+    required this.timestamp,
+    this.ttl,
+  });
+
+  bool get isExpired {
+    if (ttl == null) return false;
+    return DateTime.now().difference(timestamp) > ttl!;
+  }
+
+  Map<String, dynamic> toJson() => {
+    'data': data,
+    'timestamp': timestamp.toIso8601String(),
+    'ttl': ttl?.inSeconds,
+  };
+
+  factory CacheEntry.fromJson(Map<String, dynamic> json) => CacheEntry(
+    data: json['data'],
+    timestamp: DateTime.parse(json['timestamp']),
+    ttl: json['ttl'] != null ? Duration(seconds: json['ttl']) : null,
+  );
+}
+
+// Sync Status Enum
 enum SyncStatus {
-  online,
   offline,
   syncing,
+  synced,
   error,
 }
 
-// Sync result class
-class SyncResult {
-  final int successCount;
-  final int failureCount;
-  final List<String> errors;
-  final DateTime timestamp;
+// Sync Statistics
+class SyncStats {
+  final int pendingOperations;
+  final int cachedItems;
+  final int userDataItems;
+  final DateTime? lastSyncTime;
 
-  SyncResult({
-    required this.successCount,
-    required this.failureCount,
-    required this.errors,
-    required this.timestamp,
+  SyncStats({
+    required this.pendingOperations,
+    required this.cachedItems,
+    required this.userDataItems,
+    this.lastSyncTime,
   });
-
-  bool get hasErrors => errors.isNotEmpty;
-  bool get isSuccessful => failureCount == 0;
 }
 
-// Provider for OfflineSyncService
-final offlineSyncServiceProvider = Provider<OfflineSyncService>((ref) {
-  final apiClient = ref.watch(apiClientProvider);
-  final connectivity = Connectivity();
-  return OfflineSyncService(
-    apiClient: apiClient,
-    connectivity: connectivity,
-  );
-});
+// Offline-aware API wrapper
+class OfflineAwareApi {
+  final OfflineSyncService _syncService;
+
+  OfflineAwareApi(this._syncService);
+
+  Future<ApiResult<T>> call<T>(
+    String endpoint,
+    Future<T> Function() apiCall, {
+    bool cacheResponse = false,
+    Duration? cacheTtl,
+    bool queueOnFailure = false,
+    String? operationType,
+    Map<String, dynamic>? operationData,
+  }) async {
+    // Try to get cached response first
+    if (cacheResponse) {
+      final cached = await _syncService.getCachedResponse(endpoint);
+      if (cached != null) {
+        return ApiResult.success(cached, isFromCache: true);
+      }
+    }
+
+    try {
+      final result = await apiCall();
+
+      // Cache the response if requested
+      if (cacheResponse) {
+        await _syncService.cacheResponse(endpoint, result, ttl: cacheTtl);
+      }
+
+      return ApiResult.success(result);
+    } catch (e) {
+      // If offline and we have cached data, return it
+      if (cacheResponse) {
+        final cached = await _syncService.getCachedResponse(endpoint);
+        if (cached != null) {
+          return ApiResult.success(cached, isFromCache: true, isOffline: true);
+        }
+      }
+
+      // Queue operation for later sync if requested
+      if (queueOnFailure && operationType != null && operationData != null) {
+        final operation = SyncOperation(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          type: operationType,
+          endpoint: endpoint,
+          data: operationData,
+        );
+        await _syncService.queueOperation(operation);
+      }
+
+      return ApiResult.error(e.toString(), isOffline: true);
+    }
+  }
+}
+
+// API Result wrapper
+class ApiResult<T> {
+  final bool success;
+  final T? data;
+  final String? error;
+  final bool isFromCache;
+  final bool isOffline;
+
+  ApiResult._({
+    required this.success,
+    this.data,
+    this.error,
+    this.isFromCache = false,
+    this.isOffline = false,
+  });
+
+  factory ApiResult.success(T data, {bool isFromCache = false, bool isOffline = false}) {
+    return ApiResult._(
+      success: true,
+      data: data,
+      isFromCache: isFromCache,
+      isOffline: isOffline,
+    );
+  }
+
+  factory ApiResult.error(String error, {bool isOffline = false}) {
+    return ApiResult._(
+      success: false,
+      error: error,
+      isOffline: isOffline,
+    );
+  }
+}

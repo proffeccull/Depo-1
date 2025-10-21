@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../shared/widgets/culturally_adaptive/african_motifs.dart';
-import '../../../core/config/theme.dart';
+import '../../../core/config/theme.dart' as AppTheme;
 import '../providers/donation_provider.dart';
 
 class DonationAmountScreen extends ConsumerStatefulWidget {
@@ -57,10 +57,10 @@ class _DonationAmountScreenState extends ConsumerState<DonationAmountScreen> {
     final supportedCurrenciesAsync = ref.watch(supportedCurrenciesProvider);
 
     return Scaffold(
-      backgroundColor: ChainGiveTheme.lightTheme.scaffoldBackgroundColor,
+      backgroundColor: AppTheme.ChainGiveTheme.lightTheme.scaffoldBackgroundColor,
       appBar: AppBar(
         title: const Text('Make a Donation'),
-        backgroundColor: ChainGiveTheme.savannaGold,
+        backgroundColor: AppTheme.ChainGiveTheme.savannaGold,
         foregroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
@@ -79,13 +79,13 @@ class _DonationAmountScreenState extends ConsumerState<DonationAmountScreen> {
               Center(
                 child: Column(
                   children: [
-                    AfricanMotifs.ubuntuPattern(size: 80, color: ChainGiveTheme.savannaGold),
+                    AfricanMotifs.ubuntuPattern(size: 80, color: AppTheme.ChainGiveTheme.savannaGold),
                     const SizedBox(height: 16),
                     Text(
                       'Choose Your Gift',
                       style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                         fontWeight: FontWeight.bold,
-                        color: ChainGiveTheme.charcoal,
+                        color: AppTheme.ChainGiveTheme.charcoal,
                       ),
                       textAlign: TextAlign.center,
                     ),
@@ -93,7 +93,7 @@ class _DonationAmountScreenState extends ConsumerState<DonationAmountScreen> {
                     Text(
                       'Your donation creates Ubuntu - the spirit of togetherness',
                       style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: ChainGiveTheme.charcoal.withOpacity(0.7),
+                        color: Color.fromRGBO(AppTheme.ChainGiveTheme.charcoal.red, AppTheme.ChainGiveTheme.charcoal.green, AppTheme.ChainGiveTheme.charcoal.blue, 0.7),
                       ),
                       textAlign: TextAlign.center,
                     ),
@@ -108,7 +108,7 @@ class _DonationAmountScreenState extends ConsumerState<DonationAmountScreen> {
                 'Currency',
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w600,
-                  color: ChainGiveTheme.charcoal,
+                  color: AppTheme.ChainGiveTheme.charcoal,
                 ),
               ),
               const SizedBox(height: 12),
@@ -125,7 +125,7 @@ class _DonationAmountScreenState extends ConsumerState<DonationAmountScreen> {
                 'Select Amount',
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w600,
-                  color: ChainGiveTheme.charcoal,
+                  color: AppTheme.ChainGiveTheme.charcoal,
                 ),
               ),
               const SizedBox(height: 16),
@@ -168,11 +168,11 @@ class _DonationAmountScreenState extends ConsumerState<DonationAmountScreen> {
               // Custom Amount Option
               Card(
                 elevation: _isCustomAmount ? 4 : 1,
-                color: _isCustomAmount ? ChainGiveTheme.savannaGold.withOpacity(0.1) : null,
+                color: _isCustomAmount ? AppTheme.ChainGiveTheme.savannaGold.withAlpha(26) : null,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                   side: BorderSide(
-                    color: _isCustomAmount ? ChainGiveTheme.savannaGold : Colors.grey.shade300,
+                    color: _isCustomAmount ? AppTheme.ChainGiveTheme.savannaGold : Colors.grey.shade300,
                     width: _isCustomAmount ? 2 : 1,
                   ),
                 ),
@@ -190,7 +190,7 @@ class _DonationAmountScreenState extends ConsumerState<DonationAmountScreen> {
                       children: [
                         Icon(
                           Icons.edit,
-                          color: _isCustomAmount ? ChainGiveTheme.savannaGold : Colors.grey,
+                          color: _isCustomAmount ? AppTheme.ChainGiveTheme.savannaGold : Colors.grey,
                           size: 32,
                         ),
                         const SizedBox(height: 8),
@@ -198,7 +198,7 @@ class _DonationAmountScreenState extends ConsumerState<DonationAmountScreen> {
                           'Custom Amount',
                           style: TextStyle(
                             fontWeight: FontWeight.w600,
-                            color: _isCustomAmount ? ChainGiveTheme.savannaGold : ChainGiveTheme.charcoal,
+                            color: _isCustomAmount ? AppTheme.ChainGiveTheme.savannaGold : AppTheme.ChainGiveTheme.charcoal,
                           ),
                         ),
                         const SizedBox(height: 8),
@@ -209,14 +209,14 @@ class _DonationAmountScreenState extends ConsumerState<DonationAmountScreen> {
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
-                            color: ChainGiveTheme.charcoal,
+                            color: AppTheme.ChainGiveTheme.charcoal,
                           ),
                           decoration: InputDecoration(
                             hintText: 'Enter amount',
                             border: InputBorder.none,
                             suffixText: _selectedCurrency,
                             suffixStyle: TextStyle(
-                              color: ChainGiveTheme.charcoal.withOpacity(0.7),
+                              color: Color.fromRGBO(AppTheme.ChainGiveTheme.charcoal.red, AppTheme.ChainGiveTheme.charcoal.green, AppTheme.ChainGiveTheme.charcoal.blue, 0.7),
                             ),
                           ),
                           onChanged: (value) {
@@ -246,7 +246,7 @@ class _DonationAmountScreenState extends ConsumerState<DonationAmountScreen> {
                 child: ElevatedButton(
                   onPressed: _canContinue() ? _handleContinue : null,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: ChainGiveTheme.savannaGold,
+                    backgroundColor: AppTheme.ChainGiveTheme.savannaGold,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
@@ -269,7 +269,7 @@ class _DonationAmountScreenState extends ConsumerState<DonationAmountScreen> {
                   onPressed: () => context.go('/home'),
                   child: Text(
                     'Back to Home',
-                    style: TextStyle(color: ChainGiveTheme.charcoal.withOpacity(0.7)),
+                    style: TextStyle(color: AppTheme.ChainGiveTheme.charcoal.withAlpha(179)),
                   ),
                 ),
               ),
@@ -298,7 +298,7 @@ class _DonationAmountScreenState extends ConsumerState<DonationAmountScreen> {
                 currency,
                 style: TextStyle(
                   fontWeight: FontWeight.w500,
-                  color: ChainGiveTheme.charcoal,
+                  color: AppTheme.ChainGiveTheme.charcoal,
                 ),
               ),
             );
@@ -325,11 +325,11 @@ class _DonationAmountScreenState extends ConsumerState<DonationAmountScreen> {
   }) {
     return Card(
       elevation: isSelected ? 4 : 1,
-      color: isSelected ? ChainGiveTheme.savannaGold.withOpacity(0.1) : null,
+      color: isSelected ? AppTheme.ChainGiveTheme.savannaGold.withAlpha(26) : null,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
         side: BorderSide(
-          color: isSelected ? ChainGiveTheme.savannaGold : Colors.grey.shade300,
+          color: isSelected ? AppTheme.ChainGiveTheme.savannaGold : Colors.grey.shade300,
           width: isSelected ? 2 : 1,
         ),
       ),
@@ -346,7 +346,7 @@ class _DonationAmountScreenState extends ConsumerState<DonationAmountScreen> {
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
-                  color: isSelected ? ChainGiveTheme.savannaGold : ChainGiveTheme.charcoal,
+                  color: isSelected ? AppTheme.ChainGiveTheme.savannaGold : AppTheme.ChainGiveTheme.charcoal,
                 ),
               ),
               const SizedBox(height: 4),
@@ -354,7 +354,7 @@ class _DonationAmountScreenState extends ConsumerState<DonationAmountScreen> {
                 label,
                 style: TextStyle(
                   fontWeight: FontWeight.w600,
-                  color: ChainGiveTheme.charcoal,
+                  color: AppTheme.ChainGiveTheme.charcoal,
                 ),
               ),
               const SizedBox(height: 2),
@@ -362,7 +362,7 @@ class _DonationAmountScreenState extends ConsumerState<DonationAmountScreen> {
                 description,
                 style: TextStyle(
                   fontSize: 12,
-                  color: ChainGiveTheme.charcoal.withOpacity(0.7),
+                  color: AppTheme.ChainGiveTheme.charcoal.withAlpha(179),
                 ),
               ),
               const SizedBox(height: 8),
@@ -370,7 +370,7 @@ class _DonationAmountScreenState extends ConsumerState<DonationAmountScreen> {
                 impact,
                 style: TextStyle(
                   fontSize: 11,
-                  color: ChainGiveTheme.acaciaGreen,
+                  color: AppTheme.ChainGiveTheme.acaciaGreen,
                   fontStyle: FontStyle.italic,
                 ),
               ),
@@ -390,7 +390,7 @@ class _DonationAmountScreenState extends ConsumerState<DonationAmountScreen> {
     final daysSupported = (amount / 200).round().clamp(1, 365);
 
     return Card(
-      color: ChainGiveTheme.acaciaGreen.withOpacity(0.1),
+      color: AppTheme.ChainGiveTheme.acaciaGreen.withAlpha(26),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
       ),
@@ -403,7 +403,7 @@ class _DonationAmountScreenState extends ConsumerState<DonationAmountScreen> {
               children: [
                 Icon(
                   Icons.volunteer_activism,
-                  color: ChainGiveTheme.acaciaGreen,
+                  color: AppTheme.ChainGiveTheme.acaciaGreen,
                   size: 20,
                 ),
                 const SizedBox(width: 8),
@@ -411,7 +411,7 @@ class _DonationAmountScreenState extends ConsumerState<DonationAmountScreen> {
                   'Your Impact',
                   style: TextStyle(
                     fontWeight: FontWeight.w600,
-                    color: ChainGiveTheme.acaciaGreen,
+                    color: AppTheme.ChainGiveTheme.acaciaGreen,
                   ),
                 ),
               ],
@@ -420,7 +420,7 @@ class _DonationAmountScreenState extends ConsumerState<DonationAmountScreen> {
             Text(
               'Your donation of $amount $_selectedCurrency will help approximately $peopleHelped people for about $daysSupported days.',
               style: TextStyle(
-                color: ChainGiveTheme.charcoal.withOpacity(0.8),
+                color: AppTheme.ChainGiveTheme.charcoal.withOpacity(0.8),
                 height: 1.4,
               ),
             ),

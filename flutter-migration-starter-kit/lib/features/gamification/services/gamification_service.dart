@@ -121,6 +121,11 @@ class GamificationService {
         engageProgress: 3,
         engageClosed: false,
 
+        // Additional properties
+        streakCount: 0,
+        achievementUnlocks: [],
+        missionCompletions: [],
+
         // Overall status
         allRingsClosed: false,
         bonusAwarded: false,

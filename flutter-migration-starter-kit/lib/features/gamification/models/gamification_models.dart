@@ -85,6 +85,11 @@ class DailyProgress with _$DailyProgress {
     required int engageProgress,
     required bool engageClosed,
 
+    // Additional properties
+    required int streakCount,
+    required List<String> achievementUnlocks,
+    required List<String> missionCompletions,
+
     // Overall status
     required bool allRingsClosed,
     required bool bonusAwarded,

@@ -1,7 +1,84 @@
+import 'dart:convert';
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/network/api_client.dart';
 import '../models/donation_model.dart';
 import '../models/recipient_model.dart';
+
+enum DonationStatsPeriod {
+  daily,
+  weekly,
+  monthly,
+  yearly,
+}
+
+class DonationHistory {
+  final List<DonationModel> donations;
+  final int totalCount;
+  final int page;
+  final int limit;
+  final bool hasMore;
+
+  DonationHistory({
+    required this.donations,
+    required this.totalCount,
+    required this.page,
+    required this.limit,
+    required this.hasMore,
+  });
+}
+
+class DonationRequest {
+  final double amount;
+  final String currency;
+  final String? recipientId;
+  final String? message;
+  final bool isAnonymous;
+  final String? recipientPreference;
+
+  DonationRequest({
+    required this.amount,
+    required this.currency,
+    this.recipientId,
+    this.message,
+    this.isAnonymous = false,
+    this.recipientPreference,
+  });
+
+  DonationRequest copyWith({
+    double? amount,
+    String? currency,
+    String? recipientId,
+    String? message,
+    bool? isAnonymous,
+    String? recipientPreference,
+  }) {
+    return DonationRequest(
+      amount: amount ?? this.amount,
+      currency: currency ?? this.currency,
+      recipientId: recipientId ?? this.recipientId,
+      message: message ?? this.message,
+      isAnonymous: isAnonymous ?? this.isAnonymous,
+      recipientPreference: recipientPreference ?? this.recipientPreference,
+    );
+  }
+}
+
+class DonationStats {
+  final double totalDonated;
+  final int totalDonations;
+  final int recipientsHelped;
+  final double averageDonation;
+  final Map<String, dynamic> categoryBreakdown;
+
+  DonationStats({
+    required this.totalDonated,
+    required this.totalDonations,
+    required this.recipientsHelped,
+    required this.averageDonation,
+    required this.categoryBreakdown,
+  });
+}
 
 class DonationService {
   final Dio _apiClient;

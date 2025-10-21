@@ -98,9 +98,9 @@ class ActivityRingsWidget extends StatelessWidget {
               height: 70,
               child: CircularProgressIndicator(
                 value: progressValue,
-                backgroundColor: color.withOpacity(0.2),
+                backgroundColor: Color.fromRGBO(color.red, color.green, color.blue, 0.2),
                 valueColor: AlwaysStoppedAnimation<Color>(
-                  isCompleted ? color : color.withOpacity(0.7)
+                  isCompleted ? color : Color.fromRGBO(color.red, color.green, color.blue, 0.7)
                 ),
                 strokeWidth: 6,
               ),
@@ -127,7 +127,7 @@ class ActivityRingsWidget extends StatelessWidget {
           label,
           style: TextStyle(
             fontWeight: FontWeight.w500,
-            color: isCompleted ? color : ChainGiveTheme.charcoal.withOpacity(0.7),
+            color: isCompleted ? color : Color.fromRGBO(ChainGiveTheme.charcoal.red, ChainGiveTheme.charcoal.green, ChainGiveTheme.charcoal.blue, 0.7),
           ),
         ),
         const SizedBox(height: 4),
@@ -135,7 +135,7 @@ class ActivityRingsWidget extends StatelessWidget {
           '$current/$goal',
           style: TextStyle(
             fontSize: 12,
-            color: ChainGiveTheme.charcoal.withOpacity(0.6),
+            color: Color.fromRGBO(ChainGiveTheme.charcoal.red, ChainGiveTheme.charcoal.green, ChainGiveTheme.charcoal.blue, 0.6),
           ),
         ),
       ],
@@ -149,7 +149,7 @@ class ActivityRingsWidget extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: ChainGiveTheme.clayBeige.withOpacity(0.3),
+        color: ChainGiveTheme.clayBeige.withAlpha(77),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Row(
@@ -170,7 +170,7 @@ class ActivityRingsWidget extends StatelessWidget {
                   '${(overallProgress * 100).round()}% complete',
                   style: TextStyle(
                     fontSize: 12,
-                    color: ChainGiveTheme.charcoal.withOpacity(0.7),
+                    color: ChainGiveTheme.charcoal.withAlpha(179),
                   ),
                 ),
               ],
@@ -181,7 +181,7 @@ class ActivityRingsWidget extends StatelessWidget {
             height: 40,
             child: CircularProgressIndicator(
               value: overallProgress.clamp(0.0, 1.0),
-              backgroundColor: ChainGiveTheme.savannaGold.withOpacity(0.2),
+              backgroundColor: ChainGiveTheme.savannaGold.withAlpha(51),
               valueColor: AlwaysStoppedAnimation<Color>(ChainGiveTheme.savannaGold),
               strokeWidth: 4,
             ),

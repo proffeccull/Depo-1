@@ -229,9 +229,9 @@ class _DonationScreenState extends ConsumerState<DonationScreen> {
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: ChainGiveTheme.savannaGold.withOpacity(0.1),
+                      color: Color.fromRGBO(ChainGiveTheme.savannaGold.red, ChainGiveTheme.savannaGold.green, ChainGiveTheme.savannaGold.blue, 0.1),
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: ChainGiveTheme.savannaGold.withOpacity(0.3)),
+                      border: Border.all(color: Color.fromRGBO(ChainGiveTheme.savannaGold.red, ChainGiveTheme.savannaGold.green, ChainGiveTheme.savannaGold.blue, 0.3)),
                     ),
                     child: Row(
                       children: [
@@ -420,9 +420,9 @@ class _DonationScreenState extends ConsumerState<DonationScreen> {
                     data: (impact) => Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: Colors.blue.withOpacity(0.1),
+                        color: Colors.blue.withAlpha(26),
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.blue.withOpacity(0.3)),
+                        border: Border.all(color: Colors.blue.withAlpha(77)),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -495,7 +495,7 @@ class RecipientCard extends StatelessWidget {
         width: 160,
         margin: const EdgeInsets.only(right: 12),
         decoration: BoxDecoration(
-          color: isSelected ? ChainGiveTheme.savannaGold.withOpacity(0.1) : Colors.white,
+          color: isSelected ? ChainGiveTheme.savannaGold.withAlpha(26) : Colors.white,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: isSelected ? ChainGiveTheme.savannaGold : Colors.grey[300]!,
@@ -503,7 +503,7 @@ class RecipientCard extends StatelessWidget {
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.1),
+              color: Colors.black.withAlpha(26),
               blurRadius: 4,
               offset: const Offset(0, 2),
             ),
@@ -545,7 +545,7 @@ class RecipientCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: ChainGiveTheme.acaciaGreen.withOpacity(0.1),
+                  color: ChainGiveTheme.acaciaGreen.withAlpha(26),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(

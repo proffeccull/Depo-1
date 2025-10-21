@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../shared/widgets/accessibility/progressive_image.dart';
 import '../../../shared/widgets/culturally_adaptive/african_motifs.dart';
-import '../../../core/config/theme.dart';
+import '../../../core/config/theme.dart' as AppTheme;
 import '../providers/auth_provider.dart';
 import '../services/auth_service.dart';
 
@@ -135,7 +135,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      backgroundColor: ChainGiveTheme.lightTheme.scaffoldBackgroundColor,
+      backgroundColor: AppTheme.ChainGiveTheme.lightTheme.scaffoldBackgroundColor,
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24.0),
@@ -153,7 +153,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 Text(
                   'Welcome to ChainGive',
                   style: theme.textTheme.headlineMedium?.copyWith(
-                    color: ChainGiveTheme.savannaGold,
+                    color: AppTheme.ChainGiveTheme.savannaGold,
                     fontWeight: FontWeight.bold,
                   ),
                   textAlign: TextAlign.center,
@@ -161,7 +161,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 Text(
                   'The Ethical Peer-to-Peer Altruism Engine',
                   style: theme.textTheme.bodyLarge?.copyWith(
-                    color: ChainGiveTheme.charcoal.withOpacity(0.7),
+                    color: Color.fromRGBO(AppTheme.ChainGiveTheme.charcoal.red, AppTheme.ChainGiveTheme.charcoal.green, AppTheme.ChainGiveTheme.charcoal.blue, 0.7),
                   ),
                   textAlign: TextAlign.center,
                 ),
@@ -172,9 +172,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: Colors.red.withOpacity(0.1),
+                      color: Color.fromRGBO(Colors.red.red, Colors.red.green, Colors.red.blue, 0.1),
                       borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.red.withOpacity(0.3)),
+                      border: Border.all(color: Color.fromRGBO(Colors.red.red, Colors.red.green, Colors.red.blue, 0.3)),
                     ),
                     child: Row(
                       children: [
@@ -260,7 +260,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 ElevatedButton(
                   onPressed: _isLoading ? null : _handleLogin,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: ChainGiveTheme.savannaGold,
+                    backgroundColor: AppTheme.ChainGiveTheme.savannaGold,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
@@ -347,7 +347,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       child: Text(
                         'Sign Up',
                         style: TextStyle(
-                          color: ChainGiveTheme.savannaGold,
+                          color: AppTheme.ChainGiveTheme.savannaGold,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -373,7 +373,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   child: Text(
                     'Building Ubuntu Through Technology',
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: ChainGiveTheme.charcoal.withOpacity(0.6),
+                      color: Color.fromRGBO(AppTheme.ChainGiveTheme.charcoal.red, AppTheme.ChainGiveTheme.charcoal.green, AppTheme.ChainGiveTheme.charcoal.blue, 0.6),
                       fontStyle: FontStyle.italic,
                     ),
                     textAlign: TextAlign.center,

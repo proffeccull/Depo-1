@@ -1,0 +1,48 @@
+name = "chaingive-backend"
+main = "src/worker.ts"
+compatibility_date = "2024-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+# Workers configuration
+[build]
+command = "npm run build"
+cwd = "."
+
+# Environment variables
+[vars]
+NODE_ENV = "production"
+DATABASE_URL = "your-database-url"
+JWT_SECRET = "your-jwt-secret"
+REDIS_URL = "your-redis-url"
+
+# R2 Storage for file uploads
+[[r2_buckets]]
+binding = "UPLOAD_BUCKET"
+bucket_name = "chaingive-uploads"
+preview_bucket_name = "chaingive-uploads-preview"
+
+# KV for caching
+[[kv_namespaces]]
+binding = "CACHE"
+id = "your-cache-kv-id"
+preview_id = "your-cache-kv-preview-id"
+
+# D1 Database
+[[d1_databases]]
+binding = "DB"
+database_name = "chaingive-db"
+database_id = "your-d1-database-id"
+
+# Durable Objects for sessions
+[[durable_objects.bindings]]
+name = "SESSION_MANAGER"
+class_name = "SessionManager"
+
+# Routes
+[build.upload]
+format = "service-worker"
+
+# Custom domains
+routes = [
+  { pattern = "api.chaingive.ng", zone_name = "chaingive.ng" }
+]

@@ -2,11 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import 'core/architecture/app.dart';
-import 'core/providers/api_client_provider.dart';
-import 'core/providers/auth_provider.dart';
-import 'core/providers/donation_provider.dart';
-import 'core/providers/coin_provider.dart';
-import 'core/providers/ai_provider.dart';
+import 'core/network/api_client.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -21,11 +17,6 @@ void main() async {
 
   runApp(
     ProviderScope(
-      overrides: [
-        // Override providers with actual implementations
-        apiClientProvider.overrideWith((ref) => ApiClient()),
-        // Add other provider overrides as needed
-      ],
       child: const ChainGiveApp(),
     ),
   );

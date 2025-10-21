@@ -9,6 +9,11 @@ const nextConfig = {
   images: {
     domains: ['api.chaingive.ng', 'localhost'],
   },
+  output: 'export',
+  trailingSlash: true,
+  images: {
+    unoptimized: true,
+  },
 }
 
 module.exports = nextConfig

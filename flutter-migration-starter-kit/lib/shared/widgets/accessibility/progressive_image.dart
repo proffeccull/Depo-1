@@ -145,8 +145,8 @@ class _ProgressiveImageState extends State<ProgressiveImage> {
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [
-                      const Color(0xFFD4AF37).withOpacity(0.1),
-                      const Color(0xFF228B22).withOpacity(0.1),
+                      const Color(0xFFD4AF37).withAlpha(26),
+                      const Color(0xFF228B22).withAlpha(26),
                     ],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
@@ -169,7 +169,7 @@ class _ProgressiveImageState extends State<ProgressiveImage> {
                       valueColor: AlwaysStoppedAnimation<Color>(
                         const Color(0xFFD4AF37), // savannaGold
                       ),
-                      backgroundColor: const Color(0xFF228B22).withOpacity(0.2), // acaciaGreen
+                      backgroundColor: const Color(0xFF228B22).withAlpha(51), // acaciaGreen
                     ),
                   ),
                 ),
@@ -183,7 +183,7 @@ class _ProgressiveImageState extends State<ProgressiveImage> {
                         valueColor: AlwaysStoppedAnimation<Color>(
                           const Color(0xFFD4AF37),
                         ),
-                        backgroundColor: const Color(0xFF228B22).withOpacity(0.2),
+                        backgroundColor: const Color(0xFF228B22).withAlpha(51),
                       ),
                     ),
                   );
@@ -194,8 +194,8 @@ class _ProgressiveImageState extends State<ProgressiveImage> {
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         colors: [
-                          const Color(0xFFDC143C).withOpacity(0.1), // kenteRed
-                          const Color(0xFF36454F).withOpacity(0.1), // charcoal
+                          const Color(0xFFDC143C).withAlpha(26), // kenteRed
+                          const Color(0xFF36454F).withAlpha(26), // charcoal
                         ],
                       ),
                     ),
@@ -204,14 +204,14 @@ class _ProgressiveImageState extends State<ProgressiveImage> {
                       children: [
                         Icon(
                           Icons.broken_image,
-                          color: const Color(0xFF36454F).withOpacity(0.5),
+                          color: const Color(0xFF36454F).withAlpha(128),
                           size: 48,
                         ),
                         const SizedBox(height: 8),
                         Text(
                           'Image unavailable',
                           style: TextStyle(
-                            color: const Color(0xFF36454F).withOpacity(0.7),
+                            color: const Color(0xFF36454F).withAlpha(179),
                             fontSize: 14,
                           ),
                         ),
@@ -243,7 +243,7 @@ class _ProgressiveImageState extends State<ProgressiveImage> {
                   child: Container(
                     padding: const EdgeInsets.all(4),
                     decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.6),
+                      color: Colors.black.withAlpha(153),
                       borderRadius: BorderRadius.circular(16),
                     ),
                     child: const Icon(
@@ -262,7 +262,7 @@ class _ProgressiveImageState extends State<ProgressiveImage> {
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.6),
+                      color: Colors.black.withAlpha(153),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
@@ -288,25 +288,25 @@ class _ProgressiveImageState extends State<ProgressiveImage> {
       case 'donation_story':
         return Icon(
           Icons.volunteer_activism,
-          color: const Color(0xFFD4AF37).withOpacity(0.5),
+          color: const Color(0xFFD4AF37).withAlpha(128),
           size: 48,
         );
       case 'community_event':
         return Icon(
           Icons.people,
-          color: const Color(0xFF228B22).withOpacity(0.5),
+          color: const Color(0xFF228B22).withAlpha(128),
           size: 48,
         );
       case 'user_profile':
         return Icon(
           Icons.person,
-          color: const Color(0xFF4B0082).withOpacity(0.5),
+          color: const Color(0xFF4B0082).withAlpha(128),
           size: 48,
         );
       default:
         return Icon(
           Icons.image,
-          color: const Color(0xFF36454F).withOpacity(0.5),
+          color: const Color(0xFF36454F).withAlpha(128),
           size: 48,
         );
     }

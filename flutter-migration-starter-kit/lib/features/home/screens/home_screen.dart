@@ -63,7 +63,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with TickerProviderStat
               margin: const EdgeInsets.only(right: 16),
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: ChainGiveTheme.savannaGold.withOpacity(0.1),
+                color: Color.fromRGBO(ChainGiveTheme.savannaGold.red, ChainGiveTheme.savannaGold.green, ChainGiveTheme.savannaGold.blue, 0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(
@@ -87,15 +87,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with TickerProviderStat
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [
-                      ChainGiveTheme.savannaGold.withOpacity(0.1),
-                      ChainGiveTheme.acaciaGreen.withOpacity(0.1),
+                      Color.fromRGBO(ChainGiveTheme.savannaGold.red, ChainGiveTheme.savannaGold.green, ChainGiveTheme.savannaGold.blue, 0.1),
+                      Color.fromRGBO(ChainGiveTheme.acaciaGreen.red, ChainGiveTheme.acaciaGreen.green, ChainGiveTheme.acaciaGreen.blue, 0.1),
                     ],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
                   borderRadius: BorderRadius.circular(20),
                   border: Border.all(
-                    color: ChainGiveTheme.savannaGold.withOpacity(0.2),
+                    color: Color.fromRGBO(ChainGiveTheme.savannaGold.red, ChainGiveTheme.savannaGold.green, ChainGiveTheme.savannaGold.blue, 0.2),
                     width: 1,
                   ),
                 ),
@@ -121,7 +121,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with TickerProviderStat
                               Text(
                                 'I am because we are',
                                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                  color: ChainGiveTheme.charcoal.withOpacity(0.7),
+                                  color: Color.fromRGBO(ChainGiveTheme.charcoal.red, ChainGiveTheme.charcoal.green, ChainGiveTheme.charcoal.blue, 0.7),
                                   fontStyle: FontStyle.italic,
                                 ),
                               ),
@@ -249,7 +249,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with TickerProviderStat
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: [
                     BoxShadow(
-                      color: ChainGiveTheme.charcoal.withOpacity(0.1),
+                      color: Color.fromRGBO(ChainGiveTheme.charcoal.red, ChainGiveTheme.charcoal.green, ChainGiveTheme.charcoal.blue, 0.1),
                       blurRadius: 8,
                       offset: const Offset(0, 4),
                     ),
@@ -272,7 +272,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with TickerProviderStat
                     Text(
                       'Helen Keller',
                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: ChainGiveTheme.charcoal.withOpacity(0.6),
+                        color: Color.fromRGBO(ChainGiveTheme.charcoal.red, ChainGiveTheme.charcoal.green, ChainGiveTheme.charcoal.blue, 0.6),
                       ),
                     ),
                   ],
@@ -289,7 +289,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with TickerProviderStat
           color: Colors.white,
           boxShadow: [
             BoxShadow(
-              color: ChainGiveTheme.charcoal.withOpacity(0.1),
+              color: Color.fromRGBO(ChainGiveTheme.charcoal.red, ChainGiveTheme.charcoal.green, ChainGiveTheme.charcoal.blue, 0.1),
               blurRadius: 8,
               offset: const Offset(0, -2),
             ),
@@ -298,7 +298,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with TickerProviderStat
         child: BottomNavigationBar(
           backgroundColor: Colors.white,
           selectedItemColor: ChainGiveTheme.savannaGold,
-          unselectedItemColor: ChainGiveTheme.charcoal.withOpacity(0.5),
+          unselectedItemColor: ChainGiveTheme.charcoal.withAlpha(128),
           currentIndex: 0,
           type: BottomNavigationBarType.fixed,
           items: const [
@@ -366,13 +366,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with TickerProviderStat
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: color.withOpacity(0.1),
+              color: Color.fromRGBO(color.red, color.green, color.blue, 0.1),
               blurRadius: 8,
               offset: const Offset(0, 4),
             ),
           ],
           border: Border.all(
-            color: color.withOpacity(0.2),
+            color: Color.fromRGBO(color.red, color.green, color.blue, 0.2),
             width: 1,
           ),
         ),
@@ -382,7 +382,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with TickerProviderStat
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
+                color: Color.fromRGBO(color.red, color.green, color.blue, 0.1),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(icon, color: color, size: 32),
@@ -421,7 +421,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with TickerProviderStat
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: ChainGiveTheme.charcoal.withOpacity(0.05),
+            color: Color.fromRGBO(ChainGiveTheme.charcoal.red, ChainGiveTheme.charcoal.green, ChainGiveTheme.charcoal.blue, 0.05),
             blurRadius: 4,
             offset: const Offset(0, 2),
           ),
@@ -453,7 +453,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with TickerProviderStat
                 Text(
                   subtitle,
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: ChainGiveTheme.charcoal.withOpacity(0.6),
+                    color: ChainGiveTheme.charcoal.withAlpha(153),
                   ),
                 ),
               ],
@@ -461,7 +461,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with TickerProviderStat
           ),
           Icon(
             Icons.chevron_right,
-            color: ChainGiveTheme.charcoal.withOpacity(0.3),
+            color: ChainGiveTheme.charcoal.withAlpha(77),
           ),
         ],
       ),

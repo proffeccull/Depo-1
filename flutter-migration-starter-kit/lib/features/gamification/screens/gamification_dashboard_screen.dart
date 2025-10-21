@@ -234,7 +234,7 @@ class _GamificationDashboardScreenState extends ConsumerState<GamificationDashbo
         gradient: LinearGradient(
           colors: [
             ChainGiveTheme.savannaGold,
-            ChainGiveTheme.savannaGold.withOpacity(0.8),
+            Color.fromRGBO(ChainGiveTheme.savannaGold.red, ChainGiveTheme.savannaGold.green, ChainGiveTheme.savannaGold.blue, 0.8),
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -260,14 +260,14 @@ class _GamificationDashboardScreenState extends ConsumerState<GamificationDashbo
             'Continue your journey of giving and earning rewards',
             style: TextStyle(
               fontSize: 16,
-              color: Colors.white.withOpacity(0.9),
+              color: Color.fromRGBO(Colors.white.red, Colors.white.green, Colors.white.blue, 0.9),
             ),
           ),
           const SizedBox(height: 16),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.2),
+              color: Color.fromRGBO(Colors.white.red, Colors.white.green, Colors.white.blue, 0.2),
               borderRadius: BorderRadius.circular(16),
             ),
             child: Row(
@@ -376,7 +376,7 @@ class _GamificationDashboardScreenState extends ConsumerState<GamificationDashbo
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.1),
+                  color: Color.fromRGBO(color.red, color.green, color.blue, 0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(
@@ -403,7 +403,7 @@ class _GamificationDashboardScreenState extends ConsumerState<GamificationDashbo
 
   Widget _buildErrorCard(String title, String message) {
     return Card(
-      color: Colors.red.withOpacity(0.1),
+      color: Color.fromRGBO(Colors.red.red, Colors.red.green, Colors.red.blue, 0.1),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -421,7 +421,7 @@ class _GamificationDashboardScreenState extends ConsumerState<GamificationDashbo
             Text(
               message,
               style: TextStyle(
-                color: Colors.red.withOpacity(0.8),
+                color: Color.fromRGBO(Colors.red.red, Colors.red.green, Colors.red.blue, 0.8),
                 fontSize: 12,
               ),
               textAlign: TextAlign.center,

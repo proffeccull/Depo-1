@@ -91,7 +91,6 @@ model User {
   userAchievements         UserAchievement[]
   gamificationStats        GamificationStats?
   dailyStreak              DailyStreak?
-  CoinPurchaseFromAdmin    CoinPurchaseFromAdmin[]
   donorMatches             Match[]               @relation("DonorMatches")
   recipientMatches         Match[]               @relation("RecipientMatches")
   recurringDonations       RecurringDonation[]

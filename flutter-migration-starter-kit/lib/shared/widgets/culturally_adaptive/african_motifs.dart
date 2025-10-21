@@ -1,19 +1,5 @@
 import 'package:flutter/material.dart';
 
-// Import theme colors directly to avoid circular imports
-class ChainGiveTheme {
-  static const Color savannaGold = Color(0xFFD4AF37);
-  static const Color baobabBrown = Color(0xFF8B4513);
-  static const Color acaciaGreen = Color(0xFF228B22);
-  static const Color sunsetOrange = Color(0xFFFF8C00);
-  static const Color indigoBlue = Color(0xFF4B0082);
-  static const Color kenteRed = Color(0xFFDC143C);
-  static const Color adireBlue = Color(0xFF00BFFF);
-  static const Color geleYellow = Color(0xFFFFD700);
-  static const Color clayBeige = Color(0xFFF5F5DC);
-  static const Color charcoal = Color(0xFF36454F);
-}
-
 /// Cultural motifs inspired by African art and patterns
 class AfricanMotifs {
   /// Baobab tree motif - symbol of strength and resilience
@@ -25,8 +11,8 @@ class AfricanMotifs {
     return CustomPaint(
       size: Size(size, size),
       painter: BaobabPainter(
-        trunkColor: trunkColor ?? ChainGiveTheme.baobabBrown,
-        leavesColor: leavesColor ?? ChainGiveTheme.acaciaGreen,
+        trunkColor: trunkColor ?? const Color(0xFF8B4513), // baobabBrown
+        leavesColor: leavesColor ?? const Color(0xFF228B22), // acaciaGreen
       ),
     );
   }
@@ -40,8 +26,8 @@ class AfricanMotifs {
     return CustomPaint(
       size: Size(size, size),
       painter: MaasaiShieldPainter(
-        primaryColor: primaryColor ?? ChainGiveTheme.indigoBlue,
-        secondaryColor: secondaryColor ?? ChainGiveTheme.kenteRed,
+        primaryColor: primaryColor ?? const Color(0xFF4B0082), // indigoBlue
+        secondaryColor: secondaryColor ?? const Color(0xFFDC143C), // kenteRed
       ),
     );
   }
@@ -58,10 +44,10 @@ class AfricanMotifs {
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: colors ?? [
-            ChainGiveTheme.kenteRed,
-            ChainGiveTheme.adireBlue,
-            ChainGiveTheme.geleYellow,
-            ChainGiveTheme.acaciaGreen,
+            const Color(0xFFDC143C), // kenteRed
+            const Color(0xFF00BFFF), // adireBlue
+            const Color(0xFFFFD700), // geleYellow
+            const Color(0xFF228B22), // acaciaGreen
           ],
         ),
       ),
@@ -79,7 +65,7 @@ class AfricanMotifs {
     return CustomPaint(
       size: Size(size, size),
       painter: SankofaPainter(
-        color: color ?? ChainGiveTheme.indigoBlue,
+        color: color ?? const Color(0xFF4B0082), // indigoBlue
       ),
     );
   }
@@ -92,7 +78,20 @@ class AfricanMotifs {
     return CustomPaint(
       size: Size(size, size),
       painter: UbuntuPainter(
-        color: color ?? ChainGiveTheme.savannaGold,
+        color: color ?? const Color(0xFFD4AF37), // savannaGold
+      ),
+    );
+  }
+
+  /// Adinkra symbol - "Adinkra Unity" - symbol of unity and togetherness
+  static Widget adinkraUnity({
+    double size = 48,
+    Color? color,
+  }) {
+    return CustomPaint(
+      size: Size(size, size),
+      painter: AdinkraUnityPainter(
+        color: color ?? const Color(0xFF4B0082), // indigoBlue
       ),
     );
   }
@@ -105,7 +104,7 @@ class AfricanMotifs {
     return CustomPaint(
       size: Size(size, size),
       painter: UnityCirclesPainter(
-        color: color ?? ChainGiveTheme.sunsetOrange,
+        color: color ?? const Color(0xFFFF8C00), // sunsetOrange
       ),
     );
   }
@@ -150,7 +149,7 @@ class BaobabPainter extends CustomPainter {
 
     // Add texture lines on trunk
     final Paint texturePaint = Paint()
-      ..color = trunkColor.withOpacity(0.7)
+      ..color = trunkColor.withAlpha(179)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1;
 
@@ -236,11 +235,11 @@ class KentePatternPainter extends CustomPainter {
 
     // Draw alternating colored strips
     final List<Color> colors = [
-      ChainGiveTheme.kenteRed,
-      ChainGiveTheme.adireBlue,
-      ChainGiveTheme.geleYellow,
-      ChainGiveTheme.acaciaGreen,
-      ChainGiveTheme.indigoBlue,
+      const Color(0xFFDC143C), // kenteRed
+      const Color(0xFF00BFFF), // adireBlue
+      const Color(0xFFFFD700), // geleYellow
+      const Color(0xFF228B22), // acaciaGreen
+      const Color(0xFF4B0082), // indigoBlue
     ];
 
     final double stripWidth = size.width / colors.length;
@@ -255,7 +254,7 @@ class KentePatternPainter extends CustomPainter {
 
     // Add subtle pattern overlay
     final Paint overlayPaint = Paint()
-      ..color = Colors.white.withOpacity(0.1)
+      ..color = Colors.white.withAlpha(26)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1;
 
@@ -355,7 +354,7 @@ class UbuntuPainter extends CustomPainter {
 
     // Draw connecting lines
     final Paint linePaint = Paint()
-      ..color = color.withOpacity(0.6)
+      ..color = color.withAlpha(153)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.5;
 
@@ -389,7 +388,7 @@ class UnityCirclesPainter extends CustomPainter {
       ..style = PaintingStyle.fill;
 
     final Paint outlinePaint = Paint()
-      ..color = color.withOpacity(0.8)
+      ..color = color.withAlpha(204)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 2.0;
 
@@ -409,7 +408,7 @@ class UnityCirclesPainter extends CustomPainter {
 
     // Add connecting elements
     final Paint connectorPaint = Paint()
-      ..color = color.withOpacity(0.4)
+      ..color = color.withAlpha(102)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 3.0;
 
@@ -432,6 +431,46 @@ class UnityCirclesPainter extends CustomPainter {
     );
 
     canvas.drawPath(connectorPath, connectorPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+/// Adinkra Unity Painter
+class AdinkraUnityPainter extends CustomPainter {
+  final Color color;
+
+  AdinkraUnityPainter({required this.color});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final Paint paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.0
+      ..strokeCap = StrokeCap.round;
+
+    // Draw interlocking circles representing unity
+    final double radius = size.width * 0.2;
+    final Offset center1 = Offset(size.width * 0.35, size.height * 0.4);
+    final Offset center2 = Offset(size.width * 0.65, size.height * 0.4);
+    final Offset center3 = Offset(size.width * 0.5, size.height * 0.65);
+
+    // Draw circles
+    canvas.drawCircle(center1, radius, paint);
+    canvas.drawCircle(center2, radius, paint);
+    canvas.drawCircle(center3, radius, paint);
+
+    // Draw connecting lines
+    final Paint linePaint = Paint()
+      ..color = color.withAlpha(153)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5;
+
+    canvas.drawLine(center1, center2, linePaint);
+    canvas.drawLine(center1, center3, linePaint);
+    canvas.drawLine(center2, center3, linePaint);
   }
 
   @override

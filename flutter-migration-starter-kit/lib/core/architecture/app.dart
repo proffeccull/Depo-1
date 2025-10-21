@@ -26,7 +26,8 @@ class _ChainGiveAppState extends ConsumerState<ChainGiveApp> {
 
   @override
   Widget build(BuildContext context) {
-    final connectivityAsync = ref.watch(connectivityProvider);
+    final connectivityService = ref.watch(connectivityProvider);
+    final isOnlineAsync = ref.watch(connectivityStatusProvider);
 
     return MaterialApp.router(
       title: 'ChainGive',
@@ -47,23 +48,22 @@ class _ChainGiveAppState extends ConsumerState<ChainGiveApp> {
 
       // Error handling
       builder: (context, child) {
-        return Stack(
-          children: [
-            child ?? const SizedBox.shrink(),
-            // Connectivity banner
-            Positioned(
-              top: 0,
-              left: 0,
-              right: 0,
-              child: connectivityAsync.when(
-                data: (isOnline) => isOnline
-                  ? const SizedBox.shrink()
-                  : const ConnectivityBanner(),
-                loading: () => const SizedBox.shrink(),
-                error: (_, __) => const ConnectivityBanner(),
-              ),
-            ),
-          ],
+        return isOnlineAsync.when(
+          data: (isOnline) => Stack(
+            children: [
+              child ?? const SizedBox.shrink(),
+              // Connectivity banner
+              if (!isOnline)
+                const Positioned(
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  child: ConnectivityBanner(),
+                ),
+            ],
+          ),
+          loading: () => child ?? const SizedBox.shrink(),
+          error: (error, stack) => child ?? const SizedBox.shrink(),
         );
       },
     );
