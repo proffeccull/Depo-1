@@ -40,6 +40,7 @@ import disputeRoutes from './routes/dispute.routes';
 import coinPurchaseRoutes from './routes/coinPurchase.routes';
 import subscriptionRoutes from './routes/subscription.routes';
 import proposalRoutes from './routes/proposal.routes';
+import blockchainRoutes from './routes/blockchain.routes';
 
 // Premium Feature Routes
 import analyticsRoutes from './routes/analytics.routes';
@@ -154,6 +155,9 @@ app.use(`/${API_VERSION}/recurring-donations`, recurringDonationRoutes);
 app.use(`/${API_VERSION}/analytics/dashboard`, analyticsDashboardRoutes);
 app.use(`/${API_VERSION}`, cryptoPaymentRoutes);
 app.use(`/${API_VERSION}`, syncRoutes);
+
+// Blockchain Routes
+app.use(`/${API_VERSION}/blockchain`, blockchainRoutes);
 
 // Webhook Routes (no auth required)
 app.use('/webhooks', webhooksRoutes);
