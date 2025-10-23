@@ -44,7 +44,7 @@ model User {
    displayName              String?
   profile                  Profile?
   donations                Donation[]
-  subscriptions            UserSubscription[]
+  userSubscriptions        UserSubscription[]
   payments                 Payment[]
   notifications            Notification[]
   settings                 Setting[]
@@ -86,8 +86,9 @@ model User {
   referralsReceived        Referral[]               @relation("ReferredUser")
   adminActions             AdminAction[]
   CoinSaleToUser           CoinSaleToUser[]
-  coinPurchasesFromAdmin   CoinPurchaseFromAdmin[]
-  matches                  Match[]
+  subscriptions            Subscription[]
+  coinPurchasesFromAdminAsUser CoinPurchaseFromAdmin[] @relation("CoinPurchaseUser")
+  coinPurchasesFromAdminAsAdmin CoinPurchaseFromAdmin[] @relation("CoinPurchaseAdmin")
   userAchievements         UserAchievement[]
   gamificationStats        GamificationStats?
   dailyStreak              DailyStreak?
