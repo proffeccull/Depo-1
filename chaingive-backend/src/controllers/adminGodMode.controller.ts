@@ -27,7 +27,7 @@ export const overrideTransactionStatus = async (req: AuthRequest, res: Response,
     // Get current transaction
     const transaction = await prisma.transaction.findUnique({
       where: { id: transactionId },
-      include: { escrows: true }
+      include: { escrow: true }
     });
 
     if (!transaction) {
@@ -44,9 +44,9 @@ export const overrideTransactionStatus = async (req: AuthRequest, res: Response,
     });
 
     // If completing transaction, release escrow if exists
-    if (status === 'completed' && transaction.escrows.length > 0) {
+    if (status === 'completed' && transaction.escrow) {
       await prisma.escrow.update({
-        where: { id: transaction.escrows[0].id },
+        where: { id: transaction.escrow.id },
         data: {
           status: 'released',
           releasedAt: new Date()

@@ -29,6 +29,7 @@ model User {
    totalDonated             Float                    @default(0)
    totalReceived            Float                    @default(0)
    charityCoinsBalance      Float                    @default(0)
+   walletBalance            Float                    @default(0)
    kycStatus                String                   @default("pending")
    isActive                 Boolean                  @default(true)
    isBanned                 Boolean                  @default(false)
@@ -229,8 +230,8 @@ model AdminAction {
   adminId   String
   admin     User     @relation(fields: [adminId], references: [id])
   action    String
-  targetId  String
-  details   String
+  targetId  String?
+  details   Json
   createdAt DateTime @default(now())
 }
 
@@ -387,13 +388,18 @@ model UserSubscription {
 }
 
 model Escrow {
-  id        String   @id @default(cuid())
-  fromId    String
-  toId      String
-  amount    Float
-  status    String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id            String      @id @default(cuid())
+  fromId        String
+  toId          String
+  amount        Float
+  status        String      @default("pending")
+  releasedAt    DateTime?
+  releasedBy    String?
+  notes         String?
+  transactionId String?     @unique
+  transaction   Transaction? @relation(fields: [transactionId], references: [id])
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
 }
 
 model SocialConnection {
@@ -549,6 +555,7 @@ model Transaction {
   amount    Float
   status    String   @default("pending")
   notes     String?
+  escrow    Escrow?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }

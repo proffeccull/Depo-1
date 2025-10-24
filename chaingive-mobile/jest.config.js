@@ -25,5 +25,5 @@ module.exports = {
     '^@/(.*)$': '<rootDir>/src/$1',
     '\\.(jpg|jpeg|png|gif|svg)$': '<rootDir>/__mocks__/fileMock.js',
   },
-  testEnvironment: 'node',
+  testEnvironment: 'jsdom',
 };

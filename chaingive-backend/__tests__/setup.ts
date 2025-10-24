@@ -1,5 +1,5 @@
 // Jest setup file
-import '@types/jest';
+import 'jest';
 
 // Global test configuration
 beforeAll(() => {
