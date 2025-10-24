@@ -1,4 +1,4 @@
-name = "chaingive"
+name = "depo"
 main = "src/worker.ts"
 compatibility_date = "2024-01-01"
 compatibility_flags = ["nodejs_compat"]
@@ -11,8 +11,8 @@ cwd = "."
 # Environment variables
 [vars]
 NODE_ENV = "production"
-DATABASE_URL = "postgresql://postgres.yrqoaxadlomalmakwzsa:AIzaSyACnF0@aws-1-eu-north-1.pooler.supabase.com:6543/postgres?pgbouncer=true"
-DIRECT_URL = "postgresql://postgres.yrqoaxadlomalmakwzsa:AIzaSyACnF0@aws-1-eu-north-1.pooler.supabase.com:5432/postgres"
+DATABASE_URL = "postgresql://neondb_owner:npg_lqB3XO0agVuC@ep-winter-rain-ahqu1krq-pooler.c-3.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
+DIRECT_URL = "postgresql://neondb_owner:npg_lqB3XO0agVuC@ep-winter-rain-ahqu1krq-pooler.c-3.us-east-1.aws.neon.tech/neondb?sslmode=require"
 JWT_SECRET = "809db5c4-30e1-464c-9bcd-ef56eb6a2916"
 REDIS_URL = "redis://localhost:6379"
 
