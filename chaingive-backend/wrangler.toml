@@ -11,9 +11,10 @@ cwd = "."
 # Environment variables
 [vars]
 NODE_ENV = "production"
-DATABASE_URL = "your-database-url"
-JWT_SECRET = "your-jwt-secret"
-REDIS_URL = "your-redis-url"
+DATABASE_URL = "postgresql://postgres.yrqoaxadlomalmakwzsa:AIzaSyACnF0@aws-1-eu-north-1.pooler.supabase.com:6543/postgres?pgbouncer=true"
+DIRECT_URL = "postgresql://postgres.yrqoaxadlomalmakwzsa:AIzaSyACnF0@aws-1-eu-north-1.pooler.supabase.com:5432/postgres"
+JWT_SECRET = "809db5c4-30e1-464c-9bcd-ef56eb6a2916"
+REDIS_URL = "redis://localhost:6379"
 
 # R2 Storage for file uploads
 [[r2_buckets]]
