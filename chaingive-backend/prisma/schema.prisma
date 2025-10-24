@@ -4,6 +4,12 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
+// For Cloudflare D1 compatibility (commented out for now)
+// datasource db {
+//   provider = "sqlite"
+//   url      = "file:./dev.db"
+// }
+
 generator client {
   provider = "prisma-client-js"
 }

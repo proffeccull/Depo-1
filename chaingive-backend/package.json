@@ -6,7 +6,10 @@
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
     "build": "npm run prisma:generate && tsc --skipLibCheck",
+    "build:worker": "webpack --mode production --config webpack.worker.js",
     "start": "node dist/server.js",
+    "deploy": "wrangler deploy",
+    "deploy:preview": "wrangler deploy --env preview",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate deploy",
     "prisma:migrate:dev": "prisma migrate dev",
@@ -20,6 +23,8 @@
     "format": "prettier --write src/**/*.ts"
   },
   "dependencies": {
+    "@cloudflare/kv-asset-handler": "^0.3.4",
+    "@cloudflare/workers-types": "^4.20240925.0",
     "@prisma/client": "^6.17.1",
     "@sentry/nestjs": "^10.20.0",
     "@sentry/node": "^7.91.0",
@@ -89,9 +94,13 @@
     "prisma": "^6.17.1",
     "supertest": "^7.1.4",
     "ts-jest": "^29.4.5",
+    "ts-loader": "^9.5.1",
     "ts-node-dev": "^2.0.0",
     "tsx": "^4.20.6",
-    "typescript": "^5.3.3"
+    "typescript": "^5.3.3",
+    "webpack": "^5.95.0",
+    "webpack-cli": "^5.1.4",
+    "wrangler": "^3.78.12"
   },
   "engines": {
     "node": ">=20.0.0 <=22.x",
