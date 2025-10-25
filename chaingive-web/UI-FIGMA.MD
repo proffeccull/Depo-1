@@ -1,4 +1,3 @@
-
 ## **ChainGive: High-Fidelity UI Design Blueprint**
 
 ### **1. Foundation: The Design System**
@@ -113,7 +112,72 @@ This is the source of truth for all visual elements.
 
 ---
 
-### **3. Brief for the UI/UX Designer**
+#### **Screen 4: Community Feed (New in v2.2)**
+
+*   **Background:** `background-primary`.
+*   **Layout:** Social-media-inspired feed with pull-to-refresh and infinite scroll.
+*   **Components (Top to Bottom):**
+    1.  **Header (Height: 60px):**
+        *   **Left:** "Community Feed" (H1, `text-primary`).
+        *   **Right:** Search icon and filter button (Feather: 'search', 'filter').
+    2.  **Filter Bar (Margin-top: 16px):** Horizontal scrollable chips for categories: "All", "Success Stories", "Events", "Announcements", "Testimonials".
+    3.  **Feed Content (Margin-top: 16px):**
+        *   **Post Cards:** Vertical stack of cards with 16px spacing.
+        *   **Post Card Structure:**
+            *   **Header:** User avatar (32x32px), name (Sub-headline, `text-primary`), timestamp (Caption, `text-secondary`), post type badge.
+            *   **Content:** Post title (H2, `text-primary`), description text (Body, `text-primary`), optional media/images.
+            *   **Actions:** Like button, share button, comment count, engagement metrics.
+            *   **Event Link (if applicable):** "Join Event" button for event announcements.
+        *   **Empty State:** Illustration with "No posts yet" message and "Create First Post" CTA.
+    4.  **Create Post FAB:** Floating action button (bottom-right) with plus icon for creating new posts.
+
+---
+
+#### **Screen 5: Enhanced "My Impact" (Analytics v2.2)**
+
+*   **Background:** `background-primary`.
+*   **Components (Top to Bottom):**
+    1.  **Header:** "My Impact" (H1, `text-primary`) with date range picker.
+    2.  **Period Selector:** Enhanced with custom date ranges and quick filters.
+    3.  **Key Metrics Cards (Grid layout, 2x2):**
+        *   **Total Given:** Large number with trend indicator (up/down arrow).
+        *   **People Helped:** Count with growth percentage.
+        *   **Coins Earned:** Balance with monthly earnings.
+        *   **Impact Score:** Calculated metric with ranking.
+    4.  **Advanced Charts Section:**
+        *   **Interactive Donut Chart:** Category breakdown with hover details.
+        *   **Trend Line Chart:** Giving activity over time with multiple periods.
+        *   **Geographic Map:** Heatmap of donation locations (anonymized).
+        *   **Progress Rings:** Goal completion for monthly/quarterly targets.
+    5.  **Detailed Breakdown:**
+        *   **Category Analysis:** Expandable sections with detailed metrics.
+        *   **Recipient Stories:** Success stories from people helped.
+        *   **Monthly Comparison:** Side-by-side period comparison.
+    6.  **Achievements & Milestones:** Badges earned and progress toward next level.
+
+---
+
+### **3. Dark Theme Consistency Audit**
+
+**Audit Results:**
+*   ✅ **Background Colors:** All screens use `background-primary` (#121212) consistently.
+*   ✅ **Card Components:** Uniform `background-secondary` (#1E1E1E) with proper borders.
+*   ✅ **Text Hierarchy:** Consistent typography scale (Inter font) across all screens.
+*   ✅ **Color Usage:** Primary (`accent-primary`), secondary (`accent-secondary`), semantic colors properly applied.
+*   ✅ **Component Spacing:** 8pt grid system maintained throughout.
+*   ⚠️ **Accessibility:** Need improved contrast ratios for text-secondary on background-primary.
+*   ⚠️ **Interactive States:** Some buttons missing hover/press states in dark theme.
+
+**Accessibility Improvements:**
+*   **Contrast Ratios:** Minimum 4.5:1 for normal text, 3:1 for large text.
+*   **Focus Indicators:** Clear focus rings for keyboard navigation.
+*   **Color Blindness:** Use patterns and shapes in addition to colors for charts.
+*   **Touch Targets:** Minimum 44x44px for all interactive elements.
+*   **Text Scaling:** Support for dynamic type sizing.
+
+---
+
+### **4. Brief for the UI/UX Designer**
 
 **Project:** ChainGive - Peer-to-Peer Giving App
 

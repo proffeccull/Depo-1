@@ -24,7 +24,16 @@
 
 ChainGive is a mobile-first, peer-to-peer giving platform designed to foster sustainable community support networks in Nigeria. It leverages the "pay it forward" model, allowing users to receive financial help in times of need and contribute back to the community when they are able. The platform is built on the principles of dignity and transparency, creating a system of ethical altruism without incurring debt.
 
-This document outlines the complete specification for ChainGive v2.2, detailing a product that is secure, scalable, and intuitive. It introduces a modern, dark-themed user interface focused on clarity and data visualization to build user trust and engagement. The primary goal is to launch a Minimum Viable Product (MVP) in Lagos by Q2 2026, contingent on regulatory approval, with a five-year vision of empowering 500,000 active users and generating sustainable revenue through transaction fees and a value-added marketplace. Enhancements in v2.2 include improved AI matching algorithms, expanded marketplace offerings, and advanced fraud detection to support broader adoption and ecosystem stability.
+This document outlines the complete specification for ChainGive v2.2, detailing a product that is secure, scalable, and intuitive. It introduces a modern, dark-themed user interface focused on clarity and data visualization to build user trust and engagement. The primary goal is to launch a Minimum Viable Product (MVP) in Lagos by Q2 2026, contingent on regulatory approval, with a five-year vision of empowering 500,000 active users and generating sustainable revenue through transaction fees and a value-added marketplace.
+
+**Enhancements in v2.2 include:**
+- AI-powered matching algorithms using scikit-learn for optimal donor-recipient pairing
+- Community events with RSVP functionality and integrated fundraising
+- Enhanced fraud detection with AI-driven anomaly detection
+- Personalized marketplace recommendations based on analytics
+- Advanced analytics features in My Impact screen
+- Biometric authentication support for enhanced security
+- Comprehensive testing suites (unit, integration, e2e tests)
 
 ---
 
@@ -129,6 +138,17 @@ The design of ChainGive is engineered to inspire trust, promote clarity, and mak
 *   **Feed Items:** Cards showing anonymized success stories, upcoming community events, or user testimonials. Each card includes a like/share button and a link to related actions (e.g., donate to a featured request).
 *   **Interaction:** Users can post their own stories (moderated) to build trust and encourage participation.
 
+#### **4. Enhanced "My Impact" (Analytics v2.2)**
+*   **Advanced Features:** Interactive charts, geographic heatmaps, progress rings, detailed breakdowns, recipient stories, and achievement tracking.
+
+#### **5. Event Details Screen (New in v2.2)**
+*   **Layout:** Comprehensive event information with RSVP functionality and fundraising progress.
+*   **Components:** Event metadata, attendee lists, donation tracking, and creator management tools.
+
+#### **6. Marketplace Recommendations Screen (New in v2.2)**
+*   **Layout:** Personalized item recommendations with AI-powered scoring and reasoning.
+*   **Features:** Confidence indicators, recommendation reasons, and user interaction feedback.
+
 ---
 
 ## 4. Core Feature Specifications
@@ -194,10 +214,53 @@ The design of ChainGive is engineered to inspire trust, promote clarity, and mak
 *   **Features:**
     *   **Community Feed:** A moderated feed for sharing success stories and event announcements.
     *   **Event Creation:** Agents and verified users can create local events (e.g., donation drives) with RSVP functionality.
+    *   **Event Donations:** Direct fundraising integration with donation cycles.
     *   **Leaderboards:** Monthly leaderboards for top givers and recipients to gamify participation.
 *   **Acceptance Criteria:**
     *   All posts are moderated to ensure dignity and prevent misuse.
     *   Events integrate with the donation cycle for seamless fundraising.
+    *   Users can RSVP to events and track attendance.
+    *   Event creators can manage attendees and fundraising progress.
+
+### 4.5 AI-Powered Features (New in v2.2)
+
+#### **4.5.1 AI Matching Algorithm**
+*   **Description:** Uses scikit-learn to optimize donor-recipient matching based on multiple weighted factors.
+*   **Features:**
+    - Location proximity (30% weight)
+    - Trust score (25% weight)
+    - Time waiting urgency (20% weight)
+    - Donor preferences (15% weight)
+    - Randomization for fairness (10% weight)
+*   **API Endpoints:** Integrated with `match.controller.ts` for real-time matching.
+
+#### **4.5.2 Fraud Detection with AI**
+*   **Description:** AI-driven anomaly detection using transaction pattern analysis.
+*   **Features:**
+    - Real-time transaction scoring
+    - Behavioral pattern analysis
+    - Network attack detection
+    - Statistical anomaly detection
+*   **Integration:** Backend analytics with scikit-learn models.
+
+#### **4.5.3 Personalized Marketplace**
+*   **Description:** AI-powered recommendations based on user behavior and analytics.
+*   **Features:**
+    - Personalized item suggestions
+    - Category recommendations
+    - Trend analysis and insights
+    - User interaction feedback loop
+*   **Analytics:** Comprehensive marketplace performance tracking.
+
+### 4.6 Security Enhancements (New in v2.2)
+
+#### **4.6.1 Biometric Authentication**
+*   **Features:**
+    - Fingerprint recognition for login
+    - Face ID support
+    - Biometric fallback to PIN
+    - Secure key storage
+*   **Integration:** Mobile and web applications with platform-specific biometric APIs.
 
 ---
 
@@ -209,18 +272,30 @@ The design of ChainGive is engineered to inspire trust, promote clarity, and mak
 *   **Database:** PostgreSQL 15+ for relational data, Redis 7+ for caching and job queues.
 *   **Infrastructure:** Deployed via Docker containers on Railway (primary) and AWS (backup), with Cloudflare for CDN and security.
 *   **Monitoring & Logging:** Sentry for error tracking, DataDog for performance metrics.
+*   **AI/ML:** Python with scikit-learn for matching algorithms and fraud detection.
 
 ### 5.2 API Architecture
 The API will be a versioned RESTful service.
 
 **Endpoint Structure:** `/api/v1/`
-*   `/auth/`: User registration, login, token refresh.
+
+**Core Endpoints:**
+*   `/auth/`: User registration, login, token refresh, biometric authentication.
 *   `/users/`: Profile management, trust score display.
-*   `/cycles/`: Creating requests, accepting donations, matching logic.
+*   `/cycles/`: Creating requests, accepting donations, AI matching logic.
 *   `/transactions/`: Financial ledger for all movements (deposits, donations, fees).
-*   `/marketplace/`: Listing items, processing redemptions.
+*   `/marketplace/`: Item listings, redemptions, personalized recommendations.
 *   `/agents/`: Verification workflows, coin sales.
-*   `/community/`: Feed management, event creation (new in v2.2).
+*   `/community/`: Feed management, event creation, RSVP functionality.
+*   `/analytics/`: User impact tracking, marketplace insights, fraud monitoring.
+
+**New Endpoints in v2.2:**
+*   `/community/events`: Event CRUD operations
+*   `/community/events/:id/rsvp`: Event RSVP management
+*   `/community/events/:id/donate`: Event fundraising donations
+*   `/marketplace/recommendations`: AI-powered personalized recommendations
+*   `/marketplace/analytics`: Marketplace performance insights
+*   `/fraud/check`: Real-time fraud assessment (internal)
 
 ---
 
@@ -228,13 +303,16 @@ The API will be a versioned RESTful service.
 
 *   **Authentication & Authorization:**
     *   **JWT System:** Short-lived access tokens (15 mins) and securely stored, rotating refresh tokens (30 days).
-    *   **Multi-Factor Authentication (MFA):** Mandatory SMS OTP for login and high-value transactions. Biometric (Fingerprint/Face ID) support will be enabled.
+    *   **Biometric Authentication:** Fingerprint and Face ID support for enhanced login security.
+    *   **Multi-Factor Authentication (MFA):** Mandatory SMS OTP for login and high-value transactions.
 *   **Data Protection:**
     *   **Encryption:** All data is encrypted at rest (AES-256) and in transit (TLS 1.3). Sensitive user data will have an additional layer of application-level encryption.
     *   **Data Minimization:** We will only collect data that is absolutely necessary for the functioning of the service.
 *   **Fraud Prevention:**
-    *   An AI-powered system will monitor transactions for unusual patterns (velocity checks, amount limits).
-    *   Real-time risk scoring will be applied to all transactions, with high-risk operations flagged for manual review or automatically blocked.
+    *   **AI-Driven Anomaly Detection:** Real-time transaction monitoring with machine learning models to identify unusual patterns.
+    *   **Velocity Checks:** Multi-tier transaction rate limiting based on time windows.
+    *   **Behavioral Analysis:** User behavior pattern recognition to detect account compromise.
+    *   **Network Monitoring:** Detection of coordinated attacks and suspicious IP patterns.
 *   **Privacy & Compliance:**
     *   Full compliance with the Nigeria Data Protection Regulation (NDPR).
     *   Users will have self-service tools to access, amend, or delete their data, in line with their data subject rights.
@@ -253,6 +331,12 @@ This roadmap outlines parallel workstreams for a realistic 5-month MVP launch.
 | **4. Frontend**| - Build all mobile app screens<br>- Connect frontend to APIs<br>- Implement push notifications | - Conduct internal UAT<br>- Finalize app store assets | - Finalize contracts with 20+ agents<br>- Train first cohort of agents |
 | **5. Test & Deploy**| - End-to-end testing<br>- Security audit & pen testing<br>- Deploy to app stores | - Coordinate external beta test (50 users)<br>- Prepare user guides & FAQ | - Onboard first 500 users<br>- **Go-live in Lagos (closed beta)** |
 
+**v2.2 Enhancements Timeline:**
+- **Month 1-2:** AI matching algorithm, community events backend
+- **Month 2-3:** Fraud detection AI, marketplace personalization
+- **Month 3-4:** Biometric auth, advanced analytics, mobile app updates
+- **Month 4-5:** Comprehensive testing, UI/UX refinements, deployment
+
 ---
 
 ## 8. Success Metrics & KPIs
@@ -263,11 +347,14 @@ This roadmap outlines parallel workstreams for a realistic 5-month MVP launch.
 *   **Product Engagement:**
     *   **Donation Cycles per Active User per Month:** > 1.5.
     *   **Giver to Recipient Ratio:** Maintain > 1.2 to ensure ecosystem health.
+    *   **Community Events:** 500+ events created monthly by Year 2.
+    *   **Marketplace Conversion:** 15% of earned coins redeemed.
 *   **Financial & Operational:**
     *   **Customer Acquisition Cost (CAC):** < ₦2,000.
     *   **LTV/CAC Ratio:** > 3.
     *   **Fraudulent Transaction Rate:** < 0.5%.
     *   **System Uptime:** > 99.9%.
+    *   **AI Matching Accuracy:** > 85% user satisfaction rate.
 
 ---
 
@@ -279,6 +366,8 @@ This roadmap outlines parallel workstreams for a realistic 5-month MVP launch.
 | **Community Imbalance** | Critical | High | Implement gamification and a trust score that heavily rewards giving. AI matching prioritizes givers. |
 | **Payment & Security Fraud**| High | High | Multi-sig escrow wallets, AI-powered real-time fraud detection, quarterly security audits. |
 | **Low User Adoption** | High | Medium | Invest in community-based marketing, create a seamless onboarding experience, and leverage the agent network for trust-building. |
+| **AI Model Accuracy** | Medium | Medium | Implement fallback rule-based systems, continuous model training, and user feedback loops. |
+| **Data Privacy Compliance** | High | Low | Regular NDPR audits, data minimization practices, and transparent privacy policies. |
 
 ---
 
@@ -295,66 +384,140 @@ The ChainGive platform will operate in full compliance with all relevant Nigeria
 
 ## 11. Appendices
 
-### Appendix A: API Endpoint Example
+### Appendix A: API Endpoint Examples
 
-**Endpoint:** `POST /api/v1/cycles/request`
-**Auth:** JWT Bearer Token Required.
+**AI Matching Endpoint:**
+```
+POST /api/v1/cycles/match
+Authorization: Bearer <jwt_token>
+Content-Type: application/json
 
-**Request Body Schema:**
-```json
 {
-  "amount": { "type": "number", "minimum": 500, "maximum": 50000 },
-  "currency": { "type": "string", "enum": ["NGN"] },
-  "category": { "type": "string", "enum": ["medical", "education", "business", "emergency"] },
-  "message": { "type": "string", "maxLength": 280 }
+  "donorId": "uuid",
+  "amount": 5000,
+  "preferences": {
+    "location": "Lagos",
+    "category": "education"
+  }
 }
 ```
 
-**Success Response (201):**
-```json
+**Event Creation Endpoint:**
+```
+POST /api/v1/community/events
+Authorization: Bearer <jwt_token>
+Content-Type: application/json
+
 {
-  "requestId": "uuid-v4-string",
-  "status": "pending_match",
-  "message": "Your request has been successfully created and is now being matched."
+  "title": "Community Health Drive",
+  "description": "Free medical checkups for our community",
+  "eventDate": "2025-12-01",
+  "eventTime": "10:00",
+  "location": "Lagos Community Center",
+  "maxAttendees": 100,
+  "eventType": "fundraising",
+  "fundraisingGoal": 50000
 }
 ```
 
-### Appendix B: Database Schema Example
+**Personalized Recommendations Endpoint:**
+```
+GET /api/v1/marketplace/recommendations?limit=10&category=airtime
+Authorization: Bearer <jwt_token>
+```
 
+### Appendix B: Database Schema Extensions (v2.2)
+
+**Community Events:**
 ```sql
--- users: Stores user profile and key metrics.
-CREATE TABLE users (
+CREATE TABLE community_events (
   id UUID PRIMARY KEY,
-  phone_number VARCHAR(20) UNIQUE NOT NULL,
-  first_name VARCHAR(100) NOT NULL,
-  city VARCHAR(100),
-  trust_score DECIMAL(3,2) DEFAULT 0.5,
-  charity_coins INTEGER DEFAULT 0,
-  is_verified BOOLEAN DEFAULT FALSE,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+  creator_id UUID REFERENCES users(id),
+  title VARCHAR(255) NOT NULL,
+  description TEXT,
+  event_date DATE NOT NULL,
+  event_time TIME NOT NULL,
+  location VARCHAR(255) NOT NULL,
+  max_attendees INTEGER,
+  current_attendees INTEGER DEFAULT 0,
+  event_type VARCHAR(50) DEFAULT 'community',
+  fundraising_goal DECIMAL(12,2),
+  status VARCHAR(20) DEFAULT 'active',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
--- donation_requests: Stores all requests for help.
-CREATE TABLE donation_requests (
+CREATE TABLE event_rsvps (
   id UUID PRIMARY KEY,
-  recipient_id UUID REFERENCES users(id),
-  donor_id UUID REFERENCES users(id),
-  amount DECIMAL(12,2) NOT NULL,
-  category VARCHAR(50),
-  status VARCHAR(20) DEFAULT 'pending_match', -- e.g., pending_match, in_escrow, completed, expired
-  escrow_id VARCHAR(255),
+  event_id UUID REFERENCES community_events(id),
+  user_id UUID REFERENCES users(id),
+  status VARCHAR(20) DEFAULT 'attending',
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-  completed_at TIMESTAMP WITH TIME ZONE
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE(event_id, user_id)
 );
 ```
 
-### Appendix C: AI Matching Algorithm Overview (New in v2.2)
+**Marketplace Interactions:**
+```sql
+CREATE TABLE marketplace_interactions (
+  id UUID PRIMARY KEY,
+  user_id UUID REFERENCES users(id),
+  item_id UUID REFERENCES marketplace_items(id),
+  action VARCHAR(20) NOT NULL,
+  rating DECIMAL(2,1),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  last_interaction TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+```
 
-The AI matching system uses a weighted scoring model to pair donors with recipients:
-- **Location Proximity:** 30% weight – Prioritizes local matches to build community ties.
-- **Trust Score:** 25% weight – Higher trust scores for both parties increase match likelihood.
-- **Need Urgency:** 20% weight – Based on category (e.g., emergency > education).
-- **Donor Preferences:** 15% weight – Allows donors to filter by category or amount range.
-- **Randomization:** 10% weight – Ensures fairness and prevents bias.
+### Appendix C: AI Model Specifications
 
-The algorithm is implemented using Python with scikit-learn for initial models, transitioning to TensorFlow for advanced ML as user data grows.
+**Matching Algorithm Features:**
+- Location proximity (30% weight)
+- Trust score (25% weight)
+- Time waiting urgency (20% weight)
+- Donor preferences (15% weight)
+- Randomization (10% weight)
+
+**Fraud Detection Features:**
+- Transaction amount anomalies
+- Velocity patterns (transactions per time window)
+- Geographic inconsistencies
+- Device fingerprint changes
+- Behavioral pattern deviations
+- Network analysis for attack patterns
+
+**Recommendation Engine Features:**
+- Purchase history analysis
+- Donation pattern matching
+- Category preferences
+- Temporal trends
+- Social proof indicators
+- Price sensitivity modeling
+
+### Appendix D: Testing Strategy (v2.2)
+
+**Unit Tests:**
+- AI algorithm accuracy validation
+- Fraud detection rule testing
+- API endpoint response validation
+- Database operation verification
+
+**Integration Tests:**
+- End-to-end donation cycles
+- AI matching workflow
+- Community event creation and RSVP
+- Marketplace recommendation flow
+
+**E2E Tests:**
+- Complete user journeys
+- Cross-platform compatibility
+- Performance under load
+- Security vulnerability assessment
+
+**AI Model Testing:**
+- Model accuracy benchmarks
+- A/B testing frameworks
+- Continuous learning validation
+- Fallback mechanism verification

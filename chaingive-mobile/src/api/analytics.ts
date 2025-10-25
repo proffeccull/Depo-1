@@ -1,174 +1,176 @@
 import { apiClient } from './client';
-import {
-  AnalyticsEvent,
-  AnalyticsDashboard,
-  DonationHeatmap,
-  GivingTrends,
-  CoinROI,
-  SocialImpactScore,
-  AnalyticsFilters
-} from '../types/analytics';
 
-export class AnalyticsApi {
-  /**
-   * Track user analytics event
-   */
-  static async trackEvent(eventData: {
-    eventType: string;
-    eventData: Record<string, any>;
-    sessionId?: string;
-    deviceInfo?: Record<string, any>;
-    ipAddress?: string;
-    userAgent?: string;
-  }): Promise<void> {
-    await apiClient.post('/analytics/events', eventData);
-  }
-
-  /**
-   * Get user analytics dashboard
-   */
-  static async getDashboard(period: '7d' | '30d' | '90d' | '1y' = '30d'): Promise<AnalyticsDashboard> {
-    const response = await apiClient.get(`/analytics/dashboard?period=${period}`);
-    return response.data.data;
-  }
-
-  /**
-   * Get donation heatmap data
-   */
-  static async getDonationHeatmap(filters?: AnalyticsFilters): Promise<DonationHeatmap> {
-    const params = new URLSearchParams();
-
-    if (filters?.startDate) params.append('startDate', filters.startDate);
-    if (filters?.endDate) params.append('endDate', filters.endDate);
-    if (filters?.currency) params.append('currency', filters.currency);
-
-    const response = await apiClient.get(`/analytics/heatmap?${params}`);
-    return response.data.data;
-  }
-
-  /**
-   * Get giving trends data
-   */
-  static async getGivingTrends(filters?: AnalyticsFilters): Promise<GivingTrends> {
-    const params = new URLSearchParams();
-
-    if (filters?.startDate) params.append('startDate', filters.startDate);
-    if (filters?.endDate) params.append('endDate', filters.endDate);
-    if (filters?.currency) params.append('currency', filters.currency);
-
-    const response = await apiClient.get(`/analytics/trends?${params}`);
-    return response.data.data;
-  }
-
-  /**
-   * Get coin ROI analysis
-   */
-  static async getCoinROI(): Promise<CoinROI> {
-    const response = await apiClient.get('/analytics/coin-roi');
-    return response.data.data;
-  }
-
-  /**
-   * Get social impact score
-   */
-  static async getSocialImpactScore(): Promise<SocialImpactScore> {
-    const response = await apiClient.get('/analytics/social-impact');
-    return response.data.data;
-  }
-
-  /**
-   * Get donation analytics by category
-   */
-  static async getDonationAnalytics(category: 'amount' | 'frequency' | 'timing' | 'recipients'): Promise<any> {
-    const response = await apiClient.get(`/analytics/donations/${category}`);
-    return response.data.data;
-  }
-
-  /**
-   * Get marketplace analytics
-   */
-  static async getMarketplaceAnalytics(): Promise<{
-    totalRedemptions: number;
-    favoriteCategories: string[];
-    spendingTrends: {
-      period: string;
-      amount: number;
-      category: string;
-    }[];
-    redemptionRate: number;
-  }> {
-    const response = await apiClient.get('/analytics/marketplace');
-    return response.data.data;
-  }
-
-  /**
-   * Get gamification analytics
-   */
-  static async getGamificationAnalytics(): Promise<{
-    currentLevel: number;
-    achievementsUnlocked: number;
-    streakDays: number;
-    coinsEarned: number;
-    participationRate: number;
-    leaderboardPosition: number;
-  }> {
-    const response = await apiClient.get('/analytics/gamification');
-    return response.data.data;
-  }
-
-  /**
-   * Export analytics data
-   */
-  static async exportAnalytics(
-    format: 'csv' | 'pdf' | 'json',
-    dataType: 'donations' | 'marketplace' | 'gamification' | 'social'
-  ): Promise<{ downloadUrl: string; expiresAt: string }> {
-    const response = await apiClient.post('/analytics/export', {
-      format,
-      dataType
-    });
-    return response.data.data;
-  }
-
-  /**
-   * Get comparative analytics (vs peers)
-   */
-  static async getComparativeAnalytics(): Promise<{
-    donationRank: number;
-    totalUsers: number;
-    percentile: number;
-    comparedToPeers: {
-      metric: string;
-      userValue: number;
-      peerAverage: number;
-      difference: number;
-    }[];
-  }> {
-    const response = await apiClient.get('/analytics/comparative');
-    return response.data.data;
-  }
-
-  /**
-   * Get predictive analytics
-   */
-  static async getPredictiveAnalytics(): Promise<{
-    nextDonationPrediction: {
-      predictedDate: string;
-      confidence: number;
-      factors: string[];
-    };
-    coinEarningPotential: {
-      predictedCoins: number;
-      timeframe: string;
-      recommendations: string[];
-    };
-    socialGrowthProjection: {
-      predictedConnections: number;
-      engagementRate: number;
-      tips: string[];
-    };
-  }> {
-    const response = await apiClient.get('/analytics/predictive');
-    return response.data.data;
-  }
+export interface ImpactMetrics {
+  totalDonated: number;
+  peopleHelped: number;
+  rankingsPosition: number;
+  coinsEarned: number;
+  averageDonation: number;
+  donationFrequency: number;
+  impactScore: number;
+  communityRank: number;
 }
+
+export interface ChartData {
+  labels: string[];
+  data: number[];
+}
+
+export interface CategoryBreakdown {
+  category: string;
+  amount: number;
+  percentage: number;
+  count: number;
+}
+
+export interface MonthlyGoal {
+  current: number;
+  target: number;
+  percentage: number;
+  daysLeft: number;
+}
+
+export interface ImpactStory {
+  id: string;
+  recipientName: string;
+  message: string;
+  category: string;
+  amount: number;
+  timeAgo: string;
+  location: string;
+}
+
+export interface UserImpactAnalytics {
+  userId: string;
+  timeframe: 'week' | 'month' | 'year';
+  metrics: ImpactMetrics;
+  charts: {
+    donationTrend: ChartData;
+    categoryBreakdown: CategoryBreakdown[];
+    monthlyGoal: MonthlyGoal;
+  };
+  impactStories: ImpactStory[];
+  achievements: Array<{
+    id: string;
+    title: string;
+    description: string;
+    icon: string;
+    unlockedAt: string;
+    progress?: number;
+  }>;
+  recommendations: string[];
+  lastUpdated: string;
+}
+
+export interface AnalyticsExport {
+  format: 'pdf' | 'csv' | 'json';
+  timeframe: 'week' | 'month' | 'year';
+  includeCharts: boolean;
+  includeStories: boolean;
+}
+
+/**
+ * Get user's impact analytics
+ */
+export const getUserImpactAnalytics = async (
+  timeframe: 'week' | 'month' | 'year' = 'month'
+): Promise<UserImpactAnalytics> => {
+  const response = await apiClient.get(`/analytics/impact?timeframe=${timeframe}`);
+  return response.data.data;
+};
+
+/**
+ * Get donation trend data
+ */
+export const getDonationTrend = async (
+  timeframe: 'week' | 'month' | 'year' = 'month',
+  category?: string
+): Promise<ChartData> => {
+  const params = new URLSearchParams({ timeframe });
+  if (category) params.append('category', category);
+
+  const response = await apiClient.get(`/analytics/trends/donations?${params}`);
+  return response.data.data;
+};
+
+/**
+ * Get category breakdown analytics
+ */
+export const getCategoryBreakdown = async (
+  timeframe: 'week' | 'month' | 'year' = 'month'
+): Promise<{ breakdown: CategoryBreakdown[]; total: number }> => {
+  const response = await apiClient.get(`/analytics/categories/breakdown?timeframe=${timeframe}`);
+  return response.data.data;
+};
+
+/**
+ * Get monthly goal progress
+ */
+export const getMonthlyGoalProgress = async (): Promise<MonthlyGoal> => {
+  const response = await apiClient.get('/analytics/goals/monthly');
+  return response.data.data;
+};
+
+/**
+ * Get impact stories
+ */
+export const getImpactStories = async (
+  limit = 10,
+  category?: string
+): Promise<{ stories: ImpactStory[]; total: number }> => {
+  const params = new URLSearchParams({ limit: limit.toString() });
+  if (category) params.append('category', category);
+
+  const response = await apiClient.get(`/analytics/stories?${params}`);
+  return response.data.data;
+};
+
+/**
+ * Get user achievements
+ */
+export const getUserAchievements = async (): Promise<{
+  achievements: UserImpactAnalytics['achievements'];
+  total: number;
+  unlocked: number;
+}> => {
+  const response = await apiClient.get('/analytics/achievements');
+  return response.data.data;
+};
+
+/**
+ * Export analytics report
+ */
+export const exportAnalyticsReport = async (
+  exportOptions: AnalyticsExport
+): Promise<{ downloadUrl: string; expiresAt: string }> => {
+  const response = await apiClient.post('/analytics/export', exportOptions);
+  return response.data.data;
+};
+
+/**
+ * Get personalized recommendations based on analytics
+ */
+export const getAnalyticsRecommendations = async (): Promise<{
+  recommendations: string[];
+  insights: Array<{
+    type: string;
+    message: string;
+    action?: string;
+  }>;
+}> => {
+  const response = await apiClient.get('/analytics/recommendations');
+  return response.data.data;
+};
+
+/**
+ * Track user interaction with analytics
+ */
+export const trackAnalyticsInteraction = async (
+  interaction: {
+    type: 'view' | 'export' | 'share' | 'filter';
+    element: string;
+    value?: string;
+  }
+): Promise<void> => {
+  await apiClient.post('/analytics/track', interaction);
+};
