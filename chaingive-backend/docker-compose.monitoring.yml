@@ -1,14 +1,14 @@
 version: '3.8'
 
 services:
-  # Prometheus - Metrics Collection
+  # Prometheus for metrics collection
   prometheus:
     image: prom/prometheus:latest
     container_name: chaingive-prometheus
     ports:
       - "9090:9090"
     volumes:
-      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus_data:/prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
@@ -21,48 +21,31 @@ services:
       - monitoring
     restart: unless-stopped
 
-  # Grafana - Visualization Dashboard
+  # Grafana for visualization
   grafana:
     image: grafana/grafana:latest
     container_name: chaingive-grafana
     ports:
       - "3001:3000"
     environment:
-      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-chaingive2025}
       - GF_USERS_ALLOW_SIGN_UP=false
       - GF_INSTALL_PLUGINS=grafana-piechart-panel,grafana-worldmap-panel
     volumes:
       - grafana_data:/var/lib/grafana
-      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
-      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
     networks:
       - monitoring
     depends_on:
       - prometheus
     restart: unless-stopped
 
-  # AlertManager - Alert Management
-  alertmanager:
-    image: prom/alertmanager:latest
-    container_name: chaingive-alertmanager
-    ports:
-      - "9093:9093"
-    volumes:
-      - ./monitoring/alertmanager.yml:/etc/alertmanager/config.yml
-      - alertmanager_data:/alertmanager
-    command:
-      - '--config.file=/etc/alertmanager/config.yml'
-      - '--storage.path=/alertmanager'
-    networks:
-      - monitoring
-    restart: unless-stopped
-
-  # Node Exporter - System Metrics
+  # Node Exporter for system metrics
   node-exporter:
     image: prom/node-exporter:latest
     container_name: chaingive-node-exporter
-    ports:
-      - "9100:9100"
     volumes:
       - /proc:/host/proc:ro
       - /sys:/host/sys:ro
@@ -76,22 +59,50 @@ services:
       - monitoring
     restart: unless-stopped
 
-  # cAdvisor - Container Metrics
-  cadvisor:
-    image: gcr.io/cadvisor/cadvisor:latest
-    container_name: chaingive-cadvisor
-    ports:
-      - "8080:8080"
-    volumes:
-      - /:/rootfs:ro
-      - /var/run:/var/run:ro
-      - /sys:/sys:ro
-      - /var/lib/docker/:/var/lib/docker:ro
-      - /dev/disk/:/dev/disk:ro
-    devices:
-      - /dev/kmsg
+  # Redis Exporter for Redis metrics
+  redis-exporter:
+    image: oliver006/redis_exporter:latest
+    container_name: chaingive-redis-exporter
+    environment:
+      - REDIS_ADDR=redis:6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
     networks:
       - monitoring
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+  # AlertManager for alert handling
+  alertmanager:
+    image: prom/alertmanager:latest
+    container_name: chaingive-alertmanager
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./monitoring/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager_data:/alertmanager
+    command:
+      - '--config.file=/etc/alertmanager/alertmanager.yml'
+      - '--storage.path=/alertmanager'
+    networks:
+      - monitoring
+    restart: unless-stopped
+
+  # Nginx reverse proxy for monitoring stack
+  nginx-monitoring:
+    image: nginx:alpine
+    container_name: chaingive-nginx-monitoring
+    ports:
+      - "8080:80"
+    volumes:
+      - ./monitoring/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./monitoring/nginx/sites-enabled:/etc/nginx/sites-enabled:ro
+    networks:
+      - monitoring
+      - chaingive
+    depends_on:
+      - grafana
+      - prometheus
     restart: unless-stopped
 
 volumes:
@@ -102,3 +113,5 @@ volumes:
 networks:
   monitoring:
     driver: bridge
+  chaingive:
+    external: true

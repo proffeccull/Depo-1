@@ -1,0 +1,110 @@
+.container {
+  min-height: 100vh;
+  background-color: #121212;
+  color: #ffffff;
+}
+
+.header {
+  background: linear-gradient(135deg, #2E8B57 0%, #256F45 100%);
+  padding: 2rem 0;
+}
+
+.headerContent {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 1rem;
+  text-align: center;
+}
+
+.title {
+  font-size: 2.5rem;
+  font-weight: bold;
+  margin: 0 0 0.5rem 0;
+  color: #ffffff;
+}
+
+.subtitle {
+  font-size: 1.1rem;
+  color: rgba(255, 255, 255, 0.9);
+  margin: 0;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.tabNavigation {
+  background-color: #1E1E1E;
+  border-bottom: 1px solid #2D2D2E;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.tabContainer {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  padding: 0 1rem;
+}
+
+.tabButton {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 1rem;
+  background: transparent;
+  border: none;
+  color: #8E8E93;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border-bottom: 3px solid transparent;
+}
+
+.tabButton:hover {
+  background-color: rgba(46, 139, 87, 0.1);
+  color: #ffffff;
+}
+
+.tabButtonActive {
+  color: #2E8B57;
+  border-bottom-color: #2E8B57;
+  background-color: rgba(46, 139, 87, 0.1);
+}
+
+.tabIcon {
+  font-size: 1.2rem;
+}
+
+.tabLabel {
+  display: none;
+}
+
+@media (min-width: 768px) {
+  .tabLabel {
+    display: block;
+  }
+}
+
+.main {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem 1rem;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .title {
+    font-size: 2rem;
+  }
+
+  .subtitle {
+    font-size: 1rem;
+  }
+
+  .main {
+    padding: 1rem 0.5rem;
+  }
+}

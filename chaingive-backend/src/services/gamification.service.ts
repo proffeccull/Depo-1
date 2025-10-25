@@ -1,644 +1,674 @@
-import prisma from '../utils/prisma';
-import logger from '../utils/logger';
+import { Injectable } from 'inversify';
+import { prisma } from '../config/database';
+import { logger } from '../utils/logger';
 
-/**
- * Gamification Service
- * Handles all gamification logic: missions, streaks, achievements, challenges
- */
+export interface Achievement {
+  id: string;
+  title: string;
+  description: string;
+  icon: string;
+  category: string;
+  rarity: 'common' | 'rare' | 'epic' | 'legendary';
+  points: number;
+  criteria: AchievementCriteria;
+  isActive: boolean;
+}
 
-// ============================================
-// DAILY MISSIONS
-// ============================================
+export interface AchievementCriteria {
+  type: 'count' | 'streak' | 'milestone' | 'social' | 'giving';
+  target: number;
+  timeframe?: 'daily' | 'weekly' | 'monthly' | 'all_time';
+  conditions?: Record<string, any>;
+}
 
-const MISSION_TYPES = {
-  DONATE: 'donate',
-  BUY_COINS: 'buy_coins',
-  REFER: 'refer',
-  LEADERBOARD: 'leaderboard',
-  MARKETPLACE: 'marketplace',
-  PROFILE_UPDATE: 'profile_update',
-  KYC_SUBMIT: 'kyc_submit',
-};
+export interface LeaderboardEntry {
+  userId: string;
+  username: string;
+  avatar?: string;
+  score: number;
+  rank: number;
+  change: number; // position change from last period
+  badges: string[];
+}
 
-const MISSION_REWARDS = {
-  [MISSION_TYPES.DONATE]: 50,
-  [MISSION_TYPES.BUY_COINS]: 30,
-  [MISSION_TYPES.REFER]: 20,
-  [MISSION_TYPES.LEADERBOARD]: 15,
-  [MISSION_TYPES.MARKETPLACE]: 25,
-  [MISSION_TYPES.PROFILE_UPDATE]: 10,
-  [MISSION_TYPES.KYC_SUBMIT]: 100,
-};
+export interface UserProgress {
+  userId: string;
+  level: number;
+  experiencePoints: number;
+  experienceToNext: number;
+  totalAchievements: number;
+  recentAchievements: Achievement[];
+  currentStreaks: Record<string, number>;
+  weeklyStats: {
+    donations: number;
+    recipientsHelped: number;
+    coinsEarned: number;
+    communityPosts: number;
+  };
+}
 
-const DAILY_MISSION_SETS = [
-  [MISSION_TYPES.DONATE, MISSION_TYPES.BUY_COINS, MISSION_TYPES.REFER],
-  [MISSION_TYPES.DONATE, MISSION_TYPES.MARKETPLACE, MISSION_TYPES.LEADERBOARD],
-  [MISSION_TYPES.BUY_COINS, MISSION_TYPES.REFER, MISSION_TYPES.LEADERBOARD],
-  [MISSION_TYPES.DONATE, MISSION_TYPES.BUY_COINS, MISSION_TYPES.MARKETPLACE],
-  [MISSION_TYPES.MARKETPLACE, MISSION_TYPES.REFER, MISSION_TYPES.LEADERBOARD],
-  // Weekend special
-  [MISSION_TYPES.DONATE, MISSION_TYPES.BUY_COINS, MISSION_TYPES.REFER], // Saturday
-  [MISSION_TYPES.DONATE, MISSION_TYPES.BUY_COINS, MISSION_TYPES.REFER], // Sunday (higher rewards)
-];
-
-/**
- * Get or create today's missions for a user
- */
-export async function getTodaysMissions(userId: string) {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  let missions = await prisma.dailyMission.findUnique({
-    where: {
-      userId_date: {
-        userId,
-        date: today,
-      },
+@Injectable()
+export class GamificationService {
+  private readonly achievements: Achievement[] = [
+    // Giving Achievements
+    {
+      id: 'first_donation',
+      title: 'First Steps',
+      description: 'Complete your first donation',
+      icon: 'heart',
+      category: 'giving',
+      rarity: 'common',
+      points: 100,
+      criteria: { type: 'count', target: 1, conditions: { donation_completed: true } },
+      isActive: true
     },
-  });
-
-  if (!missions) {
-    missions = await createDailyMissions(userId, today);
-  }
-
-  return missions;
-}
-
-/**
- * Create daily missions for a user
- */
-async function createDailyMissions(userId: string, date: Date) {
-  const dayOfWeek = date.getDay(); // 0 = Sunday, 6 = Saturday
-  const missionSet = DAILY_MISSION_SETS[dayOfWeek];
-
-  // Weekend bonus (Saturday & Sunday get higher rewards)
-  const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-  const multiplier = isWeekend ? 1.5 : 1;
-
-  const missions = await prisma.dailyMission.create({
-    data: {
-      userId,
-      date,
-      mission1Type: missionSet[0],
-      mission1Reward: Math.floor(MISSION_REWARDS[missionSet[0]] * multiplier),
-      mission2Type: missionSet[1],
-      mission2Reward: Math.floor(MISSION_REWARDS[missionSet[1]] * multiplier),
-      mission3Type: missionSet[2],
-      mission3Reward: Math.floor(MISSION_REWARDS[missionSet[2]] * multiplier),
-      bonusReward: isWeekend ? 75 : 50,
+    {
+      id: 'generous_giver',
+      title: 'Generous Giver',
+      description: 'Complete 10 donations',
+      icon: 'gift',
+      category: 'giving',
+      rarity: 'common',
+      points: 500,
+      criteria: { type: 'count', target: 10, conditions: { donation_completed: true } },
+      isActive: true
     },
-  });
-
-  logger.info(`Created daily missions for user ${userId}`, { missions });
-  return missions;
-}
-
-/**
- * Mark a mission as complete and award coins
- */
-export async function completeMission(
-  userId: string,
-  missionType: string
-): Promise<{ success: boolean; coinsAwarded: number; allComplete: boolean }> {
-  const missions = await getTodaysMissions(userId);
-
-  let coinsAwarded = 0;
-  let fieldToUpdate: string | null = null;
-  let rewardField: string | null = null;
-
-  // Determine which mission to complete
-  if (missions.mission1Type === missionType && !missions.mission1Done) {
-    fieldToUpdate = 'mission1Done';
-    rewardField = 'mission1Reward';
-    coinsAwarded = missions.mission1Reward;
-  } else if (missions.mission2Type === missionType && !missions.mission2Done) {
-    fieldToUpdate = 'mission2Done';
-    rewardField = 'mission2Reward';
-    coinsAwarded = missions.mission2Reward;
-  } else if (missions.mission3Type === missionType && !missions.mission3Done) {
-    fieldToUpdate = 'mission3Done';
-    rewardField = 'mission3Reward';
-    coinsAwarded = missions.mission3Reward;
-  }
-
-  if (!fieldToUpdate) {
-    return { success: false, coinsAwarded: 0, allComplete: false };
-  }
-
-  // Update mission and check if all complete
-  const updated = await prisma.dailyMission.update({
-    where: { id: missions.id },
-    data: {
-      [fieldToUpdate]: true,
+    {
+      id: 'community_hero',
+      title: 'Community Hero',
+      description: 'Help 50 different people',
+      icon: 'shield',
+      category: 'giving',
+      rarity: 'rare',
+      points: 2000,
+      criteria: { type: 'count', target: 50, conditions: { unique_recipients: true } },
+      isActive: true
     },
-  });
-
-  const allComplete = updated.mission1Done && updated.mission2Done && updated.mission3Done;
-
-  // If all complete, award bonus
-  if (allComplete && !updated.allCompleted) {
-    coinsAwarded += updated.bonusReward;
-
-    await prisma.$transaction([
-      // Mark as all complete
-      prisma.dailyMission.update({
-        where: { id: missions.id },
-        data: {
-          allCompleted: true,
-          totalCoinsEarned: updated.mission1Reward + updated.mission2Reward + updated.mission3Reward + updated.bonusReward,
-          completedAt: new Date(),
-        },
-      }),
-      // Award coins to user
-      prisma.user.update({
-        where: { id: userId },
-        data: {
-          charityCoinsBalance: {
-            increment: coinsAwarded,
-          },
-        },
-      }),
-      // Update gamification stats
-      prisma.gamificationStats.upsert({
-        where: { userId },
-        create: {
-          userId,
-          totalCoinsEarned: coinsAwarded,
-          totalMissionsCompleted: 3,
-          weeklyMissionsCompleted: 3,
-        },
-        update: {
-          totalCoinsEarned: { increment: coinsAwarded },
-          totalMissionsCompleted: { increment: 3 },
-          weeklyMissionsCompleted: { increment: 3 },
-        },
-      }),
-    ]);
-  } else {
-    // Award coins for single mission
-    await prisma.user.update({
-      where: { id: userId },
-      data: {
-        charityCoinsBalance: {
-          increment: coinsAwarded,
-        },
-      },
-    });
-  }
-
-  logger.info(`Mission completed for user ${userId}`, { missionType, coinsAwarded, allComplete });
-
-  return { success: true, coinsAwarded, allComplete };
-}
-
-// ============================================
-// DAILY STREAK
-// ============================================
-
-const STREAK_REWARDS = {
-  1: 10,
-  2: 15,
-  3: 20,
-  4: 25,
-  5: 30,
-  6: 40,
-  7: 50, // Week bonus
-  14: 100, // 2 weeks
-  30: 250, // Month
-  60: 500,
-  90: 1000,
-  180: 2500,
-  365: 5000, // Year!
-};
-
-/**
- * Update user's streak on login
- */
-export async function updateStreak(userId: string): Promise<{ coins: number; currentStreak: number; isNew: boolean }> {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  const streak = await prisma.dailyStreak.findUnique({
-    where: { userId },
-  });
-
-  if (!streak) {
-    // First login ever
-    const newStreak = await prisma.dailyStreak.create({
-      data: {
-        userId,
-        currentStreak: 1,
-        longestStreak: 1,
-        lastLoginDate: today,
-        totalCoinsEarned: STREAK_REWARDS[1],
-      },
-    });
-
-    await prisma.user.update({
-      where: { id: userId },
-      data: {
-        charityCoinsBalance: { increment: STREAK_REWARDS[1] },
-      },
-    });
-
-    return { coins: STREAK_REWARDS[1], currentStreak: 1, isNew: true };
-  }
-
-  const lastLogin = new Date(streak.lastLoginDate || 0);
-  lastLogin.setHours(0, 0, 0, 0);
-
-  const daysSinceLastLogin = Math.floor((today.getTime() - lastLogin.getTime()) / (1000 * 60 * 60 * 24));
-
-  let newStreak = streak.currentStreak;
-  let coinsToAward = 0;
-
-  if (daysSinceLastLogin === 0) {
-    // Already logged in today
-    return { coins: 0, currentStreak: streak.currentStreak, isNew: false };
-  } else if (daysSinceLastLogin === 1) {
-    // Consecutive day - continue streak
-    newStreak = streak.currentStreak + 1;
-    coinsToAward = STREAK_REWARDS[newStreak] || STREAK_REWARDS[7] + (newStreak - 7) * 5; // After day 7, +5 coins per day
-  } else {
-    // Broke streak - reset to 1
-    newStreak = 1;
-    coinsToAward = STREAK_REWARDS[1];
-  }
-
-  const longestStreak = Math.max(streak.longestStreak, newStreak);
-
-  await prisma.$transaction([
-    prisma.dailyStreak.update({
-      where: { userId },
-      data: {
-        currentStreak: newStreak,
-        longestStreak,
-        lastLoginDate: today,
-        totalCoinsEarned: { increment: coinsToAward },
-      },
-    }),
-    prisma.user.update({
-      where: { id: userId },
-      data: {
-        charityCoinsBalance: { increment: coinsToAward },
-      },
-    }),
-  ]);
-
-  logger.info(`Streak updated for user ${userId}`, { newStreak, coinsToAward });
-
-  return { coins: coinsToAward, currentStreak: newStreak, isNew: false };
-}
-
-// ============================================
-// PROGRESS RINGS
-// ============================================
-
-/**
- * Get or create today's progress rings
- */
-export async function getTodaysProgress(userId: string) {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  let progress = await prisma.dailyProgress.findUnique({
-    where: {
-      userId_date: {
-        userId,
-        date: today,
-      },
+    {
+      id: 'pay_it_forward_master',
+      title: 'Pay It Forward Master',
+      description: 'Complete 100 donations',
+      icon: 'crown',
+      category: 'giving',
+      rarity: 'epic',
+      points: 5000,
+      criteria: { type: 'count', target: 100, conditions: { donation_completed: true } },
+      isActive: true
     },
-  });
 
-  if (!progress) {
-    progress = await prisma.dailyProgress.create({
-      data: {
-        userId,
-        date: today,
-      },
-    });
-  }
+    // Streak Achievements
+    {
+      id: 'consistent_helper',
+      title: 'Consistent Helper',
+      description: 'Help someone 7 days in a row',
+      icon: 'calendar',
+      category: 'streak',
+      rarity: 'rare',
+      points: 1000,
+      criteria: { type: 'streak', target: 7, timeframe: 'daily' },
+      isActive: true
+    },
+    {
+      id: 'dedicated_supporter',
+      title: 'Dedicated Supporter',
+      description: 'Maintain a 30-day helping streak',
+      icon: 'flame',
+      category: 'streak',
+      rarity: 'epic',
+      points: 3000,
+      criteria: { type: 'streak', target: 30, timeframe: 'daily' },
+      isActive: true
+    },
 
-  return progress;
-}
+    // Social Achievements
+    {
+      id: 'storyteller',
+      title: 'Storyteller',
+      description: 'Share 5 success stories',
+      icon: 'book',
+      category: 'social',
+      rarity: 'common',
+      points: 300,
+      criteria: { type: 'count', target: 5, conditions: { post_type: 'story' } },
+      isActive: true
+    },
+    {
+      id: 'community_builder',
+      title: 'Community Builder',
+      description: 'Create 3 community events',
+      icon: 'users',
+      category: 'social',
+      rarity: 'rare',
+      points: 1500,
+      criteria: { type: 'count', target: 3, conditions: { event_created: true } },
+      isActive: true
+    },
+    {
+      id: 'influencer',
+      title: 'Community Influencer',
+      description: 'Receive 100 likes on your posts',
+      icon: 'star',
+      category: 'social',
+      rarity: 'epic',
+      points: 2500,
+      criteria: { type: 'count', target: 100, conditions: { post_likes_received: true } },
+      isActive: true
+    },
 
-/**
- * Update a specific ring's progress
- */
-export async function updateRingProgress(
-  userId: string,
-  ringType: 'give' | 'earn' | 'engage',
-  incrementBy: number = 1
-): Promise<{ ringClosed: boolean; allRingsClosed: boolean; coinsAwarded: number }> {
-  const progress = await getTodaysProgress(userId);
-
-  const updateData: any = {};
-  let ringClosed = false;
-  let coinsAwarded = 0;
-
-  if (ringType === 'give') {
-    const newProgress = Math.min(progress.giveProgress + incrementBy, progress.giveGoal);
-    updateData.giveProgress = newProgress;
-    if (newProgress >= progress.giveGoal && !progress.giveClosed) {
-      updateData.giveClosed = true;
-      ringClosed = true;
+    // Milestone Achievements
+    {
+      id: 'coin_collector',
+      title: 'Coin Collector',
+      description: 'Earn 1000 Charity Coins',
+      icon: 'coins',
+      category: 'milestone',
+      rarity: 'common',
+      points: 200,
+      criteria: { type: 'milestone', target: 1000, conditions: { coins_earned: true } },
+      isActive: true
+    },
+    {
+      id: 'marketplace_explorer',
+      title: 'Marketplace Explorer',
+      description: 'Make 10 marketplace purchases',
+      icon: 'shopping-bag',
+      category: 'milestone',
+      rarity: 'rare',
+      points: 800,
+      criteria: { type: 'count', target: 10, conditions: { marketplace_purchase: true } },
+      isActive: true
     }
-  } else if (ringType === 'earn') {
-    const newProgress = Math.min(progress.earnProgress + incrementBy, progress.earnGoal);
-    updateData.earnProgress = newProgress;
-    if (newProgress >= progress.earnGoal && !progress.earnClosed) {
-      updateData.earnClosed = true;
-      ringClosed = true;
-    }
-  } else if (ringType === 'engage') {
-    const newProgress = Math.min(progress.engageProgress + incrementBy, progress.engageGoal);
-    updateData.engageProgress = newProgress;
-    if (newProgress >= progress.engageGoal && !progress.engageClosed) {
-      updateData.engageClosed = true;
-      ringClosed = true;
-    }
+  ];
+
+  private readonly levelThresholds = [
+    0,      // Level 1
+    1000,   // Level 2
+    2500,   // Level 3
+    5000,   // Level 4
+    8000,   // Level 5
+    12000,  // Level 6
+    17000,  // Level 7
+    23000,  // Level 8
+    30000,  // Level 9
+    40000   // Level 10
+  ];
+
+  /**
+   * Get all available achievements
+   */
+  async getAchievements(): Promise<Achievement[]> {
+    return this.achievements.filter(achievement => achievement.isActive);
   }
 
-  const updated = await prisma.dailyProgress.update({
-    where: { id: progress.id },
-    data: updateData,
-  });
-
-  const allRingsClosed = updated.giveClosed && updated.earnClosed && updated.engageClosed;
-
-  // Award perfect day bonus
-  if (allRingsClosed && !updated.allRingsClosed && !updated.bonusAwarded) {
-    coinsAwarded = updated.bonusAmount;
-
-    await prisma.$transaction([
-      prisma.dailyProgress.update({
-        where: { id: progress.id },
-        data: {
-          allRingsClosed: true,
-          bonusAwarded: true,
-        },
-      }),
-      prisma.user.update({
-        where: { id: userId },
-        data: {
-          charityCoinsBalance: { increment: coinsAwarded },
-        },
-      }),
-      prisma.gamificationStats.upsert({
-        where: { userId },
-        create: {
-          userId,
-          totalCoinsEarned: coinsAwarded,
-          totalPerfectDays: 1,
-          weeklyPerfectDays: 1,
-        },
-        update: {
-          totalCoinsEarned: { increment: coinsAwarded },
-          totalPerfectDays: { increment: 1 },
-          weeklyPerfectDays: { increment: 1 },
-        },
-      }),
-    ]);
-  }
-
-  logger.info(`Ring progress updated for user ${userId}`, { ringType, ringClosed, allRingsClosed, coinsAwarded });
-
-  return { ringClosed, allRingsClosed, coinsAwarded };
-}
-
-// ============================================
-// WEEKLY CHALLENGES
-// ============================================
-
-/**
- * Get active weekly challenges
- */
-export async function getActiveWeeklyChallenges() {
-  const now = new Date();
-
-  return await prisma.weeklyChallenge.findMany({
-    where: {
-      isActive: true,
-      startDate: { lte: now },
-      endDate: { gte: now },
-    },
-  });
-}
-
-/**
- * Get user's progress on weekly challenges
- */
-export async function getUserWeeklyChallengeProgress(userId: string) {
-  const challenges = await getActiveWeeklyChallenges();
-
-  return await prisma.weeklyChallengeProgress.findMany({
-    where: {
-      userId,
-      challengeId: { in: challenges.map(c => c.id) },
-    },
-    include: {
-      challenge: true,
-    },
-  });
-}
-
-/**
- * Update weekly challenge progress
- */
-export async function updateWeeklyChallengeProgress(
-  userId: string,
-  challengeType: string,
-  incrementBy: number = 1
-) {
-  const challenges = await getActiveWeeklyChallenges();
-  const relevantChallenge = challenges.find(c => c.type === challengeType);
-
-  if (!relevantChallenge) return;
-
-  const existing = await prisma.weeklyChallengeProgress.findUnique({
-    where: {
-      userId_challengeId: {
-        userId,
-        challengeId: relevantChallenge.id,
-      },
-    },
-  });
-
-  if (existing) {
-    const newValue = existing.currentValue + incrementBy;
-    const completed = newValue >= existing.targetValue;
-
-    await prisma.weeklyChallengeProgress.update({
-      where: { id: existing.id },
-      data: {
-        currentValue: newValue,
-        percentage: Math.min(100, Math.floor((newValue / existing.targetValue) * 100)),
-        completed,
-        completedAt: completed ? new Date() : undefined,
-      },
-    });
-  } else {
-    await prisma.weeklyChallengeProgress.create({
-      data: {
-        userId,
-        challengeId: relevantChallenge.id,
-        targetValue: relevantChallenge.targetValue,
-        currentValue: incrementBy,
-        percentage: Math.floor((incrementBy / relevantChallenge.targetValue) * 100),
-      },
-    });
-  }
-}
-
-// ============================================
-// ACHIEVEMENTS
-// ============================================
-
-/**
- * Check and unlock achievements for a user
- */
-export async function checkAndUnlockAchievements(userId: string, category: string) {
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    include: {
-      referralsGiven: true,
-    },
-  });
-
-  if (!user) return [];
-
-  const achievements = await prisma.achievement.findMany({
-    where: {
-      category,
-      isActive: true,
-    },
-  });
-
-  const unlocked: string[] = [];
-
-  for (const achievement of achievements) {
-    let currentValue = 0;
-
-    // Determine current value based on achievement type
-    switch (achievement.requirementType) {
-      case 'donation_count':
-        currentValue = user.totalCyclesCompleted;
-        break;
-      case 'coin_purchase_total':
-        // Would need to query coin purchases
-        break;
-      case 'referral_count':
-        currentValue = user.referralsGiven.filter(r => r.status === 'completed').length;
-        break;
-      case 'streak_days':
-        const streak = await prisma.dailyStreak.findUnique({ where: { userId } });
-        currentValue = streak?.longestStreak || 0;
-        break;
-    }
-
-    if (currentValue >= achievement.requirementValue) {
-      const existing = await prisma.userAchievement.findUnique({
-        where: {
-          userId_achievementId: {
-            userId,
-            achievementId: achievement.id,
-          },
-        },
-      });
-
-      if (!existing) {
-        await prisma.$transaction([
-          prisma.userAchievement.create({
-            data: {
-              userId,
-              achievementId: achievement.id,
-              progress: currentValue,
-              maxProgress: achievement.requirementValue,
-            },
-          }),
-          prisma.user.update({
-            where: { id: userId },
-            data: {
-              charityCoinsBalance: { increment: achievement.rewardCoins },
-            },
-          }),
-          prisma.gamificationStats.upsert({
-            where: { userId },
-            create: {
-              userId,
-              totalAchievements: 1,
-              totalCoinsEarned: achievement.rewardCoins,
-            },
-            update: {
-              totalAchievements: { increment: 1 },
-              totalCoinsEarned: { increment: achievement.rewardCoins },
-            },
-          }),
-        ]);
-
-        unlocked.push(achievement.code);
-      }
-    }
-  }
-
-  return unlocked;
-}
-
-export async function getAllAchievements(userId: string) {
-  const [allAchievements, userAchievements] = await Promise.all([
-    prisma.achievement.findMany({
-      where: { isActive: true },
-      orderBy: [{ category: 'asc' }, { tier: 'asc' }],
-    }),
-    prisma.userAchievement.findMany({
+  /**
+   * Get user achievements
+   */
+  async getUserAchievements(userId: string): Promise<any[]> {
+    const userAchievements = await prisma.userAchievement.findMany({
       where: { userId },
       include: { achievement: true },
-    }),
-  ]);
+      orderBy: { earnedAt: 'desc' }
+    });
 
-  const unlockedIds = new Set(userAchievements.map(ua => ua.achievementId));
+    return userAchievements.map(ua => ({
+      ...ua.achievement,
+      earnedAt: ua.earnedAt,
+      progress: ua.progress
+    }));
+  }
 
-  const achievements = allAchievements.map(achievement => ({
-    ...achievement,
-    isUnlocked: unlockedIds.has(achievement.id),
-  }));
+  /**
+   * Check and award achievements
+   */
+  async checkAndAwardAchievements(userId: string): Promise<Achievement[]> {
+    const awardedAchievements: Achievement[] = [];
 
-  return achievements;
+    for (const achievement of this.achievements) {
+      const hasAchievement = await prisma.userAchievement.findFirst({
+        where: { userId, achievementId: achievement.id }
+      });
+
+      if (hasAchievement) continue;
+
+      const meetsCriteria = await this.checkAchievementCriteria(userId, achievement);
+      if (meetsCriteria) {
+        await prisma.userAchievement.create({
+          data: {
+            userId,
+            achievementId: achievement.id,
+            earnedAt: new Date()
+          }
+        });
+
+        // Award experience points
+        await this.awardExperiencePoints(userId, achievement.points);
+
+        awardedAchievements.push(achievement);
+        logger.info(`User ${userId} earned achievement: ${achievement.title}`);
+      }
+    }
+
+    return awardedAchievements;
+  }
+
+  /**
+   * Check if user meets achievement criteria
+   */
+  private async checkAchievementCriteria(userId: string, achievement: Achievement): Promise<boolean> {
+    const { criteria } = achievement;
+
+    switch (criteria.type) {
+      case 'count':
+        return await this.checkCountCriteria(userId, criteria);
+
+      case 'streak':
+        return await this.checkStreakCriteria(userId, criteria);
+
+      case 'milestone':
+        return await this.checkMilestoneCriteria(userId, criteria);
+
+      case 'social':
+        return await this.checkSocialCriteria(userId, criteria);
+
+      default:
+        return false;
+    }
+  }
+
+  private async checkCountCriteria(userId: string, criteria: AchievementCriteria): Promise<boolean> {
+    const { conditions } = criteria;
+
+    if (conditions.donation_completed) {
+      const donationCount = await prisma.donation.count({
+        where: { donorId: userId, status: 'completed' }
+      });
+      return donationCount >= criteria.target;
+    }
+
+    if (conditions.unique_recipients) {
+      const uniqueRecipients = await prisma.donation.findMany({
+        where: { donorId: userId, status: 'completed' },
+        select: { recipientId: true },
+        distinct: ['recipientId']
+      });
+      return uniqueRecipients.length >= criteria.target;
+    }
+
+    if (conditions.post_type === 'story') {
+      const postCount = await prisma.communityPost.count({
+        where: { authorId: userId, type: 'story' }
+      });
+      return postCount >= criteria.target;
+    }
+
+    if (conditions.event_created) {
+      const eventCount = await prisma.communityEvent.count({
+        where: { creatorId: userId }
+      });
+      return eventCount >= criteria.target;
+    }
+
+    if (conditions.marketplace_purchase) {
+      const purchaseCount = await prisma.marketplaceTransaction.count({
+        where: { userId, status: 'completed' }
+      });
+      return purchaseCount >= criteria.target;
+    }
+
+    return false;
+  }
+
+  private async checkStreakCriteria(userId: string, criteria: AchievementCriteria): Promise<boolean> {
+    // Calculate current streak based on donation activity
+    const donations = await prisma.donation.findMany({
+      where: {
+        donorId: userId,
+        status: 'completed',
+        createdAt: { gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) } // Last 30 days
+      },
+      orderBy: { createdAt: 'desc' },
+      select: { createdAt: true }
+    });
+
+    if (donations.length < criteria.target) return false;
+
+    // Check for consecutive days
+    const dates = donations.map(d => d.createdAt.toDateString());
+    const uniqueDates = [...new Set(dates)];
+
+    // Simple streak check - user has been active on target number of different days
+    return uniqueDates.length >= criteria.target;
+  }
+
+  private async checkMilestoneCriteria(userId: string, criteria: AchievementCriteria): Promise<boolean> {
+    const { conditions } = criteria;
+
+    if (conditions.coins_earned) {
+      const user = await prisma.user.findUnique({
+        where: { id: userId },
+        select: { charityCoins: true }
+      });
+      return (user?.charityCoins || 0) >= criteria.target;
+    }
+
+    return false;
+  }
+
+  private async checkSocialCriteria(userId: string, criteria: AchievementCriteria): Promise<boolean> {
+    const { conditions } = criteria;
+
+    if (conditions.post_likes_received) {
+      const posts = await prisma.communityPost.findMany({
+        where: { authorId: userId },
+        select: { id: true }
+      });
+
+      const postIds = posts.map(p => p.id);
+      const totalLikes = await prisma.postLike.count({
+        where: { postId: { in: postIds } }
+      });
+
+      return totalLikes >= criteria.target;
+    }
+
+    return false;
+  }
+
+  /**
+   * Award experience points and handle leveling
+   */
+  private async awardExperiencePoints(userId: string, points: number): Promise<void> {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { experiencePoints: true, level: true }
+    });
+
+    if (!user) return;
+
+    const newExperience = user.experiencePoints + points;
+    let newLevel = user.level;
+
+    // Check for level up
+    while (newLevel < this.levelThresholds.length &&
+           newExperience >= this.levelThresholds[newLevel]) {
+      newLevel++;
+    }
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: {
+        experiencePoints: newExperience,
+        level: newLevel
+      }
+    });
+
+    if (newLevel > user.level) {
+      logger.info(`User ${userId} leveled up to ${newLevel}`);
+      // Could trigger level-up notifications here
+    }
+  }
+
+  /**
+   * Get user progress and stats
+   */
+  async getUserProgress(userId: string): Promise<UserProgress> {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        level: true,
+        experiencePoints: true,
+        _count: {
+          select: {
+            userAchievements: true
+          }
+        }
+      }
+    });
+
+    if (!user) {
+      throw new Error('User not found');
+    }
+
+    const currentLevelThreshold = this.levelThresholds[user.level - 1] || 0;
+    const nextLevelThreshold = this.levelThresholds[user.level] || this.levelThresholds[this.levelThresholds.length - 1];
+    const experienceToNext = nextLevelThreshold - user.experiencePoints;
+
+    // Get recent achievements
+    const recentAchievements = await prisma.userAchievement.findMany({
+      where: { userId },
+      include: { achievement: true },
+      orderBy: { earnedAt: 'desc' },
+      take: 5
+    });
+
+    // Calculate weekly stats
+    const weekStart = new Date();
+    weekStart.setDate(weekStart.getDate() - 7);
+
+    const weeklyStats = await this.calculateWeeklyStats(userId, weekStart);
+
+    return {
+      userId,
+      level: user.level,
+      experiencePoints: user.experiencePoints,
+      experienceToNext,
+      totalAchievements: user._count.userAchievements,
+      recentAchievements: recentAchievements.map(ua => ua.achievement),
+      currentStreaks: await this.calculateCurrentStreaks(userId),
+      weeklyStats
+    };
+  }
+
+  private async calculateWeeklyStats(userId: string, weekStart: Date): Promise<UserProgress['weeklyStats']> {
+    const [donations, recipients, coinsEarned, posts] = await Promise.all([
+      prisma.donation.count({
+        where: {
+          donorId: userId,
+          status: 'completed',
+          createdAt: { gte: weekStart }
+        }
+      }),
+      prisma.donation.findMany({
+        where: {
+          donorId: userId,
+          status: 'completed',
+          createdAt: { gte: weekStart }
+        },
+        select: { recipientId: true },
+        distinct: ['recipientId']
+      }),
+      prisma.coinTransaction.aggregate({
+        where: {
+          userId,
+          type: 'earned',
+          createdAt: { gte: weekStart }
+        },
+        _sum: { amount: true }
+      }),
+      prisma.communityPost.count({
+        where: {
+          authorId: userId,
+          createdAt: { gte: weekStart }
+        }
+      })
+    ]);
+
+    return {
+      donations,
+      recipientsHelped: recipients.length,
+      coinsEarned: coinsEarned._sum.amount || 0,
+      communityPosts: posts
+    };
+  }
+
+  private async calculateCurrentStreaks(userId: string): Promise<Record<string, number>> {
+    // Calculate donation streak
+    const recentDonations = await prisma.donation.findMany({
+      where: {
+        donorId: userId,
+        status: 'completed'
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 30,
+      select: { createdAt: true }
+    });
+
+    const dates = recentDonations.map(d => d.createdAt.toDateString());
+    const uniqueDates = [...new Set(dates)];
+
+    // Simple streak calculation
+    let streak = 0;
+    const today = new Date().toDateString();
+    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toDateString();
+
+    if (uniqueDates.includes(today) || uniqueDates.includes(yesterday)) {
+      streak = 1;
+      for (let i = 1; i <= 30; i++) {
+        const checkDate = new Date(Date.now() - i * 24 * 60 * 60 * 1000).toDateString();
+        if (uniqueDates.includes(checkDate)) {
+          streak++;
+        } else {
+          break;
+        }
+      }
+    }
+
+    return { donations: streak };
+  }
+
+  /**
+   * Get leaderboard
+   */
+  async getLeaderboard(
+    type: 'experience' | 'donations' | 'recipients' | 'coins' = 'experience',
+    timeframe: 'weekly' | 'monthly' | 'all_time' = 'monthly',
+    limit: number = 50
+  ): Promise<LeaderboardEntry[]> {
+    let orderBy: any;
+    let where: any = {};
+
+    // Calculate date range
+    const now = new Date();
+    let startDate: Date;
+
+    switch (timeframe) {
+      case 'weekly':
+        startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        break;
+      case 'monthly':
+        startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+        break;
+      default:
+        startDate = new Date(0); // All time
+    }
+
+    where.createdAt = { gte: startDate };
+
+    switch (type) {
+      case 'experience':
+        orderBy = { experiencePoints: 'desc' };
+        break;
+      case 'donations':
+        // This would require aggregation - simplified for now
+        orderBy = { experiencePoints: 'desc' }; // Placeholder
+        break;
+      case 'coins':
+        orderBy = { charityCoins: 'desc' };
+        break;
+      default:
+        orderBy = { experiencePoints: 'desc' };
+    }
+
+    const users = await prisma.user.findMany({
+      where: { isActive: true },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        avatar: true,
+        experiencePoints: true,
+        charityCoins: true,
+        level: true
+      },
+      orderBy,
+      take: limit
+    });
+
+    return users.map((user, index) => ({
+      userId: user.id,
+      username: `${user.firstName} ${user.lastName}`,
+      avatar: user.avatar || undefined,
+      score: type === 'coins' ? user.charityCoins : user.experiencePoints,
+      rank: index + 1,
+      change: 0, // Would need historical data to calculate
+      badges: [] // Would be populated based on achievements
+    }));
+  }
+
+  /**
+   * Update user streaks and check for streak-based achievements
+   */
+  async updateUserStreaks(userId: string): Promise<void> {
+    // This would be called periodically or after user actions
+    await this.checkAndAwardAchievements(userId);
+  }
+
+  /**
+   * Get achievement progress for user
+   */
+  async getAchievementProgress(userId: string): Promise<any[]> {
+    const progress = [];
+
+    for (const achievement of this.achievements) {
+      const hasAchievement = await prisma.userAchievement.findFirst({
+        where: { userId, achievementId: achievement.id }
+      });
+
+      if (hasAchievement) {
+        progress.push({
+          ...achievement,
+          status: 'completed',
+          progress: 100,
+          earnedAt: hasAchievement.earnedAt
+        });
+      } else {
+        // Calculate progress
+        const currentProgress = await this.calculateAchievementProgress(userId, achievement);
+        progress.push({
+          ...achievement,
+          status: 'in_progress',
+          progress: Math.min(currentProgress, 100)
+        });
+      }
+    }
+
+    return progress;
+  }
+
+  private async calculateAchievementProgress(userId: string, achievement: Achievement): Promise<number> {
+    const { criteria } = achievement;
+
+    switch (criteria.type) {
+      case 'count':
+        if (criteria.conditions?.donation_completed) {
+          const count = await prisma.donation.count({
+            where: { donorId: userId, status: 'completed' }
+          });
+          return Math.min((count / criteria.target) * 100, 100);
+        }
+        break;
+
+      case 'milestone':
+        if (criteria.conditions?.coins_earned) {
+          const user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { charityCoins: true }
+          });
+          return Math.min(((user?.charityCoins || 0) / criteria.target) * 100, 100);
+        }
+        break;
+    }
+
+    return 0;
+  }
 }
-
-export async function getUnlockedAchievements(userId: string) {
-  return await prisma.userAchievement.findMany({
-    where: { userId },
-    include: { achievement: true },
-    orderBy: { unlockedAt: 'desc' },
-  });
-}
-
-export async function getDailyStreak(userId: string) {
-  return await prisma.dailyStreak.findUnique({ where: { userId } });
-}
-
-export async function getUserAchievementCount(userId: string) {
-  return await prisma.userAchievement.count({ where: { userId } });
-}
-
-export async function getGamificationStats(userId: string) {
-  return await prisma.gamificationStats.findUnique({ where: { userId } });
-}
-
-export default {
-  getTodaysMissions,
-  completeMission,
-  updateStreak,
-  getTodaysProgress,
-  updateRingProgress,
-  getActiveWeeklyChallenges,
-  getUserWeeklyChallengeProgress,
-  updateWeeklyChallengeProgress,
-  checkAndUnlockAchievements,
-  getAllAchievements,
-  getUnlockedAchievements,
-  getDailyStreak,
-  getUserAchievementCount,
-  getGamificationStats,
-};

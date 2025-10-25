@@ -1,140 +1,551 @@
-// Add to existing schema.prisma
+// ChainGive v2.2 Database Schema
+// Enhanced with community events, marketplace interactions, and analytics
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// =========================================
+// Core User Management
+// =========================================
+
+model User {
+  id                    String    @id @default(cuid())
+  phoneNumber          String    @unique
+  firstName            String
+  lastName             String
+  email                String?   @unique
+  avatar               String?
+  bio                  String?
+  city                 String?
+  dateOfBirth          DateTime?
+  gender               String?
+  language             String    @default("en")
+  timezone             String    @default("Africa/Lagos")
+  isActive             Boolean   @default(true)
+  isVerified           Boolean   @default(false)
+  trustScore           Float     @default(5.0)
+  totalGiven           Float     @default(0)
+  totalReceived        Float     @default(0)
+  charityCoins         Int       @default(0)
+  level                Int       @default(1)
+  experiencePoints     Int       @default(0)
+  lastActiveAt         DateTime  @default(now())
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  // Relations
+  authTokens           AuthToken[]
+  donations            Donation[]
+  receivedDonations    Donation[]         @relation("RecipientDonations")
+  coinTransactions     CoinTransaction[]
+  communityPosts       CommunityPost[]
+  eventRSVPs           EventRSVP[]
+  eventDonations       EventDonation[]
+  marketplaceInteractions MarketplaceInteraction[]
+  marketplaceTransactions MarketplaceTransaction[]
+  achievements         UserAchievement[]
+  fraudLogs            FraudDetectionLog[]
+  analyticsEvents      UserAnalyticsEvent[]
+  engagementMetrics    UserEngagementMetric[]
+  conversionFunnels    ConversionFunnel[]
+
+  @@map("users")
+}
+
+model AuthToken {
+  id           String    @id @default(cuid())
+  userId       String
+  token        String    @unique
+  type         String    // 'access' | 'refresh' | 'biometric'
+  expiresAt    DateTime
+  isRevoked    Boolean   @default(false)
+  createdAt    DateTime  @default(now())
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("auth_tokens")
+}
+
+// =========================================
+// Donation & Charity System
+// =========================================
+
+model Donation {
+  id                String      @id @default(cuid())
+  donorId           String
+  recipientId       String?
+  amount            Float
+  currency          String      @default("NGN")
+  status            String      @default("pending") // 'pending' | 'matched' | 'completed' | 'cancelled'
+  category          String      @default("general")
+  message           String?
+  isAnonymous       Boolean     @default(false)
+  aiMatchScore      Float?
+  escrowId          String?
+  completedAt       DateTime?
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  donor             User        @relation(fields: [donorId], references: [id])
+  recipient         User?       @relation("RecipientDonations", fields: [recipientId], references: [id])
+
+  @@map("donations")
+}
+
+model CoinTransaction {
+  id            String    @id @default(cuid())
+  userId        String
+  amount        Int
+  type          String    // 'earned' | 'spent' | 'bonus'
+  reason        String
+  referenceId   String?   // ID of related donation/transaction
+  balanceAfter  Int
+  createdAt     DateTime  @default(now())
+
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("coin_transactions")
+}
+
+// =========================================
+// Enhanced Community Features
+// =========================================
 
 model CommunityPost {
-  id                String   @id @default(cuid())
-  authorId          String
-  title             String
-  content           String   @db.Text
-  postType          String   // 'success_story', 'testimonial', 'featured_request', 'announcement'
-  mediaUrls         String[] @default([])
-  metadata          Json     @default("{}")
-  status            String   @default("pending_moderation") // 'pending_moderation', 'approved', 'rejected', 'flagged'
-  likesCount        Int      @default(0)
-  sharesCount       Int      @default(0)
-  reportsCount      Int      @default(0)
-  moderatedAt       DateTime?
-  moderatedBy       String?
-  moderationReason  String?
-  eventId           String?  // Link to community event if it's an event announcement
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id            String            @id @default(cuid())
+  authorId      String
+  content       String
+  type          String            @default("story") // 'story' | 'event' | 'announcement'
+  media         String[]          @default([])
+  eventId       String?
+  likes         Int               @default(0)
+  commentsCount Int               @default(0)
+  isHidden      Boolean           @default(false)
+  reportedCount Int               @default(0)
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
 
-  author            User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
-  event             CommunityEvent? @relation(fields: [eventId], references: [id])
-  likes             CommunityPostLike[]
-  shares            CommunityPostShare[]
-  reports           PostReport[]
+  author        User              @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  comments      PostComment[]
+  likes         PostLike[]
 
   @@map("community_posts")
 }
 
-model CommunityEvent {
-  id                String   @id @default(cuid())
-  creatorId         String
-  title             String
-  description       String   @db.Text
-  eventDate         DateTime
-  eventTime         String
-  location          String
-  maxAttendees      Int?
-  currentAttendees  Int      @default(0)
-  eventType         String   // 'fundraising', 'community_meeting', 'workshop', 'celebration'
-  fundraisingGoal   Decimal? @db.Decimal(15, 2)
-  status            String   @default("active") // 'active', 'cancelled', 'completed'
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+model PostComment {
+  id        String        @id @default(cuid())
+  postId    String
+  authorId  String
+  content   String
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
 
-  creator           User     @relation(fields: [creatorId], references: [id], onDelete: Cascade)
-  rsvps             EventRSVP[]
-  posts             CommunityPost[]
+  post      CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  author    User          @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@map("post_comments")
+}
+
+model PostLike {
+  id        String         @id @default(cuid())
+  postId    String
+  userId    String
+  createdAt DateTime       @default(now())
+
+  post      CommunityPost  @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, userId])
+  @@map("post_likes")
+}
+
+model CommunityEvent {
+  id                    String            @id @default(cuid())
+  creatorId             String
+  title                 String
+  description           String
+  eventDate             DateTime
+  eventTime             String
+  location              String
+  maxAttendees          Int?
+  currentAttendees      Int               @default(0)
+  eventType             String            @default("community")
+  fundraisingGoal       Float?
+  currentRaised         Float             @default(0)
+  virtualMeetingUrl     String?
+  virtualMeetingProvider String?
+  maxVirtualAttendees   Int?
+  isVirtual             Boolean           @default(false)
+  registrationRequired  Boolean           @default(false)
+  registrationDeadline  DateTime?
+  tags                  String[]          @default([])
+  featured              Boolean           @default(false)
+  priority              Int               @default(0)
+  status                String            @default("active")
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+
+  creator               User              @relation(fields: [creatorId], references: [id])
+  rsvps                 EventRSVP[]
+  donations             EventDonation[]
+  feedback              EventFeedback[]
+  tracking              EventTracking[]
 
   @@map("community_events")
 }
 
-model CommunityPostLike {
-  id        String @id @default(cuid())
-  postId    String
-  userId    String
-  createdAt DateTime @default(now())
-
-  post      CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
-  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([postId, userId])
-  @@map("community_post_likes")
-}
-
-model CommunityPostShare {
-  id        String @id @default(cuid())
-  postId    String
-  userId    String
-  createdAt DateTime @default(now())
-
-  post      CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
-  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@unique([postId, userId])
-  @@map("community_post_shares")
-}
-
 model EventRSVP {
-  id        String @id @default(cuid())
-  eventId   String
-  userId    String
-  status    String @default("attending") // 'attending', 'maybe', 'declined'
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id                    String         @id @default(cuid())
+  eventId               String
+  userId                String
+  status                String         @default("attending")
+  checkedIn             Boolean        @default(false)
+  checkedInAt           DateTime?
+  registrationData      Json?
+  dietaryRestrictions   String?
+  accessibilityNeeds    String?
+  emergencyContact      Json?
+  createdAt             DateTime       @default(now())
+  updatedAt             DateTime       @updatedAt
 
-  event     CommunityEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  event                 CommunityEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user                  User           @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([eventId, userId])
   @@map("event_rsvps")
 }
 
-model PostReport {
-  id          String @id @default(cuid())
-  postId      String
-  reporterId  String
-  reason      String
-  description String?
-  status      String @default("pending") // 'pending', 'reviewed', 'dismissed'
-  reviewedAt  DateTime?
-  reviewedBy  String?
-  createdAt   DateTime @default(now())
+model EventDonation {
+  id              String         @id @default(cuid())
+  eventId         String
+  donorId         String
+  amount          Float
+  currency        String         @default("NGN")
+  donationType    String         @default("event_fundraising")
+  message         String?
+  isAnonymous     Boolean        @default(false)
+  paymentMethod   String?
+  transactionId   String?        @unique
+  status          String         @default("completed")
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
 
-  post        CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
-  reporter    User          @relation(fields: [reporterId], references: [id], onDelete: Cascade)
+  event           CommunityEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  donor           User           @relation(fields: [donorId], references: [id], onDelete: Cascade)
 
-  @@map("post_reports")
+  @@map("event_donations")
 }
 
-model ModerationLog {
-  id         String @id @default(cuid())
-  postId     String
-  moderatorId String
-  action     String // 'approve', 'reject', 'flag'
-  reason     String?
-  createdAt  DateTime @default(now())
+model EventFeedback {
+  id                      String         @id @default(cuid())
+  eventId                 String
+  userId                  String
+  rating                  Int
+  feedback                String?
+  wouldRecommend          Boolean?
+  improvementsSuggestions String?
+  createdAt               DateTime       @default(now())
 
-  post       CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
-  moderator  User          @relation(fields: [moderatorId], references: [id], onDelete: Cascade)
+  event                   CommunityEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user                    User           @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@map("moderation_logs")
+  @@unique([eventId, userId])
+  @@map("event_feedback")
 }
 
-// Update User model to include community relations
-model User {
-  // ... existing fields ...
+model EventTracking {
+  id        String         @id @default(cuid())
+  eventId   String
+  userId    String
+  action    String
+  metadata  Json?
+  createdAt DateTime       @default(now())
 
-  // Community relations
-  communityPosts      CommunityPost[]
-  createdEvents       CommunityEvent[]
-  postLikes           CommunityPostLike[]
-  postShares          CommunityPostShare[]
-  eventRsvps          EventRSVP[]
-  postReports         PostReport[]
-  moderationLogs      ModerationLog[]
+  event     CommunityEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  // ... rest of existing model ...
+  @@map("event_tracking")
+}
+
+// =========================================
+// Marketplace System
+// =========================================
+
+model MarketplaceItem {
+  id            String                    @id @default(cuid())
+  name          String
+  description   String
+  cost          Float
+  category      String
+  imageUrl      String?
+  isActive      Boolean                   @default(true)
+  stock         Int                       @default(-1) // -1 = unlimited
+  featured      Boolean                   @default(false)
+  trending      Boolean                   @default(false)
+  limitedTime   Boolean                   @default(false)
+  createdAt     DateTime                  @default(now())
+  updatedAt     DateTime                  @updatedAt
+
+  interactions  MarketplaceInteraction[]
+  transactions  MarketplaceTransaction[]
+  auctions      MarketplaceAuction[]
+
+  @@map("marketplace_items")
+}
+
+model MarketplaceInteraction {
+  id              String           @id @default(cuid())
+  userId          String
+  listingId       String
+  action          String
+  rating          Float?
+  reviewText      String?
+  purchaseAmount  Float?
+  currency        String           @default("NGN")
+  sessionId       String?
+  userAgent       String?
+  ipAddress       String?
+  location        Json?
+  metadata        Json?
+  createdAt       DateTime         @default(now())
+  lastInteraction DateTime         @default(now())
+
+  user            User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  listing         MarketplaceItem  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@map("marketplace_interactions")
+}
+
+model MarketplaceTransaction {
+  id                  String           @id @default(cuid())
+  userId              String
+  listingId           String
+  transactionType     String           @default("redemption")
+  amount              Float
+  coinsSpent          Int
+  currency            String           @default("NGN")
+  paymentMethod       String?
+  externalTransactionId String?
+  voucherCode         String?          @unique
+  voucherExpiry       DateTime?
+  deliveryMethod      String           @default("digital")
+  deliveryAddress     Json?
+  status              String           @default("pending")
+  failureReason       String?
+  metadata            Json?
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+
+  user                User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  listing             MarketplaceItem  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  escrow              EscrowTransaction?
+
+  @@map("marketplace_transactions")
+}
+
+model MarketplaceAuction {
+  id              String              @id @default(cuid())
+  listingId       String
+  sellerId        String
+  startingPrice   Float
+  reservePrice    Float?
+  currentPrice    Float?
+  bidIncrement    Float               @default(50.00)
+  durationHours   Int                 @default(24)
+  startTime       DateTime            @default(now())
+  endTime         DateTime
+  winnerId        String?
+  winningBid      Float?
+  status          String              @default("active")
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  listing         MarketplaceItem     @relation(fields: [listingId], references: [id])
+  seller          User                @relation(fields: [sellerId], references: [id])
+  winner          User?               @relation("AuctionWinner", fields: [winnerId], references: [id])
+  bids            AuctionBid[]
+
+  @@map("marketplace_auctions")
+}
+
+model AuctionBid {
+  id          String             @id @default(cuid())
+  auctionId   String
+  bidderId    String
+  amount      Float
+  isWinning   Boolean            @default(false)
+  bidTime     DateTime           @default(now())
+
+  auction     MarketplaceAuction @relation(fields: [auctionId], references: [id], onDelete: Cascade)
+  bidder      User               @relation(fields: [bidderId], references: [id])
+
+  @@unique([auctionId, bidderId, amount])
+  @@map("auction_bids")
+}
+
+model EscrowTransaction {
+  id                  String                  @id @default(cuid())
+  transactionId       String                  @unique
+  escrowType          String                  @default("instant")
+  amount              Float
+  conditions          Json?
+  timeoutHours        Int?
+  releaseConditions   Json?
+  status              String                  @default("held")
+  releasedAt          DateTime?
+  disputed            Boolean                 @default(false)
+  disputeReason       String?
+  disputeResolvedAt   DateTime?
+  createdAt           DateTime                @default(now())
+  updatedAt           DateTime                @updatedAt
+
+  transaction         MarketplaceTransaction  @relation(fields: [transactionId], references: [id])
+
+  @@map("escrow_transactions")
+}
+
+// =========================================
+// Analytics & Tracking
+// =========================================
+
+model UserAnalyticsEvent {
+  id            String    @id @default(cuid())
+  userId        String
+  eventType     String
+  eventCategory String?
+  eventAction   String?
+  eventLabel    String?
+  eventValue    Float?
+  pageUrl       String?
+  referrerUrl   String?
+  userAgent     String?
+  ipAddress     String?
+  location      Json?
+  deviceInfo    Json?
+  sessionId     String?
+  campaignData  Json?
+  metadata      Json?
+  createdAt     DateTime  @default(now())
+
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_analytics_events")
+}
+
+model UserEngagementMetric {
+  id            String    @id @default(cuid())
+  userId        String
+  metricType    String
+  metricValue   Float?
+  periodStart   DateTime
+  periodEnd     DateTime
+  calculatedAt  DateTime  @default(now())
+
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, metricType, periodStart, periodEnd])
+  @@map("user_engagement_metrics")
+}
+
+model ConversionFunnel {
+  id              String    @id @default(cuid())
+  funnelName      String
+  userId          String
+  stepNumber      Int
+  stepName        String
+  completed       Boolean   @default(false)
+  completedAt     DateTime?
+  timeSpentSeconds Int?
+  metadata        Json?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  user            User      @relation(fields: [userId], references: [id])
+
+  @@map("conversion_funnels")
+}
+
+// =========================================
+// Gamification & Achievements
+// =========================================
+
+model Achievement {
+  id          String             @id @default(cuid())
+  title       String
+  description String
+  icon        String
+  category    String
+  rarity      String             @default("common") // 'common' | 'rare' | 'epic' | 'legendary'
+  points      Int                @default(0)
+  criteria    Json
+  isActive    Boolean            @default(true)
+  createdAt   DateTime           @default(now())
+
+  userAchievements UserAchievement[]
+
+  @@map("achievements")
+}
+
+model UserAchievement {
+  id            String      @id @default(cuid())
+  userId        String
+  achievementId String
+  earnedAt      DateTime    @default(now())
+  progress      Float?      // For progress-based achievements
+
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  achievement   Achievement @relation(fields: [achievementId], references: [id])
+
+  @@unique([userId, achievementId])
+  @@map("user_achievements")
+}
+
+// =========================================
+// Fraud Detection & Security
+// =========================================
+
+model FraudDetectionLog {
+  id                      String    @id @default(cuid())
+  transactionId           String?
+  userId                  String
+  riskScore               Float?
+  riskLevel               String?
+  detectionRules          String[]
+  flaggedIndicators       String[]
+  aiModelPrediction       Float?
+  manualReviewRequired    Boolean   @default(false)
+  reviewedBy              String?
+  reviewDecision          String?
+  reviewNotes             String?
+  falsePositive           Boolean?
+  createdAt               DateTime  @default(now())
+  reviewedAt              DateTime?
+
+  user                    User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("fraud_detection_logs")
+}
+
+model AIModelPerformance {
+  id                    String    @id @default(cuid())
+  modelName             String
+  modelVersion          String?
+  metricName            String
+  metricValue           Float?
+  testDatasetSize       Int?
+  trainingTimeSeconds   Int?
+  predictionTimeMs      Float?
+  accuracy              Float?
+  precision             Float?
+  recall                Float?
+  f1Score               Float?
+  metadata              Json?
+  evaluatedAt           DateTime  @default(now())
+
+  @@map("ai_model_performance")
 }

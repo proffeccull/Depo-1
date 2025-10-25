@@ -1,424 +1,419 @@
+import { Injectable } from 'inversify';
 import { PrismaClient } from '@prisma/client';
-import { injectable, inject } from 'inversify';
-import winston from 'winston';
+import logger from '../utils/logger';
 
-export interface AnalyticsEventInput {
-  eventType: string;
-  eventData?: any;
-  userId?: string;
-  sessionId?: string;
-  deviceInfo?: any;
-  ipAddress?: string;
-  userAgent?: string;
+export interface AnalyticsData {
+  period: 'day' | 'week' | 'month' | 'year';
+  startDate: Date;
+  endDate: Date;
+  metrics: {
+    totalUsers: number;
+    activeUsers: number;
+    newUsers: number;
+    totalDonations: number;
+    totalAmount: number;
+    averageDonation: number;
+    completionRate: number;
+    topCategories: Array<{ category: string; amount: number; count: number }>;
+    geographicDistribution: Array<{ location: string; users: number; donations: number }>;
+    hourlyActivity: Array<{ hour: number; donations: number }>;
+  };
 }
 
-export interface AnalyticsQuery {
-  eventType?: string;
-  userId?: string;
-  startDate?: Date;
-  endDate?: Date;
-  limit?: number;
-  offset?: number;
+export interface UserBehavior {
+  userId: string;
+  sessionDuration: number;
+  pagesViewed: string[];
+  actionsPerformed: string[];
+  deviceInfo: {
+    type: string;
+    os: string;
+    browser?: string;
+  };
+  location?: string;
 }
 
-export interface AnalyticsMetrics {
-  totalEvents: number;
-  uniqueUsers: number;
-  topEvents: Array<{ eventType: string; count: number }>;
-  dailyStats: Array<{ date: string; count: number }>;
-  conversionRates: Record<string, number>;
-  retentionMetrics: {
+@Injectable()
+export class AnalyticsService {
+  constructor(private readonly prisma: PrismaClient) {}
+
+  /**
+   * Get comprehensive analytics data
+   */
+  async getAnalyticsData(
+    period: 'day' | 'week' | 'month' | 'year' = 'month',
+    startDate?: Date,
+    endDate?: Date
+  ): Promise<AnalyticsData> {
+    try {
+      const { start, end } = this.calculateDateRange(period, startDate, endDate);
+
+      const [
+        userStats,
+        donationStats,
+        categoryStats,
+        geographicStats,
+        hourlyStats
+      ] = await Promise.all([
+        this.getUserStatistics(start, end),
+        this.getDonationStatistics(start, end),
+        this.getCategoryStatistics(start, end),
+        this.getGeographicStatistics(start, end),
+        this.getHourlyActivity(start, end)
+      ]);
+
+      return {
+        period,
+        startDate: start,
+        endDate: end,
+        metrics: {
+          totalUsers: userStats.total,
+          activeUsers: userStats.active,
+          newUsers: userStats.new,
+          totalDonations: donationStats.total,
+          totalAmount: donationStats.amount,
+          averageDonation: donationStats.average,
+          completionRate: donationStats.completionRate,
+          topCategories: categoryStats,
+          geographicDistribution: geographicStats,
+          hourlyActivity: hourlyStats
+        }
+      };
+    } catch (error) {
+      logger.error('Error getting analytics data', { period, error: error.message });
+      throw error;
+    }
+  }
+
+  /**
+   * Track user behavior
+   */
+  async trackUserBehavior(behavior: UserBehavior): Promise<void> {
+    try {
+      await this.prisma.userAnalytics.create({
+        data: {
+          userId: behavior.userId,
+          sessionDuration: behavior.sessionDuration,
+          pagesViewed: behavior.pagesViewed,
+          actionsPerformed: behavior.actionsPerformed,
+          deviceType: behavior.deviceInfo.type,
+          deviceOS: behavior.deviceInfo.os,
+          deviceBrowser: behavior.deviceInfo.browser,
+          location: behavior.location,
+          createdAt: new Date()
+        }
+      });
+
+      logger.info('User behavior tracked', { userId: behavior.userId });
+    } catch (error) {
+      logger.error('Error tracking user behavior', { userId: behavior.userId, error: error.message });
+    }
+  }
+
+  /**
+   * Get user retention metrics
+   */
+  async getRetentionMetrics(cohortDate: Date): Promise<{
+    cohort: Date;
     day1: number;
     day7: number;
     day30: number;
-  };
-  revenueMetrics: {
-    totalRevenue: number;
-    averageOrderValue: number;
-    conversionRate: number;
-  };
-}
-
-export interface UserBehaviorAnalysis {
-  sessionDuration: number;
-  pageViews: number;
-  bounceRate: number;
-  conversionFunnel: Array<{ step: string; users: number; dropoffRate: number }>;
-  heatmapData: Array<{ x: number; y: number; intensity: number }>;
-}
-
-export interface CohortAnalysis {
-  cohortMonth: string;
-  totalUsers: number;
-  retentionByMonth: Record<string, number>;
-}
-
-@injectable()
-export class AnalyticsService {
-  constructor(
-    @inject('PrismaClient') private prisma: PrismaClient,
-    @inject('Logger') private logger: winston.Logger
-  ) {}
-
-  async trackEvent(eventData: AnalyticsEventInput): Promise<void> {
+    day90: number;
+  }> {
     try {
-      await this.prisma.analyticsEvent.create({
-        data: {
-          eventType: eventData.eventType,
-          eventData: eventData.eventData || {},
-          userId: eventData.userId,
-          sessionId: eventData.sessionId,
-          deviceInfo: eventData.deviceInfo,
-          ipAddress: eventData.ipAddress,
-          userAgent: eventData.userAgent,
+      const cohortUsers = await this.prisma.user.findMany({
+        where: {
+          createdAt: {
+            gte: cohortDate,
+            lt: new Date(cohortDate.getTime() + 24 * 60 * 60 * 1000)
+          }
         },
+        select: { id: true, createdAt: true }
       });
 
-      // Track real-time metrics
-      await this.updateRealTimeMetrics(eventData.eventType, eventData.userId);
-
-      this.logger.info('Analytics event tracked', { 
-        eventType: eventData.eventType,
-        userId: eventData.userId 
-      });
-    } catch (error) {
-      this.logger.error('Failed to track analytics event', { error, eventData });
-      throw new Error('EVENT_TRACKING_FAILED');
-    }
-  }
-
-  async trackBulkEvents(events: AnalyticsEventInput[]): Promise<void> {
-    try {
-      await this.prisma.analyticsEvent.createMany({
-        data: events.map(event => ({
-          eventType: event.eventType,
-          eventData: event.eventData || {},
-          userId: event.userId,
-          sessionId: event.sessionId,
-          deviceInfo: event.deviceInfo,
-          ipAddress: event.ipAddress,
-          userAgent: event.userAgent,
-        })),
-      });
-
-      this.logger.info('Bulk analytics events tracked', { count: events.length });
-    } catch (error) {
-      this.logger.error('Failed to track bulk analytics events', { error });
-      throw new Error('BULK_EVENT_TRACKING_FAILED');
-    }
-  }
-
-  async getEvents(query: AnalyticsQuery): Promise<any[]> {
-    try {
-      const where: any = {};
-      
-      if (query.eventType) where.eventType = query.eventType;
-      if (query.userId) where.userId = query.userId;
-      if (query.startDate || query.endDate) {
-        where.createdAt = {};
-        if (query.startDate) where.createdAt.gte = query.startDate;
-        if (query.endDate) where.createdAt.lte = query.endDate;
+      const cohortSize = cohortUsers.length;
+      if (cohortSize === 0) {
+        return {
+          cohort: cohortDate,
+          day1: 0,
+          day7: 0,
+          day30: 0,
+          day90: 0
+        };
       }
 
-      return await this.prisma.analyticsEvent.findMany({
-        where,
+      const retention = await Promise.all([
+        this.calculateRetention(cohortUsers, 1),
+        this.calculateRetention(cohortUsers, 7),
+        this.calculateRetention(cohortUsers, 30),
+        this.calculateRetention(cohortUsers, 90)
+      ]);
+
+      return {
+        cohort: cohortDate,
+        day1: (retention[0] / cohortSize) * 100,
+        day7: (retention[1] / cohortSize) * 100,
+        day30: (retention[2] / cohortSize) * 100,
+        day90: (retention[3] / cohortSize) * 100
+      };
+    } catch (error) {
+      logger.error('Error calculating retention metrics', { cohortDate, error: error.message });
+      throw error;
+    }
+  }
+
+  /**
+   * Get donation funnel analysis
+   */
+  async getDonationFunnel(): Promise<{
+    awareness: number;
+    interest: number;
+    consideration: number;
+    intent: number;
+    donation: number;
+  }> {
+    try {
+      // This would track the donation funnel stages
+      // Implementation depends on specific tracking events
+      return {
+        awareness: 1000,
+        interest: 800,
+        consideration: 600,
+        intent: 400,
+        donation: 200
+      };
+    } catch (error) {
+      logger.error('Error getting donation funnel', { error: error.message });
+      throw error;
+    }
+  }
+
+  /**
+   * Get predictive analytics for user behavior
+   */
+  async getPredictiveInsights(userId: string): Promise<{
+    likelyToDonate: number;
+    preferredAmount: number;
+    preferredCategory: string;
+    nextDonationDate: Date;
+  }> {
+    try {
+      // Simple predictive logic based on historical data
+      const userHistory = await this.prisma.donation.findMany({
+        where: {
+          donorId: userId,
+          status: 'completed'
+        },
         orderBy: { createdAt: 'desc' },
-        take: query.limit || 100,
-        skip: query.offset || 0,
-      });
-    } catch (error) {
-      this.logger.error('Failed to fetch analytics events', { error, query });
-      throw new Error('ANALYTICS_FETCH_FAILED');
-    }
-  }
-
-  async getMetrics(startDate: Date, endDate: Date): Promise<AnalyticsMetrics> {
-    try {
-      const [totalEvents, uniqueUsers, topEvents, dailyStats, conversionRates, retentionMetrics, revenueMetrics] = await Promise.all([
-        this.prisma.analyticsEvent.count({
-          where: { createdAt: { gte: startDate, lte: endDate } }
-        }),
-        this.prisma.analyticsEvent.findMany({
-          where: { 
-            createdAt: { gte: startDate, lte: endDate },
-            userId: { not: null }
-          },
-          select: { userId: true },
-          distinct: ['userId']
-        }).then(results => results.length),
-        this.prisma.analyticsEvent.groupBy({
-          by: ['eventType'],
-          where: { createdAt: { gte: startDate, lte: endDate } },
-          _count: { eventType: true },
-          orderBy: { _count: { eventType: 'desc' } },
-          take: 10
-        }),
-        this.prisma.$queryRaw`
-          SELECT DATE(created_at) as date, COUNT(*) as count
-          FROM analytics_events 
-          WHERE created_at >= ${startDate} AND created_at <= ${endDate}
-          GROUP BY DATE(created_at)
-          ORDER BY date
-        `,
-        this.calculateConversionRates(startDate, endDate),
-        this.calculateRetentionMetrics(startDate, endDate),
-        this.calculateRevenueMetrics(startDate, endDate)
-      ]);
-
-      return {
-        totalEvents,
-        uniqueUsers,
-        topEvents: topEvents.map(event => ({
-          eventType: event.eventType,
-          count: event._count.eventType
-        })),
-        dailyStats: dailyStats as Array<{ date: string; count: number }>,
-        conversionRates,
-        retentionMetrics,
-        revenueMetrics
-      };
-    } catch (error) {
-      this.logger.error('Failed to get analytics metrics', { error });
-      throw new Error('ANALYTICS_METRICS_FAILED');
-    }
-  }
-
-  async getUserActivity(userId: string, days: number = 30): Promise<any> {
-    try {
-      const startDate = new Date();
-      startDate.setDate(startDate.getDate() - days);
-
-      const events = await this.prisma.analyticsEvent.findMany({
-        where: {
-          userId,
-          createdAt: { gte: startDate }
-        },
-        orderBy: { createdAt: 'desc' }
+        take: 10
       });
 
-      const eventsByType = events.reduce((acc, event) => {
-        acc[event.eventType] = (acc[event.eventType] || 0) + 1;
-        return acc;
-      }, {} as Record<string, number>);
-
-      const sessionAnalysis = await this.analyzeUserSessions(userId, startDate);
-
-      return {
-        totalEvents: events.length,
-        eventsByType,
-        lastActivity: events[0]?.createdAt,
-        activeDays: new Set(events.map(e => e.createdAt.toDateString())).size,
-        sessionAnalysis,
-        engagementScore: this.calculateEngagementScore(events)
-      };
-    } catch (error) {
-      this.logger.error('Failed to get user activity', { error, userId });
-      throw new Error('USER_ACTIVITY_FAILED');
-    }
-  }
-
-  async getUserBehaviorAnalysis(userId: string, startDate: Date, endDate: Date): Promise<UserBehaviorAnalysis> {
-    try {
-      const events = await this.prisma.analyticsEvent.findMany({
-        where: {
-          userId,
-          createdAt: { gte: startDate, lte: endDate }
-        },
-        orderBy: { createdAt: 'asc' }
-      });
-
-      const sessions = this.groupEventsBySessions(events);
-      const avgSessionDuration = sessions.reduce((sum, session) => sum + session.duration, 0) / sessions.length;
-      const pageViews = events.filter(e => e.eventType === 'page_view').length;
-      const bounceRate = sessions.filter(s => s.events.length === 1).length / sessions.length;
-
-      return {
-        sessionDuration: avgSessionDuration,
-        pageViews,
-        bounceRate,
-        conversionFunnel: await this.calculateConversionFunnel(userId, startDate, endDate),
-        heatmapData: await this.generateHeatmapData(userId, startDate, endDate)
-      };
-    } catch (error) {
-      this.logger.error('Failed to analyze user behavior', { error, userId });
-      throw new Error('USER_BEHAVIOR_ANALYSIS_FAILED');
-    }
-  }
-
-  async getCohortAnalysis(startDate: Date, endDate: Date): Promise<CohortAnalysis[]> {
-    try {
-      const cohorts = await this.prisma.$queryRaw`
-        SELECT 
-          DATE_FORMAT(u.created_at, '%Y-%m') as cohort_month,
-          COUNT(DISTINCT u.id) as total_users,
-          COUNT(DISTINCT CASE WHEN ae.created_at IS NOT NULL THEN u.id END) as retained_users
-        FROM users u
-        LEFT JOIN analytics_events ae ON u.id = ae.user_id 
-          AND ae.created_at BETWEEN ${startDate} AND ${endDate}
-        WHERE u.created_at BETWEEN ${startDate} AND ${endDate}
-        GROUP BY cohort_month
-        ORDER BY cohort_month
-      ` as any[];
-
-      return cohorts.map(cohort => ({
-        cohortMonth: cohort.cohort_month,
-        totalUsers: cohort.total_users,
-        retentionByMonth: {} // Would calculate detailed retention here
-      }));
-    } catch (error) {
-      this.logger.error('Failed to get cohort analysis', { error });
-      throw new Error('COHORT_ANALYSIS_FAILED');
-    }
-  }
-
-  async exportAnalyticsData(query: AnalyticsQuery, format: 'csv' | 'json' | 'xlsx'): Promise<Buffer | string> {
-    try {
-      const events = await this.getEvents(query);
-      
-      switch (format) {
-        case 'csv':
-          return this.convertToCSV(events);
-        case 'json':
-          return JSON.stringify(events, null, 2);
-        case 'xlsx':
-          return await this.convertToXLSX(events);
-        default:
-          throw new Error('UNSUPPORTED_FORMAT');
+      if (userHistory.length === 0) {
+        return {
+          likelyToDonate: 0.5,
+          preferredAmount: 5000,
+          preferredCategory: 'general',
+          nextDonationDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+        };
       }
-    } catch (error) {
-      this.logger.error('Failed to export analytics data', { error, query, format });
-      throw new Error('EXPORT_FAILED');
-    }
-  }
 
-  async getRealTimeMetrics(): Promise<any> {
-    try {
-      const now = new Date();
-      const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
+      const averageAmount = userHistory.reduce((sum, d) => sum + d.amount, 0) / userHistory.length;
+      const categories = userHistory.map(d => d.category);
+      const preferredCategory = categories.sort((a, b) =>
+        categories.filter(v => v === a).length - categories.filter(v => v === b).length
+      ).pop() || 'general';
 
-      const [activeUsers, recentEvents, topPages] = await Promise.all([
-        this.prisma.analyticsEvent.findMany({
-          where: { createdAt: { gte: oneHourAgo } },
-          select: { userId: true },
-          distinct: ['userId']
-        }).then(results => results.length),
-        this.prisma.analyticsEvent.count({
-          where: { createdAt: { gte: oneHourAgo } }
-        }),
-        this.prisma.analyticsEvent.groupBy({
-          by: ['eventData'],
-          where: { 
-            eventType: 'page_view',
-            createdAt: { gte: oneHourAgo }
-          },
-          _count: { eventType: true },
-          orderBy: { _count: { eventType: 'desc' } },
-          take: 5
-        })
-      ]);
+      // Calculate donation frequency
+      const dates = userHistory.map(d => d.createdAt.getTime()).sort();
+      const intervals = [];
+      for (let i = 1; i < dates.length; i++) {
+        intervals.push(dates[i] - dates[i - 1]);
+      }
+      const avgInterval = intervals.length > 0
+        ? intervals.reduce((a, b) => a + b, 0) / intervals.length
+        : 30 * 24 * 60 * 60 * 1000; // 30 days default
+
+      const lastDonation = userHistory[0].createdAt;
+      const nextDonationDate = new Date(lastDonation.getTime() + avgInterval);
 
       return {
-        activeUsers,
-        recentEvents,
-        topPages,
-        timestamp: now.toISOString()
+        likelyToDonate: Math.min(userHistory.length / 10, 1), // Simple likelihood based on history
+        preferredAmount: Math.round(averageAmount),
+        preferredCategory,
+        nextDonationDate
       };
     } catch (error) {
-      this.logger.error('Failed to get real-time metrics', { error });
-      throw new Error('REALTIME_METRICS_FAILED');
+      logger.error('Error getting predictive insights', { userId, error: error.message });
+      throw error;
     }
   }
 
-  private async updateRealTimeMetrics(eventType: string, userId?: string): Promise<void> {
-    // Update Redis or in-memory cache for real-time dashboard
-    // Implementation would depend on caching strategy
+  /**
+   * Export analytics data for reporting
+   */
+  async exportAnalyticsData(
+    format: 'json' | 'csv' = 'json',
+    startDate: Date,
+    endDate: Date
+  ): Promise<string> {
+    try {
+      const data = await this.getAnalyticsData('month', startDate, endDate);
+
+      if (format === 'csv') {
+        return this.convertToCSV(data);
+      }
+
+      return JSON.stringify(data, null, 2);
+    } catch (error) {
+      logger.error('Error exporting analytics data', { format, error: error.message });
+      throw error;
+    }
   }
 
-  private async calculateConversionRates(startDate: Date, endDate: Date): Promise<Record<string, number>> {
-    const funnelSteps = ['page_view', 'signup_start', 'signup_complete', 'first_donation'];
-    const rates: Record<string, number> = {};
-
-    for (let i = 0; i < funnelSteps.length - 1; i++) {
-      const currentStep = funnelSteps[i];
-      const nextStep = funnelSteps[i + 1];
-
-      const [currentCount, nextCount] = await Promise.all([
-        this.prisma.analyticsEvent.count({
-          where: { eventType: currentStep, createdAt: { gte: startDate, lte: endDate } }
-        }),
-        this.prisma.analyticsEvent.count({
-          where: { eventType: nextStep, createdAt: { gte: startDate, lte: endDate } }
-        })
-      ]);
-
-      rates[`${currentStep}_to_${nextStep}`] = currentCount > 0 ? nextCount / currentCount : 0;
+  /**
+   * Private helper methods
+   */
+  private calculateDateRange(
+    period: string,
+    startDate?: Date,
+    endDate?: Date
+  ): { start: Date; end: Date } {
+    if (startDate && endDate) {
+      return { start: startDate, end: endDate };
     }
 
-    return rates;
+    const end = new Date();
+    let start = new Date();
+
+    switch (period) {
+      case 'day':
+        start.setDate(end.getDate() - 1);
+        break;
+      case 'week':
+        start.setDate(end.getDate() - 7);
+        break;
+      case 'month':
+        start.setMonth(end.getMonth() - 1);
+        break;
+      case 'year':
+        start.setFullYear(end.getFullYear() - 1);
+        break;
+    }
+
+    return { start, end };
   }
 
-  private async calculateRetentionMetrics(startDate: Date, endDate: Date): Promise<any> {
-    // Calculate day 1, 7, and 30 retention rates
-    const day1 = await this.calculateRetentionForPeriod(startDate, endDate, 1);
-    const day7 = await this.calculateRetentionForPeriod(startDate, endDate, 7);
-    const day30 = await this.calculateRetentionForPeriod(startDate, endDate, 30);
+  private async getUserStatistics(start: Date, end: Date): Promise<{
+    total: number;
+    active: number;
+    new: number;
+  }> {
+    const [total, active, newUsers] = await Promise.all([
+      this.prisma.user.count(),
+      this.prisma.user.count({
+        where: {
+          lastLoginAt: { gte: start }
+        }
+      }),
+      this.prisma.user.count({
+        where: {
+          createdAt: { gte: start, lte: end }
+        }
+      })
+    ]);
 
-    return { day1, day7, day30 };
+    return { total, active, new: newUsers };
   }
 
-  private async calculateRetentionForPeriod(startDate: Date, endDate: Date, days: number): Promise<number> {
-    // Implementation for retention calculation
-    return 0.75; // Placeholder
+  private async getDonationStatistics(start: Date, end: Date): Promise<{
+    total: number;
+    amount: number;
+    average: number;
+    completionRate: number;
+  }> {
+    const donations = await this.prisma.donation.findMany({
+      where: {
+        createdAt: { gte: start, lte: end }
+      }
+    });
+
+    const total = donations.length;
+    const amount = donations.reduce((sum, d) => sum + d.amount, 0);
+    const average = total > 0 ? amount / total : 0;
+    const completed = donations.filter(d => d.status === 'completed').length;
+    const completionRate = total > 0 ? (completed / total) * 100 : 0;
+
+    return { total, amount, average, completionRate };
   }
 
-  private async calculateRevenueMetrics(startDate: Date, endDate: Date): Promise<any> {
-    // Calculate revenue-related metrics from donation and coin purchase events
-    return {
-      totalRevenue: 0,
-      averageOrderValue: 0,
-      conversionRate: 0
-    };
+  private async getCategoryStatistics(start: Date, end: Date): Promise<Array<{
+    category: string;
+    amount: number;
+    count: number;
+  }>> {
+    const result = await this.prisma.donation.groupBy({
+      by: ['category'],
+      where: {
+        createdAt: { gte: start, lte: end },
+        status: 'completed'
+      },
+      _count: { category: true },
+      _sum: { amount: true }
+    });
+
+    return result.map(item => ({
+      category: item.category,
+      amount: item._sum.amount || 0,
+      count: item._count.category
+    })).sort((a, b) => b.amount - a.amount);
   }
 
-  private async analyzeUserSessions(userId: string, startDate: Date): Promise<any> {
-    // Analyze user session patterns
-    return {
-      averageSessionDuration: 0,
-      sessionsPerDay: 0,
-      mostActiveHours: []
-    };
-  }
-
-  private calculateEngagementScore(events: any[]): number {
-    // Calculate user engagement score based on events
-    return Math.min(100, events.length * 2);
-  }
-
-  private groupEventsBySessions(events: any[]): any[] {
-    // Group events into sessions based on time gaps
+  private async getGeographicStatistics(start: Date, end: Date): Promise<Array<{
+    location: string;
+    users: number;
+    donations: number;
+  }>> {
+    // Simplified geographic stats - would need location tracking
     return [];
   }
 
-  private async calculateConversionFunnel(userId: string, startDate: Date, endDate: Date): Promise<any[]> {
-    // Calculate conversion funnel for specific user
-    return [];
+  private async getHourlyActivity(start: Date, end: Date): Promise<Array<{
+    hour: number;
+    donations: number;
+  }>> {
+    const result = await this.prisma.$queryRaw<Array<{ hour: number; count: bigint }>>`
+      SELECT
+        EXTRACT(hour from "createdAt") as hour,
+        COUNT(*) as count
+      FROM donations
+      WHERE "createdAt" >= ${start} AND "createdAt" <= ${end}
+      GROUP BY EXTRACT(hour from "createdAt")
+      ORDER BY hour
+    `;
+
+    return result.map(item => ({
+      hour: Number(item.hour),
+      donations: Number(item.count)
+    }));
   }
 
-  private async generateHeatmapData(userId: string, startDate: Date, endDate: Date): Promise<any[]> {
-    // Generate heatmap data for user interactions
-    return [];
+  private async calculateRetention(users: any[], days: number): Promise<number> {
+    const retentionDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+    const retainedUsers = await this.prisma.user.count({
+      where: {
+        id: { in: users.map(u => u.id) },
+        lastLoginAt: { gte: retentionDate }
+      }
+    });
+
+    return retainedUsers;
   }
 
-  private convertToCSV(data: any[]): string {
-    if (data.length === 0) return '';
-    
-    const headers = Object.keys(data[0]).join(',');
-    const rows = data.map(row => Object.values(row).join(','));
-    return [headers, ...rows].join('\n');
-  }
-
-  private async convertToXLSX(data: any[]): Promise<Buffer> {
-    // Implementation would use a library like xlsx
-    return Buffer.from(''); // Placeholder
+  private convertToCSV(data: AnalyticsData): string {
+    // Simple CSV conversion - would need proper CSV library for complex data
+    return `Period,${data.period}\nStart Date,${data.startDate.toISOString()}\nEnd Date,${data.endDate.toISOString()}\nTotal Users,${data.metrics.totalUsers}\nActive Users,${data.metrics.activeUsers}\nNew Users,${data.metrics.newUsers}\nTotal Donations,${data.metrics.totalDonations}\nTotal Amount,${data.metrics.totalAmount}\nAverage Donation,${data.metrics.averageDonation}\nCompletion Rate,${data.metrics.completionRate}`;
   }
 }
+
+export default AnalyticsService;

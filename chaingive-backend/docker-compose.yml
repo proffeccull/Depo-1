@@ -1,0 +1,169 @@
+version: '3.8'
+
+services:
+  # API Gateway/Service Discovery
+  api-gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - API_VERSION=v2
+    depends_on:
+      - auth-service
+      - user-service
+      - donation-service
+      - marketplace-service
+      - analytics-service
+      - community-service
+    networks:
+      - chaingive-network
+
+  # Authentication Service
+  auth-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.microservice
+    environment:
+      - SERVICE_NAME=auth
+      - DATABASE_URL=${DATABASE_URL}
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - chaingive-network
+
+  # User Management Service
+  user-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.microservice
+    environment:
+      - SERVICE_NAME=user
+      - DATABASE_URL=${DATABASE_URL}
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - chaingive-network
+
+  # Donation Cycle Service
+  donation-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.microservice
+    environment:
+      - SERVICE_NAME=donation
+      - DATABASE_URL=${DATABASE_URL}
+      - AI_MODEL_PATH=/app/models
+    depends_on:
+      - postgres
+      - redis
+      - ai-service
+    networks:
+      - chaingive-network
+
+  # Marketplace Service
+  marketplace-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.microservice
+    environment:
+      - SERVICE_NAME=marketplace
+      - DATABASE_URL=${DATABASE_URL}
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - chaingive-network
+
+  # Analytics Service
+  analytics-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.microservice
+    environment:
+      - SERVICE_NAME=analytics
+      - DATABASE_URL=${DATABASE_URL}
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - chaingive-network
+
+  # Community Service
+  community-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.microservice
+    environment:
+      - SERVICE_NAME=community
+      - DATABASE_URL=${DATABASE_URL}
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - chaingive-network
+
+  # AI Service for matching and fraud detection
+  ai-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.ai
+    environment:
+      - SERVICE_NAME=ai
+    networks:
+      - chaingive-network
+
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15
+    environment:
+      - POSTGRES_DB=chaingive
+      - POSTGRES_USER=chaingive
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - chaingive-network
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    networks:
+      - chaingive-network
+
+  # Monitoring Stack
+  prometheus:
+    image: prom/prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+    networks:
+      - chaingive-network
+
+  grafana:
+    image: grafana/grafana
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD}
+    volumes:
+      - grafana_data:/var/lib/grafana
+    networks:
+      - chaingive-network
+
+volumes:
+  postgres_data:
+  redis_data:
+  grafana_data:
+
+networks:
+  chaingive-network:
+    driver: bridge

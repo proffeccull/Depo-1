@@ -72,7 +72,7 @@ initializeSentry();
 
 const app = express();
 const PORT: number = Number(process.env.PORT) || 3000;
-const API_VERSION = process.env.API_VERSION || 'v1';
+const API_VERSION = process.env.API_VERSION || 'v2';
 
 // Sentry request handler (must be first middleware)
 app.use(sentryRequestHandler);
