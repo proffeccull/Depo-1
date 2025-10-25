@@ -7,6 +7,36 @@ interface MatchPreferences {
   faith?: string;
 }
 
+interface UserFeatures {
+  trustScore: number;
+  locationProximity: number;
+  timeWaiting: number;
+  completedCycles: number;
+  donationHistory: number;
+  categoryPreference: number;
+  age: number;
+  accountAge: number;
+}
+
+interface MatchingModel {
+  weights: {
+    locationProximity: number;
+    trustScore: number;
+    timeWaiting: number;
+    donationHistory: number;
+    categoryPreference: number;
+    age: number;
+    accountAge: number;
+    completedCycles: number;
+    randomization: number;
+  };
+  thresholds: {
+    minTrustScore: number;
+    maxTimeWaiting: number;
+    minCompletedCycles: number;
+  };
+}
+
 /**
  * Find best match for a donor
  * Uses algorithm based on:
@@ -68,45 +98,46 @@ export async function findBestMatch(
     return null;
   }
 
-  // Score each qualified candidate
-  const scoredCandidates = qualifiedCandidates.map((candidate) => {
+  // Score each qualified candidate using AI-enhanced algorithm
+  const scoredCandidates = await Promise.all(qualifiedCandidates.map(async (candidate) => {
     let score = 0;
 
-    // Trust score (0-100 points)
-    score += Number(candidate.trustScore) * 20;
+    // Extract user features for AI model
+    const features: UserFeatures = {
+      trustScore: Number(candidate.trustScore),
+      locationProximity: preferences.location && candidate.locationCity === preferences.location ? 1 : 0,
+      timeWaiting: candidate.cycles.length > 0 ?
+        Math.floor((Date.now() - candidate.cycles[0].createdAt.getTime()) / (1000 * 60 * 60 * 24)) : 0,
+      completedCycles: candidate.qualification.completedCycles,
+      donationHistory: await getUserDonationHistory(candidate.id),
+      categoryPreference: 0, // Would be calculated based on donation categories
+      age: calculateAge(candidate.dateOfBirth),
+      accountAge: Math.floor((Date.now() - candidate.createdAt.getTime()) / (1000 * 60 * 60 * 24))
+    };
 
-    // Has pending obligation (50 points)
-    if (candidate.cycles.length > 0) {
-      score += 50;
+    // Use AI model for scoring if available, fallback to rule-based
+    try {
+      score = await predictMatchScore(features, amount);
+    } catch (error) {
+      logger.warn('AI scoring failed, using rule-based scoring', { error: error.message });
+      score = calculateRuleBasedScore(candidate, preferences, features);
     }
-
-    // Location match (30 points)
-    if (preferences.location && candidate.locationCity === preferences.location) {
-      score += 30;
-    }
-
-    // Time waiting (calculated from oldest cycle)
-    if (candidate.cycles.length > 0) {
-      const oldestCycle = candidate.cycles[0];
-      const daysWaiting = Math.floor(
-        (Date.now() - oldestCycle.createdAt.getTime()) / (1000 * 60 * 60 * 24)
-      );
-      score += Math.min(daysWaiting * 2, 40); // Up to 40 points
-    }
-
-    // Bonus: User has completed many cycles (reliability bonus)
-    score += Math.min(candidate.qualification.completedCycles * 5, 30);
 
     return {
       ...candidate,
       score,
+      features
     };
-  });
+  }));
 
   // Sort by score (highest first)
   scoredCandidates.sort((a, b) => b.score - a.score);
 
   const bestMatch = scoredCandidates[0];
+
+  if (!bestMatch) {
+    return null;
+  }
 
   // Create match record
   const match = await prisma.match.create({
@@ -114,25 +145,5 @@ export async function findBestMatch(
       donorId,
       recipientId: bestMatch.id,
       amount,
-      priorityScore: bestMatch.score,
       status: 'pending',
-      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24 hours
-    },
-    include: {
-      recipient: {
-        select: {
-          id: true,
-          firstName: true,
-          lastName: true,
-          locationCity: true,
-          trustScore: true,
-          totalCyclesCompleted: true,
-        },
-      },
-    },
-  });
-
-  logger.info(`Match created: Donor ${donorId} → Recipient ${bestMatch.id} (score: ${bestMatch.score})`);
-
-  return match;
-}
+      expiresAt: new Date(Date.now() + 24 * 60 

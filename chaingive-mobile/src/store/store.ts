@@ -2,6 +2,7 @@ import { configureStore } from '@reduxjs/toolkit';
 import { persistStore, persistReducer } from 'redux-persist';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { combineReducers } from '@reduxjs/toolkit';
+import communityReducer from './slices/communitySlice';
 import authReducer from './slices/authSlice';
 import gamificationReducer from './slices/gamificationSlice';
 import coinPurchaseReducer from './slices/coinPurchaseSlice';
@@ -35,6 +36,7 @@ const persistConfig = {
   storage: AsyncStorage,
   whitelist: ['auth', 'coin', 'subscription'],
 };
+  community: communityReducer,
 
 const rootReducer = combineReducers({
   auth: authReducer,

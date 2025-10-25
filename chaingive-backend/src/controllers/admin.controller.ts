@@ -114,7 +114,7 @@ export const getUserDetails = async (req: AuthRequest, res: Response, next: Next
           take: 10,
           orderBy: { createdAt: 'desc' },
         },
-        kYCRecords: true,
+        kycRecords: true,
         agent: true,
         leaderboard: true,
         referralsGiven: {
@@ -376,7 +376,7 @@ export const getPendingKYC = async (req: AuthRequest, res: Response, next: NextF
     res.status(200).json({
       success: true,
       data: {
-        kYCRecords: pending,
+        kycRecords: pending,
         total: pending.length,
       },
     });

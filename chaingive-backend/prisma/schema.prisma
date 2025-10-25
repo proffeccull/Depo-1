@@ -1,1014 +1,140 @@
-datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
-}
-
-// For Cloudflare D1 compatibility (commented out for now)
-// datasource db {
-//   provider = "sqlite"
-//   url      = "file:./dev.db"
-// }
-
-generator client {
-  provider = "prisma-client-js"
-}
-
-model User {
-   id                       String                   @id @default(cuid())
-   email                    String?                  @unique
-   password                 String?
-   passwordHash             String?
-   phoneNumber              String?                  @unique
-   firstName                String?
-   lastName                 String?
-   role                     String                   @default("Donor")
-   tier                     Int                      @default(1)
-   trustScore               Float                    @default(5.0)
-   totalCyclesCompleted     Int                      @default(0)
-   totalDonated             Float                    @default(0)
-   totalReceived            Float                    @default(0)
-   charityCoinsBalance      Float                    @default(0)
-   walletBalance            Float                    @default(0)
-   kycStatus                String                   @default("pending")
-   isActive                 Boolean                  @default(true)
-   isBanned                 Boolean                  @default(false)
-   banReason                String?
-   locationCity             String?
-   locationState            String?
-   lastLoginAt              DateTime?
-   createdAt                DateTime                 @default(now())
-   updatedAt                DateTime                 @updatedAt
-   // MFA fields
-   mfaEnabled               Boolean                  @default(false)
-   mfaSecret                String?
-   mfaBackupCodes           String[]                 @default([])
-   // Push notification token
-   fcmToken                 String?
-   // User role permissions
-   userRole                 String?
-   // Display name for social features
-   displayName              String?
-  profile                  Profile?
-  donations                Donation[]
-  userSubscriptions        UserSubscription[]
-  payments                 Payment[]
-  notifications            Notification[]
-  settings                 Setting[]
-  auditLogs                AuditLog[]
-  proposals                Proposal[]
-  votes                    Vote[]
-  userChallenges           UserChallenge[]
-  rewards                  UserReward[]
-  coinPurchases            CoinPurchase[]
-  socialConnections        SocialConnection[]
-  marketplaceItems         MarketplaceItem[]
-  marketplaceTransactions  MarketplaceTransaction[]
-  comments                 Comment[]
-  likes                    Like[]
-  reports                  Report[]
-  wallet                   UserWallet?
-  authoredGodmodeLogs      GodmodeLog[]             @relation("AuthoredGodmodeLogs")
-  targettedGodmodeLogs     GodmodeLog[]             @relation("TargettedGodmodeLogs")
-  aiRecommendations        AIRecommendation[]
-  merchant                 Merchant?
-  merchantPayments         MerchantPayment[]        @relation("MerchantPaymentToUser")
-  merchantPaymentRequests  MerchantPaymentRequest[] @relation("MerchantPaymentRequestToUser")
-  corporate                Corporate?
-  corporateTeamMemberships CorporateTeamMember[]
-  createdSocialCircles     SocialCircle[]
-  socialCircleMemberships  SocialCircleMember[]
-  socialPosts              SocialPost[]
-  socialComments           SocialComment[]
-  socialLikes              SocialLike[]
-  socialCommentLikes       SocialCommentLike[]
-  cycles                   Cycle[]
-  sentTransactions         Transaction[]            @relation("SentTransactions")
-  receivedTransactions     Transaction[]            @relation("ReceivedTransactions")
-  transactions             Transaction[]
-  kycRecords               KYCRecord[]
-  agent                    Agent?
-  leaderboard              Leaderboard?
-  referralsGiven           Referral[]               @relation("ReferrerUser")
-  referralsReceived        Referral[]               @relation("ReferredUser")
-  adminActions             AdminAction[]
-  CoinSaleToUser           CoinSaleToUser[]
-  subscriptions            Subscription[]
-  coinPurchasesFromAdminAsUser CoinPurchaseFromAdmin[] @relation("CoinPurchaseUser")
-  coinPurchasesFromAdminAsAdmin CoinPurchaseFromAdmin[] @relation("CoinPurchaseAdmin")
-  userAchievements         UserAchievement[]
-  gamificationStats        GamificationStats?
-  dailyStreak              DailyStreak?
-  donorMatches             Match[]               @relation("DonorMatches")
-  recipientMatches         Match[]               @relation("RecipientMatches")
-  recurringDonations       RecurringDonation[]
-}
-
-model Profile {
-  id        String   @id @default(cuid())
-  userId    String   @unique
-  user      User     @relation(fields: [userId], references: [id])
-  firstName String?
-  lastName  String?
-  avatarUrl String?
-  bio       String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-model Donation {
-  id                String             @id @default(cuid())
-  userId            String
-  user              User               @relation(fields: [userId], references: [id])
-  amount            Float
-  categoryId        String
-  category          DonationCategory   @relation(fields: [categoryId], references: [id])
-  cycleId           String
-  cycle             DonationCycle      @relation(fields: [cycleId], references: [id])
-  createdAt         DateTime           @default(now())
-  updatedAt         DateTime           @updatedAt
-  donationMatchings DonationMatching[]
-}
-
-model DonationCategory {
-  id        String     @id @default(cuid())
-  name      String     @unique
-  donations Donation[]
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
-}
-
-model DonationCycle {
-  id        String     @id @default(cuid())
-  name      String
-  startDate DateTime
-  endDate   DateTime
-  donations Donation[]
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
-}
-
-model Subscription {
-   id                String             @id @default(cuid())
-   name              String
-   price             Float
-   features          String[]
-   status            String             @default("active")
-   currentPeriodEnd  DateTime?
-   autoRenew         Boolean            @default(true)
-   userId            String?
-   user              User?              @relation(fields: [userId], references: [id])
-   plan              SubscriptionPlan?  @relation(fields: [planId], references: [id])
-   planId            String?
-   createdAt         DateTime           @default(now())
-   updatedAt         DateTime           @updatedAt
-   userSubscriptions UserSubscription[]
-   subscriptionHistory SubscriptionHistory[]
-}
-
-model SubscriptionPlan {
-   id          String       @id @default(cuid())
-   name        String
-   price       Float
-   features    String[]
-   status      String       @default("active")
-   currentPeriodEnd DateTime?
-   createdAt   DateTime     @default(now())
-   updatedAt   DateTime     @updatedAt
-   subscriptions Subscription[]
-}
-
-model SubscriptionHistory {
-   id             String      @id @default(cuid())
-   subscriptionId String
-   subscription   Subscription @relation(fields: [subscriptionId], references: [id])
-   action         String
-   details        Json?
-   createdAt      DateTime    @default(now())
-}
-
-model Payment {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id])
-  amount    Float
-  status    String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-model Notification {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id])
-  message   String
-  read      Boolean  @default(false)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-model Setting {
-  id        String   @id @default(cuid())
-  userId    String   @unique
-  user      User     @relation(fields: [userId], references: [id])
-  settings  Json
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-model AuditLog {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id])
-  action    String
-  details   Json?
-  createdAt DateTime @default(now())
-}
-
-model AdminAction {
-  id        String   @id @default(cuid())
-  adminId   String
-  admin     User     @relation(fields: [adminId], references: [id])
-  action    String
-  targetId  String?
-  details   Json
-  createdAt DateTime @default(now())
-}
-
-model FeatureFlag {
-  id          String   @id @default(cuid())
-  name        String   @unique
-  isEnabled   Boolean  @default(false)
-  description String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-}
-
-model Proposal {
-  id          String   @id @default(cuid())
-  userId      String
-  user        User     @relation(fields: [userId], references: [id])
-  title       String
-  description String
-  status      String   @default("pending")
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  votes       Vote[]
-}
-
-model Vote {
-  id         String   @id @default(cuid())
-  proposalId String
-  proposal   Proposal @relation(fields: [proposalId], references: [id])
-  userId     String
-  user       User     @relation(fields: [userId], references: [id])
-  support    Boolean
-  createdAt  DateTime @default(now())
-
-  @@unique([proposalId, userId])
-}
-
-model VotingConfiguration {
-  id          String   @id @default(cuid())
-  name        String   @unique
-  value       String
-  description String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-}
-
-model Reward {
-  id          String       @id @default(cuid())
-  name        String
-  description String
-  points      Int
-  userRewards UserReward[]
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
-}
-
-model Challenge {
-  id             String          @id @default(cuid())
-  name           String
-  description    String
-  points         Int
-  userChallenges UserChallenge[]
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
-}
-
-model UserChallenge {
-  id          String    @id @default(cuid())
-  userId      String
-  user        User      @relation(fields: [userId], references: [id])
-  challengeId String
-  challenge   Challenge @relation(fields: [challengeId], references: [id])
-  completed   Boolean   @default(false)
-  completedAt DateTime?
-  createdAt   DateTime  @default(now())
-
-  @@unique([userId, challengeId])
-}
-
-model Leaderboard {
-   id             String   @id @default(cuid())
-   userId         String   @unique
-   user           User     @relation(fields: [userId], references: [id])
-   points         Int
-   rank           Int
-   totalScore     Int      @default(0)
-   totalDonations Float    @default(0)
-   createdAt      DateTime @default(now())
-   updatedAt      DateTime @updatedAt
-   boosts         Boost[]
-}
-
-model Boost {
-   id            String     @id @default(cuid())
-   leaderboardId String
-   leaderboard   Leaderboard @relation(fields: [leaderboardId], references: [id])
-   type          String
-   multiplier    Float
-   expiresAt     DateTime?
-   createdAt     DateTime   @default(now())
-}
-
-model Agent {
-  id             String           @id @default(cuid())
-  userId         String           @unique
-  user           User             @relation(fields: [userId], references: [id])
-  location       String
-  phoneNumber    String
-  isActive       Boolean          @default(true)
-  coinPurchases  CoinPurchase[]
-  createdAt      DateTime         @default(now())
-  updatedAt      DateTime         @updatedAt
-  CoinSaleToUser CoinSaleToUser[]
-}
-
-model CoinPurchase {
-   id        String   @id @default(cuid())
-   userId    String
-   user      User     @relation(fields: [userId], references: [id])
-   agentId   String
-   agent     Agent    @relation(fields: [agentId], references: [id])
-   amount    Float
-   status    String
-   createdAt DateTime @default(now())
-   updatedAt DateTime @updatedAt
-}
-
-model CoinPurchaseFromAdmin {
-     id        String   @id @default(cuid())
-     userId    String
-     user      User     @relation("CoinPurchaseUser", fields: [userId], references: [id])
-     adminId   String
-     admin     User     @relation("CoinPurchaseAdmin", fields: [adminId], references: [id])
-     amount    Float
-     status    String
-     createdAt DateTime @default(now())
-     updatedAt DateTime @updatedAt
-
-     @@map("coin_purchases_from_admin")
-}
-
-model UserSubscription {
-  id             String       @id @default(cuid())
-  userId         String
-  user           User         @relation(fields: [userId], references: [id])
-  subscriptionId String
-  subscription   Subscription @relation(fields: [subscriptionId], references: [id])
-  startDate      DateTime
-  endDate        DateTime
-  status         String
-  createdAt      DateTime     @default(now())
-  updatedAt      DateTime     @updatedAt
-
-  @@unique([userId, subscriptionId])
-}
-
-model Escrow {
-  id            String      @id @default(cuid())
-  fromId        String
-  toId          String
-  amount        Float
-  status        String      @default("pending")
-  releasedAt    DateTime?
-  releasedBy    String?
-  notes         String?
-  transactionId String?     @unique
-  transaction   Transaction? @relation(fields: [transactionId], references: [id])
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
-}
-
-model SocialConnection {
-  id           String   @id @default(cuid())
-  userId       String
-  user         User     @relation(fields: [userId], references: [id])
-  platform     String
-  connectionId String
-  createdAt    DateTime @default(now())
-
-  @@unique([userId, platform])
-}
-
-model MarketplaceItem {
-  id           String                   @id @default(cuid())
-  name         String
-  description  String
-  price        Float
-  sellerId     String
-  seller       User                     @relation(fields: [sellerId], references: [id])
-  transactions MarketplaceTransaction[]
-  createdAt    DateTime                 @default(now())
-  updatedAt    DateTime                 @updatedAt
-}
-
-model MarketplaceTransaction {
-  id        String          @id @default(cuid())
-  itemId    String
-  item      MarketplaceItem @relation(fields: [itemId], references: [id])
-  buyerId   String
-  buyer     User            @relation(fields: [buyerId], references: [id])
-  amount    Float
-  status    String
-  createdAt DateTime        @default(now())
-}
-
-model DonationMatching {
-  id         String   @id @default(cuid())
-  donationId String
-  donation   Donation @relation(fields: [donationId], references: [id])
-  matcherId  String
-  amount     Float
-  createdAt  DateTime @default(now())
-}
-
-model DailyChallenge {
-  id          String   @id @default(cuid())
-  name        String
-  description String
-  points      Int
-  date        DateTime @db.Date
-  createdAt   DateTime @default(now())
-}
-
-model Celebration {
-  id          String   @id @default(cuid())
-  name        String
-  description String
-  type        String
-  createdAt   DateTime @default(now())
-}
-
-model UserReward {
-  id        String    @id @default(cuid())
-  userId    String
-  user      User      @relation(fields: [userId], references: [id])
-  rewardId  String
-  reward    Reward    @relation(fields: [rewardId], references: [id])
-  claimed   Boolean   @default(false)
-  claimedAt DateTime?
-  createdAt DateTime  @default(now())
-
-  @@unique([userId, rewardId])
-}
-
-model GamificationMultiplier {
-  id          String   @id @default(cuid())
-  name        String
-  multiplier  Float
-  description String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-}
-
-model GodmodeLog {
-  id           String   @id @default(cuid())
-  adminUserId  String
-  adminUser    User     @relation("AuthoredGodmodeLogs", fields: [adminUserId], references: [id])
-  targetUserId String
-  targetUser   User     @relation("TargettedGodmodeLogs", fields: [targetUserId], references: [id])
-  action       String
-  details      Json
-  createdAt    DateTime @default(now())
-}
-
-
-model Comment {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id])
-  content   String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-model Like {
-  id         String   @id @default(cuid())
-  userId     String
-  user       User     @relation(fields: [userId], references: [id])
-  targetId   String
-  targetType String // e.g., "comment", "proposal"
-  createdAt  DateTime @default(now())
-
-  @@unique([userId, targetId, targetType])
-}
-
-model Report {
-  id         String   @id @default(cuid())
-  reporterId String
-  reporter   User     @relation(fields: [reporterId], references: [id])
-  targetId   String
-  targetType String
-  reason     String
-  createdAt  DateTime @default(now())
-}
-
-model UserWallet {
-  id        String   @id @default(cuid())
-  userId    String   @unique
-  user      User     @relation(fields: [userId], references: [id])
-  balance   Float    @default(0)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-model Cycle {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id])
-  status    String   @default("active")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-model Transaction {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id])
-  fromId    String
-  fromUser  User     @relation("SentTransactions", fields: [fromId], references: [id])
-  toId      String
-  toUser    User     @relation("ReceivedTransactions", fields: [toId], references: [id])
-  amount    Float
-  status    String   @default("pending")
-  notes     String?
-  escrow    Escrow?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-model KYCRecord {
-  id               String    @id @default(cuid())
-  userId           String
-  user             User      @relation(fields: [userId], references: [id])
-  verificationType String
-  status           String    @default("pending")
-  rejectionReason  String?
-  verifiedByUserId String?
-  verifiedAt       DateTime?
-  createdAt        DateTime  @default(now())
-  updatedAt        DateTime  @updatedAt
-}
-
-model Referral {
-   id             String   @id @default(cuid())
-   referrerId     String
-   referrer       User     @relation("ReferrerUser", fields: [referrerId], references: [id])
-   referredUserId String
-   referredUser   User     @relation("ReferredUser", fields: [referredUserId], references: [id])
-   status         String   @default("pending")
-   createdAt      DateTime @default(now())
-}
-
-model CoinSaleToUser {
-  id           String  @id @default(uuid())
-  agentId      String  @map("agent_id")
-  userId       String  @map("user_id")
-  quantity     Int
-  pricePerCoin Decimal @map("price_per_coin") @db.Decimal(10, 2)
-  totalPrice   Decimal @map("total_price") @db.Decimal(12, 2)
-  status       String  @default("pending") @map("status") // pending, escrowed, completed, cancelled, expired
-
-  // Escrow Fields
-  coinsLocked Boolean   @default(false) @map("coins_locked")
-  lockedAt    DateTime? @map("locked_at")
-  expiresAt   DateTime? @map("expires_at") // 30 minutes to pay
-
-  // Payment Confirmation
-  paymentMethod String?   @map("payment_method") // bank_transfer, mobile_money, cash
-  paymentProof  String?   @map("payment_proof")
-  paidAt        DateTime? @map("paid_at")
-  confirmedAt   DateTime? @map("confirmed_at")
-
-  // Revenue tracking (optional, kept for compatibility)
-  agentCommission Decimal? @map("agent_commission") @db.Decimal(12, 2)
-  platformRevenue Decimal? @map("platform_revenue") @db.Decimal(12, 2)
-
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  // Relations
-  agent Agent @relation(fields: [agentId], references: [id])
-  user  User  @relation(fields: [userId], references: [id])
-
-  @@index([agentId])
-  @@index([userId])
-  @@index([status])
-  @@index([coinsLocked])
-  @@index([expiresAt])
-  @@index([createdAt])
-  @@map("coin_sales_to_users")
-}
-
-model Redemption {
-   id         String   @id @default(cuid())
-   coinsSpent Float
-   status     String   @default("pending")
-   createdAt  DateTime @default(now())
-}
-
-// Gamification models
-model Achievement {
-   id          String   @id @default(cuid())
-   name        String
-   description String
-   icon        String?
-   points      Int      @default(0)
-   category    String
-   criteria    Json
-   isActive    Boolean  @default(true)
-   createdAt   DateTime @default(now())
-   updatedAt   DateTime @updatedAt
-
-   userAchievements UserAchievement[]
-}
-
-model UserAchievement {
-   id            String      @id @default(cuid())
-   userId        String
-   user          User        @relation(fields: [userId], references: [id])
-   achievementId String
-   achievement   Achievement @relation(fields: [achievementId], references: [id])
-   unlockedAt    DateTime    @default(now())
-   progress      Float       @default(0)
-
-   @@unique([userId, achievementId])
-}
-
-model GamificationStats {
-   id                String   @id @default(cuid())
-   userId            String   @unique
-   user              User     @relation(fields: [userId], references: [id])
-   totalPoints       Int      @default(0)
-   currentStreak     Int      @default(0)
-   longestStreak     Int      @default(0)
-   lastActivityDate  DateTime?
-   level             Int      @default(1)
-   experiencePoints  Int      @default(0)
-   createdAt         DateTime @default(now())
-   updatedAt         DateTime @updatedAt
-}
-
-model DailyStreak {
-   id         String   @id @default(cuid())
-   userId     String   @unique
-   user       User     @relation(fields: [userId], references: [id])
-   current    Int      @default(0)
-   longest    Int      @default(0)
-   lastDate   DateTime?
-   createdAt  DateTime @default(now())
-   updatedAt  DateTime @updatedAt
-}
-
-// Matching system
-model Match {
-    id          String   @id @default(cuid())
-    donorId     String
-    donor       User     @relation("DonorMatches", fields: [donorId], references: [id])
-    recipientId String
-    recipient   User     @relation("RecipientMatches", fields: [recipientId], references: [id])
-    amount      Float
-    status      String   @default("pending")
-    createdAt   DateTime @default(now())
-    updatedAt   DateTime @updatedAt
-
-    @@map("matches")
-}
-
-// Recurring donations
-model RecurringDonation {
-   id            String   @id @default(cuid())
-   userId        String
-   user          User     @relation(fields: [userId], references: [id])
-   amount        Float
-   frequency     String   // 'weekly', 'monthly', 'quarterly'
-   nextDueDate   DateTime
-   isActive      Boolean  @default(true)
-   paymentMethod String
-   createdAt     DateTime @default(now())
-   updatedAt     DateTime @updatedAt
-}
-
-// Subscription plan (duplicate removed)
-
-// Role and permissions
-model Role {
-   id          String   @id @default(cuid())
-   name        String   @unique
-   description String?
-   createdAt   DateTime @default(now())
-   updatedAt   DateTime @updatedAt
-
-   rolePermissions RolePermission[]
-}
-
-model Permission {
-   id          String   @id @default(cuid())
-   name        String   @unique
-   resource    String
-   action      String
-   description String?
-   createdAt   DateTime @default(now())
-   updatedAt   DateTime @updatedAt
-
-   rolePermissions RolePermission[]
-}
-
-model RolePermission {
-   id           String     @id @default(cuid())
-   roleId       String
-   role         Role       @relation(fields: [roleId], references: [id])
-   permissionId String
-   permission   Permission @relation(fields: [permissionId], references: [id])
-
-   @@unique([roleId, permissionId])
-}
-
-// Mission templates
-model MissionTemplate {
-   id          String   @id @default(cuid())
-   name        String
-   description String
-   type        String
-   points      Int
-   criteria    Json
-   isActive    Boolean  @default(true)
-   createdAt   DateTime @default(now())
-   updatedAt   DateTime @updatedAt
-}
-
-// AI Recommendation System
-model AIRecommendation {
-  id          String    @id @default(cuid())
-  userId      String
-  user        User      @relation(fields: [userId], references: [id])
-  type        String // 'donation_timing', 'amount_suggestion', 'recipient_match', 'coin_purchase'
-  title       String
-  description String
-  confidence  Float
-  data        Json // Additional recommendation data
-  expiresAt   DateTime
-  viewedAt    DateTime?
-  actionedAt  DateTime?
-  feedback    String?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-
-  @@index([userId, type])
-  @@index([expiresAt])
-}
-
-// Analytics Event Tracking
-model AnalyticsEvent {
-  id         String   @id @default(cuid())
-  eventType  String
-  eventData  Json?
-  userId     String?
-  sessionId  String?
-  deviceInfo Json?
-  ipAddress  String?
-  userAgent  String?
-  createdAt  DateTime @default(now())
-
-  @@index([eventType])
-  @@index([userId])
-  @@index([createdAt])
-  @@index([sessionId])
-}
-
-// Merchant System
-model Merchant {
-  id           String   @id @default(cuid())
-  userId       String   @unique
-  user         User     @relation(fields: [userId], references: [id])
-  businessName String
-  businessType String // 'retail', 'service', 'food', 'other'
-  description  String?
-  location     Json? // GeoJSON or address object
-  contactInfo  Json // Email, phone, etc.
-  isVerified   Boolean  @default(false)
-  status       String   @default("pending") // 'active', 'inactive', 'suspended', 'pending'
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  paymentRequests MerchantPaymentRequest[]
-
-  @@index([businessType])
-  @@index([isVerified])
-  @@index([status])
-}
-
-model MerchantPaymentRequest {
-  id          String   @id @default(cuid())
-  merchantId  String
-  merchant    Merchant @relation(fields: [merchantId], references: [id])
-  userId      String
-  user        User     @relation("MerchantPaymentRequestToUser", fields: [userId], references: [id])
-  amount      Float
-  currency    String   @default("NGN")
-  description String?
-  status      String   @default("pending") // 'pending', 'completed', 'cancelled', 'expired'
-  expiresAt   DateTime
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  payments MerchantPayment[]
-
-  @@index([merchantId])
-  @@index([userId])
-  @@index([status])
-  @@index([expiresAt])
-}
-
-model MerchantPayment {
-  id               String                 @id @default(cuid())
-  paymentRequestId String
-  paymentRequest   MerchantPaymentRequest @relation(fields: [paymentRequestId], references: [id])
-  userId           String
-  user             User                   @relation("MerchantPaymentToUser", fields: [userId], references: [id])
-  amount           Float
-  status           String                 @default("completed") // 'pending', 'completed', 'failed', 'refunded'
-  processedAt      DateTime?
-  createdAt        DateTime               @default(now())
-  updatedAt        DateTime               @updatedAt
-
-  @@index([paymentRequestId])
-  @@index([userId])
-  @@index([status])
-}
-
-// Corporate System
-model Corporate {
-  id            String   @id @default(cuid())
-  userId        String   @unique
-  user          User     @relation(fields: [userId], references: [id])
-  companyName   String
-  companySize   String // 'startup', 'small', 'medium', 'large', 'enterprise'
-  industry      String
-  contactPerson String
-  contactInfo   Json // Email, phone, etc.
-  csrBudget     Float?
-  isVerified    Boolean  @default(false)
-  status        String   @default("pending") // 'active', 'inactive', 'suspended', 'pending'
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  bulkDonations CorporateBulkDonation[]
-  teamMembers   CorporateTeamMember[]
-
-  @@index([companySize])
-  @@index([industry])
-  @@index([isVerified])
-  @@index([status])
-}
-
-model CorporateBulkDonation {
-  id              String    @id @default(cuid())
-  corporateId     String
-  corporate       Corporate @relation(fields: [corporateId], references: [id])
-  totalAmount     Float
-  totalRecipients Int
-  donations       Json // Array of donation objects
-  status          String    @default("pending") // 'pending', 'processing', 'completed', 'failed'
-  processedAt     DateTime?
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
-
-  @@index([corporateId])
-  @@index([status])
-}
-
-model CorporateTeamMember {
-  id          String    @id @default(cuid())
-  corporateId String
-  corporate   Corporate @relation(fields: [corporateId], references: [id])
-  userId      String
-  user        User      @relation(fields: [userId], references: [id])
-  role        String    @default("member") // 'admin', 'manager', 'member'
-  joinedAt    DateTime  @default(now())
-
-  @@unique([corporateId, userId])
-  @@index([corporateId])
-  @@index([userId])
-}
-
-// Social Features
-model SocialCircle {
-  id          String   @id @default(cuid())
-  name        String
-  description String?
-  creatorId   String
-  creator     User     @relation(fields: [creatorId], references: [id])
-  isPrivate   Boolean  @default(false)
-  memberCount Int      @default(1)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  members SocialCircleMember[]
-  posts   SocialPost[]
-
-  @@index([creatorId])
-  @@index([isPrivate])
-}
-
-model SocialCircleMember {
-  id       String       @id @default(cuid())
-  circleId String
-  circle   SocialCircle @relation(fields: [circleId], references: [id])
-  userId   String
-  user     User         @relation(fields: [userId], references: [id])
-  role     String       @default("member") // 'admin', 'moderator', 'member'
-  joinedAt DateTime     @default(now())
-
-  @@unique([circleId, userId])
-  @@index([circleId])
-  @@index([userId])
-}
-
-model SocialPost {
-  id          String        @id @default(cuid())
-  circleId    String?
-  circle      SocialCircle? @relation(fields: [circleId], references: [id])
-  authorId    String
-  author      User          @relation(fields: [authorId], references: [id])
-  content     String
-  mediaUrls   String[]      @default([])
-  postType    String        @default("text") // 'text', 'image', 'video', 'donation_story'
-  likesCount  Int           @default(0)
-  sharesCount Int           @default(0)
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-
-  comments SocialComment[]
-  likes    SocialLike[]
-
-  @@index([circleId])
-  @@index([authorId])
-  @@index([createdAt])
-}
-
-model SocialComment {
-  id         String     @id @default(cuid())
-  postId     String
-  post       SocialPost @relation(fields: [postId], references: [id])
-  authorId   String
-  author     User       @relation(fields: [authorId], references: [id])
-  content    String
-  likesCount Int        @default(0)
-  createdAt  DateTime   @default(now())
-  updatedAt  DateTime   @updatedAt
-
-  likes SocialCommentLike[]
-
-  @@index([postId])
-  @@index([authorId])
-}
-
-model SocialLike {
-  id        String     @id @default(cuid())
+// Add to existing schema.prisma
+
+model CommunityPost {
+  id                String   @id @default(cuid())
+  authorId          String
+  title             String
+  content           String   @db.Text
+  postType          String   // 'success_story', 'testimonial', 'featured_request', 'announcement'
+  mediaUrls         String[] @default([])
+  metadata          Json     @default("{}")
+  status            String   @default("pending_moderation") // 'pending_moderation', 'approved', 'rejected', 'flagged'
+  likesCount        Int      @default(0)
+  sharesCount       Int      @default(0)
+  reportsCount      Int      @default(0)
+  moderatedAt       DateTime?
+  moderatedBy       String?
+  moderationReason  String?
+  eventId           String?  // Link to community event if it's an event announcement
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  author            User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  event             CommunityEvent? @relation(fields: [eventId], references: [id])
+  likes             CommunityPostLike[]
+  shares            CommunityPostShare[]
+  reports           PostReport[]
+
+  @@map("community_posts")
+}
+
+model CommunityEvent {
+  id                String   @id @default(cuid())
+  creatorId         String
+  title             String
+  description       String   @db.Text
+  eventDate         DateTime
+  eventTime         String
+  location          String
+  maxAttendees      Int?
+  currentAttendees  Int      @default(0)
+  eventType         String   // 'fundraising', 'community_meeting', 'workshop', 'celebration'
+  fundraisingGoal   Decimal? @db.Decimal(15, 2)
+  status            String   @default("active") // 'active', 'cancelled', 'completed'
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  creator           User     @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  rsvps             EventRSVP[]
+  posts             CommunityPost[]
+
+  @@map("community_events")
+}
+
+model CommunityPostLike {
+  id        String @id @default(cuid())
   postId    String
-  post      SocialPost @relation(fields: [postId], references: [id])
   userId    String
-  user      User       @relation(fields: [userId], references: [id])
-  createdAt DateTime   @default(now())
+  createdAt DateTime @default(now())
+
+  post      CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([postId, userId])
-  @@index([postId])
-  @@index([userId])
+  @@map("community_post_likes")
 }
 
-model SocialCommentLike {
-  id        String        @id @default(cuid())
-  commentId String
-  comment   SocialComment @relation(fields: [commentId], references: [id])
+model CommunityPostShare {
+  id        String @id @default(cuid())
+  postId    String
   userId    String
-  user      User          @relation(fields: [userId], references: [id])
-  createdAt DateTime      @default(now())
+  createdAt DateTime @default(now())
 
-  @@unique([commentId, userId])
-  @@index([commentId])
-  @@index([userId])
+  post      CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, userId])
+  @@map("community_post_shares")
+}
+
+model EventRSVP {
+  id        String @id @default(cuid())
+  eventId   String
+  userId    String
+  status    String @default("attending") // 'attending', 'maybe', 'declined'
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  event     CommunityEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([eventId, userId])
+  @@map("event_rsvps")
+}
+
+model PostReport {
+  id          String @id @default(cuid())
+  postId      String
+  reporterId  String
+  reason      String
+  description String?
+  status      String @default("pending") // 'pending', 'reviewed', 'dismissed'
+  reviewedAt  DateTime?
+  reviewedBy  String?
+  createdAt   DateTime @default(now())
+
+  post        CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  reporter    User          @relation(fields: [reporterId], references: [id], onDelete: Cascade)
+
+  @@map("post_reports")
+}
+
+model ModerationLog {
+  id         String @id @default(cuid())
+  postId     String
+  moderatorId String
+  action     String // 'approve', 'reject', 'flag'
+  reason     String?
+  createdAt  DateTime @default(now())
+
+  post       CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  moderator  User          @relation(fields: [moderatorId], references: [id], onDelete: Cascade)
+
+  @@map("moderation_logs")
+}
+
+// Update User model to include community relations
+model User {
+  // ... existing fields ...
+
+  // Community relations
+  communityPosts      CommunityPost[]
+  createdEvents       CommunityEvent[]
+  postLikes           CommunityPostLike[]
+  postShares          CommunityPostShare[]
+  eventRsvps          EventRSVP[]
+  postReports         PostReport[]
+  moderationLogs      ModerationLog[]
+
+  // ... rest of existing model ...
 }

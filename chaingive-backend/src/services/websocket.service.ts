@@ -41,6 +41,7 @@ export enum WSEventType {
   // System events
   SYSTEM_MAINTENANCE = 'system_maintenance',
   SYSTEM_ALERT = 'system_alert',
+  THERMOMETER_UPDATE = 'thermometer:update',
 
   // Control messages (not broadcast events)
   HEARTBEAT = 'heartbeat',

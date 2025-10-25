@@ -56,6 +56,7 @@ import cryptoPaymentRoutes from './routes/cryptoPayment.routes';
 import syncRoutes from './routes/sync.routes';
 import recurringDonationRoutes from './routes/recurring-donation.routes';
 import analyticsDashboardRoutes from './routes/analytics-dashboard.routes';
+import communityRoutes from './routes/community.routes';
 import webhooksRoutes from './routes/webhooks.routes';
 import http3Service from './services/http3.service';
 
@@ -154,6 +155,8 @@ app.use(`/${API_VERSION}/fundraising`, fundraisingRoutes);
 app.use(`/${API_VERSION}/recurring-donations`, recurringDonationRoutes);
 app.use(`/${API_VERSION}/analytics/dashboard`, analyticsDashboardRoutes);
 app.use(`/${API_VERSION}`, cryptoPaymentRoutes);
+// Community Routes
+app.use(`/${API_VERSION}/community`, communityRoutes);
 app.use(`/${API_VERSION}`, syncRoutes);
 
 // Blockchain Routes

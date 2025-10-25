@@ -1,5 +1,4 @@
 import { getAssetFromKV } from '@cloudflare/kv-asset-handler';
-import { handleSession } from '@cloudflare/workers-types';
 
 export interface Env {
   UPLOAD_BUCKET: R2Bucket;
@@ -26,7 +25,7 @@ export default {
             },
             {
               ASSET_NAMESPACE: env.CACHE,
-              ASSET_MANIFEST: ASSET_MANIFEST,
+              ASSET_MANIFEST: {},
               cacheControl: {
                 browserTTL: 60 * 60 * 24 * 30, // 30 days
                 edgeTTL: 60 * 60 * 24 * 30,
@@ -100,6 +99,11 @@ export class SessionManager implements DurableObject {
 
   constructor(state: DurableObjectState) {
     this.state = state;
+  }
+
+  async fetch(request: Request): Promise<Response> {
+    // Required fetch method for DurableObject interface
+    return new Response('SessionManager fetch not implemented', { status: 501 });
   }
 
   async handleSession(websocket: WebSocket) {

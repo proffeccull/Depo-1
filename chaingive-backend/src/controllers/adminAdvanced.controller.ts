@@ -80,9 +80,9 @@ export const promoteInMatchQueue = async (req: AuthRequest, res: Response, next:
     const user = await prisma.user.findUnique({
       where: { id: userId },
       include: {
-        recipientMatches: {
+        donorMatches: {
           where: { status: 'pending' },
-          orderBy: { matchedAt: 'desc' },
+          orderBy: { createdAt: 'desc' },
           take: 1,
         },
       },
@@ -93,9 +93,9 @@ export const promoteInMatchQueue = async (req: AuthRequest, res: Response, next:
     }
 
     // Create high-priority match or update existing
-    if (user.recipientMatches.length > 0) {
+    if (user.donorMatches.length > 0) {
       // Update existing match with max priority
-      const match = user.recipientMatches[0];
+      const match = user.donorMatches[0];
       await prisma.match.update({
         where: { id: match.id },
         data: {
